@@ -1,0 +1,344 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { datasetsAPI } from '@/lib/api/datasets';
+import { Sidebar } from '@/components/sidebar';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+} from '@/components/ui/card';
+import {
+  ClipboardList,
+  Loader2,
+  Database,
+  FileText,
+  Image,
+  AudioLines,
+  ArrowRight,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  RefreshCw,
+  GitBranch,
+  Play,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { AnnotationTask, TaskStatus } from '@/types/feature1';
+import { computeTaskStatus, taskStatusLabel } from '@/types/feature1';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const datasetTypeIcon: Record<string, React.ElementType> = {
+  text: FileText,
+  image: Image,
+  audio: AudioLines,
+  multimodal: Database,
+};
+
+/**
+ * Compute status dynamically from real annotation progress.
+ *
+ * Rules (from requirements):
+ *   completedRows === 0                              → "not_started"
+ *   completedRows > 0 AND completedRows < totalRows  → "in_progress"
+ *   completedRows === totalRows                      → "completed"
+ *
+ * Falls back gracefully to 'not_started' when progress data is absent
+ * or taskStatus is undefined (crash-safe).
+ */
+function resolveStatus(task: AnnotationTask): TaskStatus {
+  return computeTaskStatus(task.progress, task.taskStatus);
+}
+
+// ─── Status Pill ──────────────────────────────────────────────────────────────
+
+const STATUS_STYLES: Record<TaskStatus, { cls: string; icon: React.ElementType }> = {
+  not_started: { cls: 'bg-gray-100 text-gray-600',  icon: Clock },
+  pending:     { cls: 'bg-gray-100 text-gray-600',  icon: Clock },
+  in_progress: { cls: 'bg-blue-100 text-blue-700',  icon: Play },
+  completed:   { cls: 'bg-green-100 text-green-700', icon: CheckCircle },
+};
+
+function StatusPill({ status }: { status: TaskStatus }) {
+  const config = STATUS_STYLES[status] ?? STATUS_STYLES.not_started;
+  const { cls, icon: Icon } = config;
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium', cls)}>
+      <Icon className="h-3 w-3" />
+      {taskStatusLabel(status)}
+    </span>
+  );
+}
+
+// ─── Progress Bar ─────────────────────────────────────────────────────────────
+
+function ProgressBar({ task }: { task: AnnotationTask }) {
+  const status = resolveStatus(task);
+  if (status === 'not_started' || status === 'pending') return null;
+
+  const { totalRows = 0, completedRows = 0 } = task.progress ?? {};
+  const pct = totalRows > 0 ? Math.min(100, Math.round((completedRows / totalRows) * 100)) : 0;
+  const barColor = status === 'completed' ? 'bg-green-500' : 'bg-blue-500';
+
+  return (
+    <div className="mt-3">
+      <div className="flex justify-between text-xs text-gray-500 mb-1">
+        <span>{completedRows} / {totalRows} rows</span>
+        <span>{pct}%</span>
+      </div>
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className={cn('h-full rounded-full transition-all duration-500', barColor)}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Skeleton loading card ─────────────────────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <div className="border border-gray-100 rounded-xl p-5 animate-pulse">
+      <div className="flex items-start justify-between mb-3">
+        <div className="h-5 bg-gray-200 rounded w-2/5" />
+        <div className="h-6 bg-gray-200 rounded-full w-24" />
+      </div>
+      <div className="h-4 bg-gray-100 rounded w-1/3 mb-4" />
+      <div className="h-1.5 bg-gray-100 rounded-full" />
+      <div className="mt-4 h-9 bg-gray-100 rounded-lg w-full" />
+    </div>
+  );
+}
+
+// ─── Task card ────────────────────────────────────────────────────────────────
+interface TaskCardProps {
+  task: AnnotationTask;
+  onOpen: (task: AnnotationTask) => void;
+}
+
+function TaskCard({ task, onOpen }: TaskCardProps) {
+  const typeKey = task.datasetType || task.dataset?.datasetType || 'text';
+  const TypeIcon = datasetTypeIcon[typeKey] ?? Database;
+
+  // Status derived exclusively from real progress — never from stored taskStatus
+  const status = resolveStatus(task);
+
+  const displayName = task.name || task.dataset?.name || `Clone ${task.cloneIndex ?? '?'}`;
+  const parentName = task.parentName;
+
+  const assignedDate = task.createdAt
+    ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : '';
+
+  const isCompleted = status === 'completed';
+
+  return (
+    <div className="group bg-white border border-gray-200 rounded-xl p-5 hover:border-blue-200 hover:shadow-sm transition-all duration-200">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+            <TypeIcon className="h-4 w-4 text-blue-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
+            {parentName && (
+              <p className="text-xs text-indigo-500 flex items-center gap-1 mt-0.5">
+                <GitBranch className="h-3 w-3" />
+                from {parentName}
+              </p>
+            )}
+            {assignedDate && <p className="text-xs text-gray-400 mt-0.5">Assigned {assignedDate}</p>}
+          </div>
+        </div>
+        {/* Badge always shows computed status */}
+        <StatusPill status={status} />
+      </div>
+
+      {/* Progress bar with row counts — only for in_progress / completed */}
+      <ProgressBar task={task} />
+
+      <Button
+        onClick={() => onOpen(task)}
+        size="sm"
+        disabled={isCompleted}
+        className={cn(
+          'w-full mt-4 text-sm font-medium',
+          isCompleted
+            ? 'bg-green-50 text-green-700 border border-green-200 cursor-default hover:bg-green-50'
+            : 'bg-blue-600 hover:bg-blue-700 text-white',
+        )}
+      >
+        {isCompleted ? (
+          <span className="flex items-center justify-center gap-1.5">
+            <CheckCircle className="h-4 w-4" /> Completed
+          </span>
+        ) : (
+          <span className="flex items-center justify-center gap-1.5">
+            {status === 'in_progress' ? 'Resume Annotating' : 'Start Annotating'}
+            <ArrowRight className="h-4 w-4" />
+          </span>
+        )}
+      </Button>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+export default function MyTasksPage() {
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  const [tasks, setTasks] = useState<AnnotationTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Auth + role guard — admin has no tasks, redirected to dashboard
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) { router.push('/login'); return; }
+    if (user?.role?.toUpperCase() === 'ADMIN') { router.push('/dashboard'); return; }
+  }, [authLoading, isAuthenticated, user, router]);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user?.role?.toUpperCase() !== 'ADMIN') {
+      loadTasks();
+    }
+  }, [authLoading, isAuthenticated, user]);
+
+  const loadTasks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await datasetsAPI.getMyTasks();
+      setTasks(data);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to load your tasks. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Physical clone architecture:
+   * task._id = clone Dataset _id → navigate to /dataset/:cloneId/annotation
+   */
+  const handleOpenTask = (task: AnnotationTask) => {
+    router.push(`/dataset/${task._id}/annotation`);
+  };
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-gray-50 items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || user?.role?.toUpperCase() === 'ADMIN') return null;
+
+  // Stats — all computed from real progress, never from stored taskStatus
+  const notStarted = tasks.filter((t) => {
+    const s = resolveStatus(t);
+    return s === 'not_started' || s === 'pending';
+  }).length;
+  const inProgress = tasks.filter((t) => resolveStatus(t) === 'in_progress').length;
+  const completed  = tasks.filter((t) => resolveStatus(t) === 'completed').length;
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+
+      <main className="flex-1 overflow-auto">
+        <div className="p-6 max-w-5xl mx-auto">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <div className="flex items-center gap-2.5 mb-1">
+                <ClipboardList className="h-6 w-6 text-blue-600" />
+                <h1 className="text-2xl font-semibold text-gray-900">My Tasks</h1>
+              </div>
+              <p className="text-gray-500 text-sm">
+                Datasets assigned to you for annotation
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadTasks}
+              disabled={loading}
+              className="text-gray-500"
+            >
+              <RefreshCw className={cn('h-4 w-4 mr-1.5', loading && 'animate-spin')} />
+              Refresh
+            </Button>
+          </div>
+
+          {/* Stats row — computed from real progress */}
+          {!loading && !error && tasks.length > 0 && (
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              {[
+                { label: 'Not Started', value: notStarted, color: 'text-gray-700', bg: 'bg-gray-50' },
+                { label: 'In Progress', value: inProgress, color: 'text-blue-700', bg: 'bg-blue-50' },
+                { label: 'Completed',   value: completed,  color: 'text-green-700', bg: 'bg-green-50' },
+              ].map((s) => (
+                <div key={s.label} className={cn('p-4 rounded-xl border border-gray-200 text-center', s.bg)}>
+                  <p className={cn('text-2xl font-bold', s.color)}>{s.value}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Loading skeleton */}
+          {loading && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((n) => <SkeletonCard key={n} />)}
+            </div>
+          )}
+
+          {/* Error state */}
+          {!loading && error && (
+            <Card className="border-red-100">
+              <CardContent className="flex flex-col items-center py-12 text-center">
+                <AlertCircle className="h-12 w-12 text-red-300 mb-4" />
+                <p className="text-gray-700 mb-4">{error}</p>
+                <Button onClick={loadTasks} variant="outline">
+                  <RefreshCw className="h-4 w-4 mr-2" /> Try again
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty state */}
+          {!loading && !error && tasks.length === 0 && (
+            <Card className="border-dashed border-2 border-gray-200">
+              <CardContent className="flex flex-col items-center py-16 text-center">
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                  <ClipboardList className="h-8 w-8 text-blue-300" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-700 mb-2">No tasks assigned yet</h3>
+                <p className="text-sm text-gray-500 max-w-sm">
+                  Your admin hasn&apos;t assigned any datasets to you yet. Check back later or
+                  contact your admin to get started.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Task grid */}
+          {!loading && !error && tasks.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tasks.map((task) => (
+                <TaskCard key={task._id} task={task} onOpen={handleOpenTask} />
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}

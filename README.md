@@ -1,0 +1,143 @@
+# Data Annotation Platform Frontend
+
+A modern, professional data annotation platform built with Next.js, featuring AI-powered tools, collaborative workflows, and enterprise-grade security. This frontend application provides an intuitive interface for data labeling tasks with a focus on user experience and international design standards.
+
+## 📥 Clone the Repository
+
+```bash
+git clone https://github.com/anveshane/data-annotation-frontend.git
+cd data-annotation-frontend
+```
+
+## ✨ Features
+
+- **🔐 Authentication System**: Secure signup, login, and user management
+- **🎨 Modern UI/UX**: Professional design following international standards
+- **📱 Responsive Design**: Optimized for all devices and screen sizes
+- **🎯 Clean Dashboard**: Simple, focused user interface
+- **🔒 Enterprise Security**: Professional-grade authentication and security
+- **⚡ Performance**: Built with Next.js 15 and React 19 for optimal performance
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+ 
+- npm, yarn, or pnpm
+
+### Installation
+
+1. **Install dependencies**
+```bash
+npm install
+# or
+yarn install
+# or
+pnpm install
+```
+
+2. **Run the development server**
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+```
+
+3. **Open your browser**
+Navigate to [http://localhost:3000](http://localhost:3000) to see the application.
+
+## 📁 Project Structure
+
+```
+src/
+├── app/                    # Next.js app router
+│   ├── api/               # API routes
+│   │   ├── auth/          # Authentication endpoints
+│   │   │   ├── [...nextauth]/ # NextAuth.js configuration
+│   │   │   └── signup/    # User registration
+│   │   └── ...
+│   ├── dashboard/         # User dashboard page
+│   ├── login/            # Login page
+│   ├── signup/           # Registration page
+│   ├── globals.css       # Global styles
+│   ├── layout.tsx        # Root layout
+│   └── page.tsx          # Home page
+├── components/            # Reusable UI components
+│   └── ui/               # Base UI components
+│       ├── button.tsx    # Button component
+│       ├── card.tsx      # Card component
+│       ├── form.tsx      # Form components
+│       ├── input.tsx     # Input component
+│       ├── label.tsx     # Label component
+│       └── navigation.tsx # Navigation component
+├── contexts/              # React contexts
+│   └── AuthContext.tsx   # Authentication context
+└── lib/                   # Utility functions
+    ├── auth.ts           # Authentication utilities
+    └── utils.ts          # Helper functions
+```
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js 15](https://nextjs.org/) - React framework
+- **Language**: [TypeScript](https://www.typescriptlang.org/) - Type-safe JavaScript
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- **React**: [React 19.1.0](https://react.dev/) - UI library
+- **Icons**: [Lucide React](https://lucide.dev/) - Beautiful icons
+- **Authentication**: Custom authentication system with context API
+
+## 🎨 Design Features
+
+- **Modern Color Scheme**: Professional blue/indigo gradient theme
+- **Responsive Layout**: Mobile-first design approach
+- **Interactive Elements**: Smooth transitions and hover effects
+- **Accessibility**: Focus states and proper contrast ratios
+- **International Standards**: Following modern SaaS design principles
+
+## 📱 Available Pages
+
+- **Home Page**: Landing page with feature overview
+- **Signup Page**: User registration with form validation
+- **Login Page**: User authentication
+- **Dashboard**: Clean user dashboard with minimal interface
+
+## 🚀 Available Scripts
+
+- `npm run dev` - Starts the development server
+- `npm run build` - Builds the application for production
+- `npm run start` - Starts the production server
+- `npm run lint` - Runs the linter
+
+## 🔧 Development
+
+### Code Style
+- TypeScript for type safety
+- Tailwind CSS for styling
+- Component-based architecture
+- Responsive design principles
+
+### File Naming
+- PascalCase for components
+- camelCase for functions and variables
+- kebab-case for CSS classes (Tailwind)
+
+## 📄 License
+
+This project is open source and available under the [MIT License](LICENSE).
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📞 Support
+
+For support and questions, please open an issue in the [GitHub repository](https://github.com/anveshane/data-annotation-frontend).
+
+---
+
+Built with ❤️ using Next.js and modern web technologies.

@@ -1,0 +1,1493 @@
+'use client';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { fieldSelectionAPI } from '@/lib/api/field-config';
+import { datasetsAPI } from '@/lib/api/datasets';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Plus,
+  Trash2,
+  Save,
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle,
+  Database,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { CSVColumnsDisplay } from './csv-columns-display';
+import { useToast } from '@/components/ui/toast';
+import { FieldGroup, VisibilityRule } from '@/types/feature1';
+import { FieldGroupEditor } from './field-group-editor';
+import { FieldTypeConfigurator } from './field-type-configurator';
+import { DecisionCardEngine, parseOptions } from '@/components/new-column-components/new-column-data-panel';
+
+function FieldLivePreview({ field }: { field: AnnotationField }) {
+  const [value, setValue] = useState<string>('');
+
+  // Sync value if field changes or reset selection
+  useEffect(() => {
+    setValue('');
+  }, [field.id, field.columnType]);
+
+  const richOptions = useMemo(() => {
+    return parseOptions(field.options || []);
+  }, [field.options]);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-teal-600 uppercase tracking-wider mb-1">
+          <span>PREVIEW FIELD</span>
+          {field.questionTitle && (
+            <>
+              <span>·</span>
+              <span>{field.questionTitle}</span>
+            </>
+          )}
+        </div>
+        {field.questionDescription && (
+          <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+            {field.questionDescription}
+          </p>
+        )}
+        {field.helpText && (
+          <p className="text-[11px] text-teal-700/80 italic mt-0.5">
+            Context: {field.helpText}
+          </p>
+        )}
+      </div>
+
+      <div className="pt-2 border-t border-gray-100">
+        <DecisionCardEngine
+          field={field}
+          options={richOptions}
+          value={value}
+          onChange={(val) => setValue(val)}
+        />
+      </div>
+
+      <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400 font-mono select-none">
+        <span>STORED VALUE:</span>
+        <span className={cn(
+          "font-bold px-2 py-0.5 rounded border",
+          value ? "bg-teal-50 text-teal-700 border-teal-200" : "bg-gray-50 text-gray-400 border-gray-200"
+        )}>
+          {value ? JSON.stringify(value) : '"" (empty)'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+interface NewColumn {
+  id: string;
+  columnName: string; // e.g., "Review Notes", "Quality Score"
+  columnType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
+  isRequired: boolean;
+  defaultValue?: string;
+  options?: string[]; // For select type
+  placeholder?: string;
+  maxLength?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  rangeStart?: number;
+  rangeEnd?: number;
+  rangeStep?: number;
+  maxSelections?: number;
+  minDate?: string;
+  maxDate?: string;
+  maxRating?: number;
+  allowHalf?: boolean;
+  rows?: number;
+  validation?: {
+    minLength?: number;
+    maxLength?: number;
+    min?: number;
+    max?: number;
+    pattern?: string;
+  };
+}
+
+interface AnnotationField {
+  id: string;
+  csvColumnName: string;
+  fieldName: string;
+  fieldType: 'text' | 'image' | 'audio';
+  isRequired: boolean;
+  // true if it needs annotation (shown on right), false if metadata (left)
+  isAnnotationField: boolean;
+  // exactly one field across config can be the primary key
+  isPrimaryKey?: boolean;
+  options?: string[];
+  isNewColumn?: boolean; // true if this is a new column, not from CSV
+  newColumnId?: string; // Reference to NewColumn if isNewColumn is true
+  columnType?: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
+  placeholder?: string;
+  defaultValue?: string;
+  maxLength?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  rangeStart?: number;
+  rangeEnd?: number;
+  rangeStep?: number;
+  maxSelections?: number;
+  minDate?: string;
+  maxDate?: string;
+  maxRating?: number;
+  allowHalf?: boolean;
+  rows?: number;
+
+  // NEW Metadata properties
+  questionTitle?: string;
+  questionDescription?: string;
+  helpText?: string;
+  section?: string;
+  visibilityRule?: VisibilityRule;
+}
+
+
+interface CSVColumn {
+  name: string;
+  sampleData: string;
+  dataType: 'string' | 'number' | 'date' | 'boolean';
+}
+
+interface FieldConfigProps {
+  datasetId: string;
+  csvImportId?: string;
+  onNavigateToUpload?: () => void;
+  onNavigateToOverview?: () => void;
+}
+
+
+export function FieldConfig({
+  datasetId,
+  csvImportId,
+  onNavigateToUpload,
+  onNavigateToOverview,
+}: FieldConfigProps) {
+  const router = useRouter();
+  const { showToast } = useToast();
+  const [availableColumns, setAvailableColumns] = useState<{
+    csvColumns: { name: string; source: 'CSV'; csvImportId?: string }[];
+    manualColumns: { name: string; source: 'MANUAL' }[];
+  }>({ csvColumns: [], manualColumns: [] });
+  const [annotationFields, setAnnotationFields] = useState<AnnotationField[]>(
+    [],
+  );
+  const [newColumns, setNewColumns] = useState<NewColumn[]>([]);
+  const [fieldGroups, setFieldGroups] = useState<FieldGroup[]>([]);
+  const [editingGroup, setEditingGroup] = useState<FieldGroup | null>(null);
+  const [showGroupEditor, setShowGroupEditor] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [datasetLoadingError, setDatasetLoadingError] = useState<string | null>(
+    null,
+  );
+  const [activeTab, setActiveTab] = useState<'fields'>('fields');
+  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
+  const [columnValidationErrors, setColumnValidationErrors] = useState<Record<string, string>>({});
+  const [datasetInfo, setDatasetInfo] = useState<{ name: string; description: string } | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const toggleRowExpanded = (rowId: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) {
+        next.delete(rowId);
+      } else {
+        next.add(rowId);
+      }
+      return next;
+    });
+  };
+
+  // Load dataset columns and existing field configuration
+  useEffect(() => {
+    console.log('FieldConfig useEffect triggered');
+    console.log('datasetId:', datasetId);
+
+    // Load dataset available columns and existing field configuration
+    loadDatasetColumns();
+    loadExistingFieldConfig();
+    loadDatasetInfo();
+  }, [datasetId]);
+
+  const loadDatasetColumns = async () => {
+    try {
+      setLoading(true);
+      setDatasetLoadingError(null);
+      console.log('Loading dataset columns for dataset:', datasetId);
+
+      const dataset = await datasetsAPI.getById(datasetId);
+      console.log('Dataset response:', dataset);
+
+      if (dataset && (dataset as any).datasetLockStatus === 'LOCKED') {
+        setIsLocked(true);
+      }
+
+      if (dataset && (dataset as any).availableColumns) {
+        const availableColumns = (dataset as any).availableColumns;
+        const csvColumns = availableColumns.filter(
+          (col: any) => col.source === 'CSV',
+        );
+        const manualColumns = availableColumns.filter(
+          (col: any) => col.source === 'MANUAL',
+        );
+
+        console.log('CSV columns:', csvColumns);
+        console.log('Manual columns:', manualColumns);
+
+        setAvailableColumns({
+          csvColumns: csvColumns.map((col: any) => ({
+            name: col.name,
+            source: 'CSV' as const,
+            csvImportId: col.csvImportId,
+          })),
+          manualColumns: manualColumns.map((col: any) => ({
+            name: col.name,
+            source: 'MANUAL' as const,
+          })),
+        });
+      } else {
+        console.log('No available columns found in dataset');
+        setAvailableColumns({ csvColumns: [], manualColumns: [] });
+      }
+    } catch (error: any) {
+      console.error('Error loading dataset columns:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+      setDatasetLoadingError(
+        'Failed to load dataset columns. Please try again.',
+      );
+      setAvailableColumns({ csvColumns: [], manualColumns: [] });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadExistingFieldConfig = async () => {
+    if (!datasetId) return;
+
+    try {
+      const config = await fieldSelectionAPI.getDatasetFieldConfig(datasetId);
+      if (config) {
+        // Clean normalization - create completely new objects
+        const cleanFields = (config.annotationFields || []).map(
+          (field: any, index: number) => {
+            const cleanField = {
+              id: field.id || field.fieldName || `field-${index}`,
+              csvColumnName: field.csvColumnName || '',
+              fieldName: field.fieldName || '',
+              fieldType: field.fieldType || 'text',
+              isRequired: Boolean(field.isRequired),
+              // prefer explicit isAnnotationField, fallback to inverse of legacy isMetadataField
+              isAnnotationField: typeof field.isAnnotationField === 'boolean'
+                ? Boolean(field.isAnnotationField)
+                : !Boolean(field.isMetadataField),
+              isPrimaryKey: Boolean(field.isPrimaryKey),
+              options: field.options || [],
+              isNewColumn: Boolean(field.isNewColumn),
+              newColumnId: field.newColumnId || undefined,
+              columnType: field.columnType,
+              placeholder: field.placeholder,
+              defaultValue: field.defaultValue,
+              maxLength: field.maxLength,
+              min: field.min,
+              max: field.max,
+              step: field.step,
+              rangeStart: field.rangeStart,
+              rangeEnd: field.rangeEnd,
+              rangeStep: field.rangeStep,
+              maxSelections: field.maxSelections,
+              minDate: field.minDate,
+              maxDate: field.maxDate,
+              maxRating: field.maxRating,
+              allowHalf: field.allowHalf,
+              rows: field.rows,
+              
+              // NEW Redesign properties
+              questionTitle: field.questionTitle,
+              questionDescription: field.questionDescription,
+              helpText: field.helpText,
+              section: field.section,
+              visibilityRule: field.visibilityRule,
+            } as AnnotationField;
+            // Enforce invariant: primary key cannot be an annotation field
+            if (cleanField.isPrimaryKey) {
+              cleanField.isAnnotationField = false;
+            }
+            return cleanField;
+          },
+        );
+
+        setAnnotationFields(cleanFields);
+        setNewColumns(config.newColumns || []);
+        setFieldGroups(config.fieldGroups || []);
+
+        const progressStarted = config.completedRows > 0 || (config.rowAnnotations || []).some(
+          (row: any) => row.status !== 'pending' || (row.annotations && Object.keys(row.annotations).length > 0)
+        );
+        setIsLocked(progressStarted);
+        
+        // Update selected columns based on existing annotation fields
+        const existingColumnNames = cleanFields
+          .filter((field: AnnotationField) => !field.isNewColumn)
+          .map((field: AnnotationField) => field.csvColumnName);
+        setSelectedColumns(new Set(existingColumnNames));
+      }
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Error loading field config:', error);
+    }
+  };
+
+  const loadDatasetInfo = async () => {
+    try {
+      console.log('Loading dataset info for header...');
+      const dataset = await datasetsAPI.getById(datasetId);
+      console.log('Dataset info loaded:', dataset);
+      if (dataset && (dataset as any).datasetLockStatus === 'LOCKED') {
+        setIsLocked(true);
+      }
+      setDatasetInfo({
+        name: dataset.name,
+        description: dataset.description || ''
+      });
+    } catch (err: any) {
+      console.error('Error loading dataset info:', err);
+      setDatasetInfo(null);
+    }
+  };
+
+  const handleFieldChange = (fieldId: string, updates: Partial<AnnotationField>) => {
+    // 1. Update annotationFields
+    setAnnotationFields((currentFields) => {
+      return currentFields.map((field) => {
+        if (field.id === fieldId) {
+          const updatedField = { ...field, ...updates };
+          return updatedField;
+        }
+        return field;
+      });
+    });
+
+    // 2. If it is a new column, synchronize with newColumns list
+    const field = annotationFields.find(f => f.id === fieldId);
+    if (field && field.isNewColumn && field.newColumnId) {
+      setNewColumns((currentColumns) => {
+        return currentColumns.map((col) => {
+          if (col.id === field.newColumnId) {
+            const columnUpdates: Partial<NewColumn> = {};
+            if (updates.fieldName !== undefined) {
+              columnUpdates.columnName = updates.fieldName;
+            }
+            if (updates.columnType !== undefined) {
+              columnUpdates.columnType = updates.columnType;
+            }
+            if (updates.isRequired !== undefined) {
+              columnUpdates.isRequired = updates.isRequired;
+            }
+            if (updates.options !== undefined) {
+              columnUpdates.options = updates.options;
+            }
+            if (updates.placeholder !== undefined) {
+              columnUpdates.placeholder = updates.placeholder;
+            }
+            if (updates.defaultValue !== undefined) {
+              columnUpdates.defaultValue = updates.defaultValue;
+            }
+            if (updates.maxLength !== undefined) {
+              columnUpdates.maxLength = updates.maxLength;
+            }
+            if (updates.min !== undefined) {
+              columnUpdates.min = updates.min;
+            }
+            if (updates.max !== undefined) {
+              columnUpdates.max = updates.max;
+            }
+            if (updates.step !== undefined) {
+              columnUpdates.step = updates.step;
+            }
+            if (updates.rangeStart !== undefined) {
+              columnUpdates.rangeStart = updates.rangeStart;
+            }
+            if (updates.rangeEnd !== undefined) {
+              columnUpdates.rangeEnd = updates.rangeEnd;
+            }
+            if (updates.rangeStep !== undefined) {
+              columnUpdates.rangeStep = updates.rangeStep;
+            }
+            if (updates.maxSelections !== undefined) {
+              columnUpdates.maxSelections = updates.maxSelections;
+            }
+            if (updates.minDate !== undefined) {
+              columnUpdates.minDate = updates.minDate;
+            }
+            if (updates.maxDate !== undefined) {
+              columnUpdates.maxDate = updates.maxDate;
+            }
+            if (updates.maxRating !== undefined) {
+              columnUpdates.maxRating = updates.maxRating;
+            }
+            if (updates.allowHalf !== undefined) {
+              columnUpdates.allowHalf = updates.allowHalf;
+            }
+            if (updates.rows !== undefined) {
+              columnUpdates.rows = updates.rows;
+            }
+            return { ...col, ...columnUpdates };
+          }
+          return col;
+        });
+      });
+    }
+
+    setHasChanges(true);
+  };
+
+  const getUnifiedType = (field: AnnotationField) => {
+    if (!field.isAnnotationField) {
+      if (field.fieldType === 'image') return 'image';
+      if (field.fieldType === 'audio') return 'audio';
+      return 'text-metadata';
+    }
+    return field.columnType || 'text';
+  };
+
+  const handleUnifiedTypeChange = (field: AnnotationField, type: string) => {
+    const updates: Partial<AnnotationField> = {};
+    if (type === 'image') {
+      updates.fieldType = 'image';
+      updates.isAnnotationField = false;
+    } else if (type === 'audio') {
+      updates.fieldType = 'audio';
+      updates.isAnnotationField = false;
+    } else if (type === 'text-metadata') {
+      updates.fieldType = 'text';
+      updates.isAnnotationField = false;
+    } else {
+      updates.fieldType = 'text';
+      updates.isAnnotationField = true;
+      updates.columnType = type as any;
+    }
+    handleFieldChange(field.id, updates);
+  };
+
+  const updateAnnotationField = (
+    id: string,
+    updates: Partial<AnnotationField>,
+  ) => {
+    handleFieldChange(id, updates);
+  };
+
+
+  // Toggle primary key ensuring exclusivity
+  const togglePrimaryKey = (fieldId: string, makePrimary: boolean) => {
+    setAnnotationFields((currentFields) => {
+      const newFields = currentFields.map((field) => {
+        const updated = { ...field } as AnnotationField;
+        if (field.id === fieldId) {
+          updated.isPrimaryKey = makePrimary;
+          // If becoming primary, it cannot be annotated
+          if (makePrimary) {
+            updated.isAnnotationField = false;
+          }
+        } else if (makePrimary) {
+          // Only one primary key allowed
+          updated.isPrimaryKey = false;
+        }
+        return updated;
+      });
+      return newFields;
+    });
+    setHasChanges(true);
+  };
+
+  const removeAnnotationField = (id: string) => {
+    setAnnotationFields((fields) => fields.filter((field) => field.id !== id));
+    setHasChanges(true);
+  };
+
+
+  // New Column Management
+  const addNewColumn = () => {
+    const newColumn: NewColumn = {
+      id: Date.now().toString(),
+      columnName: '',
+      columnType: 'text',
+      isRequired: false,
+      defaultValue: '',
+      placeholder: '',
+      validation: {},
+    };
+    
+    // Add to newColumns array
+    setNewColumns([...newColumns, newColumn]);
+    
+    // Also add as an annotation field
+    const newField: AnnotationField = {
+      id: Date.now().toString() + '_field',
+      csvColumnName: '',
+      fieldName: '',
+      fieldType: 'text',
+      isRequired: false,
+      isAnnotationField: true,
+      isPrimaryKey: false,
+      options: [],
+      isNewColumn: true,
+      newColumnId: newColumn.id,
+    };
+    setAnnotationFields([...annotationFields, newField]);
+    setHasChanges(true);
+  };
+
+  const updateNewColumn = (id: string, updates: Partial<NewColumn>) => {
+    setNewColumns((columns) =>
+      columns.map((column) =>
+        column.id === id ? { ...column, ...updates } : column,
+      ),
+    );
+    setHasChanges(true);
+  };
+
+  // Validation function to check for duplicate column names
+  const validateColumnName = useCallback((columnName: string, excludeId?: string): { isValid: boolean; error?: string } => {
+    if (!columnName || columnName.trim() === '') {
+      return { isValid: false, error: 'Column name is required' };
+    }
+
+    const trimmedName = columnName.trim();
+    
+    // Debug logging
+    console.log('Validating column name:', trimmedName);
+    console.log('Available CSV columns (first 10):', availableColumns.csvColumns.slice(0, 10).map(col => col.name));
+    console.log('New columns:', newColumns.map(col => col.columnName));
+    console.log('Annotation fields:', annotationFields.map(field => field.csvColumnName));
+    
+    // Check if the exact name exists
+    const exactMatch = availableColumns.csvColumns.find(col => col.name.toLowerCase() === trimmedName.toLowerCase());
+    if (exactMatch) {
+      console.log('EXACT MATCH FOUND:', exactMatch.name);
+    }
+    
+    // Check for duplicates in new columns
+    const duplicateNewColumn = newColumns.find(col => 
+      col.id !== excludeId && col.columnName.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    if (duplicateNewColumn) {
+      return { isValid: false, error: `Column name "${trimmedName}" already exists in new columns` };
+    }
+
+    // Check for duplicates in existing CSV columns
+    const duplicateCSVColumn = availableColumns.csvColumns.find(col => 
+      col.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    if (duplicateCSVColumn) {
+      return { isValid: false, error: `Column name "${trimmedName}" already exists in CSV` };
+    }
+
+    // Check for duplicates in annotation fields (for new columns)
+    const duplicateAnnotationField = annotationFields.find(field => 
+      !field.isNewColumn && field.csvColumnName.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    if (duplicateAnnotationField) {
+      return { isValid: false, error: `Column name "${trimmedName}" already exists in annotation fields` };
+    }
+
+    return { isValid: true };
+  }, [newColumns, availableColumns.csvColumns, annotationFields]);
+
+  // Removed debounced validation to prevent stale error states. We rely on immediate validation only.
+
+  const removeNewColumn = (id: string) => {
+    setNewColumns((columns) => columns.filter((column) => column.id !== id));
+    // Also remove any annotation fields that reference this new column
+    setAnnotationFields((fields) =>
+      fields.filter((field) => field.newColumnId !== id),
+    );
+    // Clear validation errors for this column
+    setColumnValidationErrors((errors) => {
+      const newErrors = { ...errors };
+      delete newErrors[id];
+      return newErrors;
+    });
+    setHasChanges(true);
+  };
+
+  const addNewColumnAsAnnotationField = (newColumnId: string) => {
+    const newColumn = newColumns.find((col) => col.id === newColumnId);
+    if (!newColumn) return;
+
+    const newField: AnnotationField = {
+      id: Date.now().toString(),
+      csvColumnName: newColumn.columnName,
+      fieldName: newColumn.columnName,
+      fieldType: 'text', // Default to text for new columns
+      isRequired: newColumn.isRequired,
+      isAnnotationField: true,
+      isPrimaryKey: false,
+      options: [],
+      isNewColumn: true,
+      newColumnId: newColumnId,
+    };
+    setAnnotationFields([...annotationFields, newField]);
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
+    if (!datasetId) {
+      showToast({
+        title: 'Error',
+        description: 'Dataset ID is required',
+        type: 'error',
+      });
+      return;
+    }
+
+    // Validate that at least one field is configured
+    if (annotationFields.length === 0) {
+      showToast({
+        title: 'Validation Error',
+        description:
+          'Please add at least one field before saving.',
+        type: 'error',
+      });
+      return;
+    }
+
+    // Ensure exactly one Primary Key is selected
+    const primaryCount = annotationFields.filter(f => f.isPrimaryKey).length;
+    if (primaryCount !== 1) {
+      showToast({
+        title: 'Validation Error',
+        description: 'Please select exactly one Primary Key field.',
+        type: 'error',
+      });
+      return;
+    }
+
+    // Check for validation errors
+    if (Object.keys(columnValidationErrors).length > 0) {
+      showToast({
+        title: 'Validation Error',
+        description: 'Please fix column name validation errors before saving.',
+        type: 'error',
+      });
+      return;
+    }
+
+    // Validate all new column names before saving
+    const validationErrors: string[] = [];
+    newColumns.forEach(column => {
+      const validation = validateColumnName(column.columnName, column.id);
+      if (!validation.isValid) {
+        validationErrors.push(`${column.columnName}: ${validation.error}`);
+      }
+    });
+
+    if (validationErrors.length > 0) {
+      showToast({
+        title: 'Validation Error',
+        description: `Please fix the following errors:\n${validationErrors.join('\n')}`,
+        type: 'error',
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('Saving field configuration for dataset:', datasetId);
+      console.log('Annotation fields:', annotationFields);
+
+      await fieldSelectionAPI.saveDatasetFieldConfig({
+        datasetId,
+        annotationFields: annotationFields.map((field) => ({
+          id: field.id || field.fieldName || `field-${Math.random().toString(36).substr(2, 9)}`,
+          csvColumnName: field.csvColumnName,
+          fieldName: field.fieldName,
+          fieldType: field.fieldType,
+          isRequired: field.isRequired,
+          isAnnotationField: field.isAnnotationField,
+          isPrimaryKey: field.isPrimaryKey,
+          options: Array.isArray(field.options) ? field.options.map(o => o.trim()).filter(Boolean) : field.options,
+          isNewColumn: field.isNewColumn,
+          newColumnId: field.newColumnId,
+          columnType: field.columnType,
+          placeholder: field.placeholder,
+          defaultValue: field.defaultValue,
+          maxLength: field.maxLength,
+          min: field.min,
+          max: field.max,
+          step: field.step,
+          rangeStart: field.rangeStart,
+          rangeEnd: field.rangeEnd,
+          rangeStep: field.rangeStep,
+          maxSelections: field.maxSelections,
+          minDate: field.minDate,
+          maxDate: field.maxDate,
+          maxRating: field.maxRating,
+          allowHalf: field.allowHalf,
+          rows: field.rows,
+          // NEW Redesign properties
+          questionTitle: field.questionTitle,
+          questionDescription: field.questionDescription,
+          helpText: field.helpText,
+          section: field.section,
+          visibilityRule: field.visibilityRule,
+        })),
+        annotationLabels: [], // Empty array since we removed annotation labels
+        newColumns: newColumns.map((column) => ({
+          id: column.id,
+          columnName: column.columnName,
+          columnType: column.columnType,
+          isRequired: column.isRequired,
+          defaultValue: column.defaultValue,
+          options: Array.isArray(column.options) ? column.options.map(o => o.trim()).filter(Boolean) : column.options,
+          placeholder: column.placeholder,
+          maxLength: column.maxLength,
+          min: column.min,
+          max: column.max,
+          step: column.step,
+          rangeStart: column.rangeStart,
+          rangeEnd: column.rangeEnd,
+          rangeStep: column.rangeStep,
+          maxSelections: column.maxSelections,
+          minDate: column.minDate,
+          maxDate: column.maxDate,
+          maxRating: column.maxRating,
+          allowHalf: column.allowHalf,
+          rows: column.rows,
+          validation: column.validation,
+        })),
+        fieldGroups: fieldGroups,
+      });
+
+      setHasChanges(false);
+      showToast({
+        title: 'Success',
+        description: 'Field configuration saved successfully!',
+        type: 'success',
+      });
+      console.log('Field configuration saved successfully');
+
+      // Dispatch event to notify other components that field config was saved
+      window.dispatchEvent(
+        new CustomEvent('fieldConfigSaved', {
+          detail: { datasetId },
+        }),
+      );
+
+      // Redirect to data overview tab after successful save
+      if (onNavigateToOverview) {
+        onNavigateToOverview();
+      } else {
+        router.push(`/dataset/${datasetId}`);
+      }
+    } catch (error: any) {
+      console.error('Error saving field configuration:', error);
+      
+      // Extract validation errors from backend response
+      let errorMessage = 'Failed to save field configuration. Please try again.';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // If it's a validation error, parse and show specific errors
+      if (errorMessage.includes('Validation errors:')) {
+        const validationErrors = errorMessage.split('\n').slice(1); // Remove "Validation errors:" header
+        showToast({
+          title: 'Validation Error',
+          description: validationErrors.join('\n'),
+          type: 'error',
+        });
+      } else {
+        showToast({
+          title: 'Error',
+          description: errorMessage,
+          type: 'error',
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getSuggestedFieldName = (csvColumnName: string) => {
+    const suggestions: Record<string, string> = {
+      customer_name: 'Customer Name',
+      email: 'Email',
+      phone: 'Phone',
+      message: 'Message',
+      rating: 'Rating',
+      timestamp: 'Timestamp',
+      sentiment: 'Sentiment',
+      category: 'Category',
+      priority: 'Priority',
+      status: 'Status',
+    };
+    return (
+      suggestions[csvColumnName] ||
+      csvColumnName.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+    );
+  };
+
+  // Get all available column names from dataset schema
+  const getAllAvailableColumnNames = useCallback(() => {
+    const csvColumnNames = availableColumns.csvColumns.map(col => col.name.toLowerCase());
+    const manualColumnNames = availableColumns.manualColumns.map(col => col.name.toLowerCase());
+    return [...csvColumnNames, ...manualColumnNames];
+  }, [availableColumns]);
+
+  // Check if a column name is available in the dataset
+  const isColumnNameAvailable = useCallback((columnName: string) => {
+    const availableNames = getAllAvailableColumnNames();
+    return !availableNames.includes(columnName.toLowerCase());
+  }, [getAllAvailableColumnNames]);
+
+  // Handle column selection from CSV display
+  const handleColumnClick = (columnName: string) => {
+    if (isLocked) return;
+    // Check if column is already selected
+    if (selectedColumns.has(columnName)) {
+      // Remove from selection and annotation fields
+      setSelectedColumns(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(columnName);
+        return newSet;
+      });
+      
+      // Remove from annotation fields
+      setAnnotationFields(prev => 
+        prev.filter(field => field.csvColumnName !== columnName)
+      );
+    } else {
+      // Add to selection
+      setSelectedColumns(prev => new Set([...prev, columnName]));
+      
+      // Add to annotation fields
+      const newField: AnnotationField = {
+        id: Date.now().toString(),
+        csvColumnName: columnName,
+        fieldName: getSuggestedFieldName(columnName),
+        fieldType: 'text',
+        isRequired: false,
+        isAnnotationField: false,
+        isPrimaryKey: false,
+        options: [],
+      };
+      
+      setAnnotationFields(prev => [...prev, newField]);
+    }
+    
+    setHasChanges(true);
+  };
+
+  const handleSelectAll = () => {
+    if (isLocked) return;
+    const csvCols = availableColumns.csvColumns.map(col => col.name);
+    setSelectedColumns(new Set(csvCols));
+    setAnnotationFields(prev => {
+      const existingCsvCols = new Set(prev.filter(f => !f.isNewColumn).map(f => f.csvColumnName));
+      const fieldsToAdd = csvCols
+        .filter(columnName => !existingCsvCols.has(columnName))
+        .map(columnName => ({
+          id: `${Date.now()}-${columnName}`,
+          csvColumnName: columnName,
+          fieldName: getSuggestedFieldName(columnName),
+          fieldType: 'text' as const,
+          isRequired: false,
+          isAnnotationField: false,
+          isPrimaryKey: false,
+          options: [],
+        }));
+      return [...prev.filter(f => f.isNewColumn || existingCsvCols.has(f.csvColumnName)), ...fieldsToAdd];
+    });
+    setHasChanges(true);
+  };
+
+  const handleClearAll = () => {
+    if (isLocked) return;
+    setSelectedColumns(new Set());
+    setAnnotationFields(prev => prev.filter(f => f.isNewColumn));
+    setHasChanges(true);
+  };
+
+  const handleInvertSelection = () => {
+    if (isLocked) return;
+    const csvCols = availableColumns.csvColumns.map(col => col.name);
+    const newSelected = new Set<string>();
+    csvCols.forEach(col => {
+      if (!selectedColumns.has(col)) {
+        newSelected.add(col);
+      }
+    });
+    setSelectedColumns(newSelected);
+    setAnnotationFields(prev => {
+      const keptNewFields = prev.filter(f => f.isNewColumn);
+      const csvFieldsMap = new Map(prev.filter(f => !f.isNewColumn).map(f => [f.csvColumnName, f]));
+      const newCsvFields = csvCols
+        .filter(col => newSelected.has(col))
+        .map(columnName => {
+          const existing = csvFieldsMap.get(columnName);
+          if (existing) return existing;
+          return {
+            id: `${Date.now()}-${columnName}`,
+            csvColumnName: columnName,
+            fieldName: getSuggestedFieldName(columnName),
+            fieldType: 'text' as const,
+            isRequired: false,
+            isAnnotationField: false,
+            isPrimaryKey: false,
+            options: [],
+          };
+        });
+      return [...keptNewFields, ...newCsvFields];
+    });
+    setHasChanges(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold text-gray-900">
+          {datasetInfo?.name || 'Field Configuration'}
+        </h1>
+        <p className="text-gray-600 mt-1">
+          Configure CSV annotation fields and data mapping
+        </p>
+      </div>
+
+      {/* Lock Banner */}
+      {isLocked && (
+        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl flex items-start space-x-3 shadow-xs animate-fadeIn">
+          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold text-sm">Dataset configuration is locked</h4>
+            <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+              This dataset is currently assigned to annotators. To preserve data integrity and prevent schema mismatches, the field configurations and column selections cannot be modified.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {datasetLoadingError && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center space-x-2">
+          <AlertCircle className="h-5 w-5" />
+          <span>{datasetLoadingError}</span>
+        </div>
+      )}
+
+      {/* Available Columns Display */}
+      {(availableColumns.csvColumns.length > 0 ||
+        availableColumns.manualColumns.length > 0) && (
+        <CSVColumnsDisplay
+          csvColumns={availableColumns.csvColumns}
+          manualColumns={availableColumns.manualColumns}
+          selectedColumns={selectedColumns}
+          onColumnClick={handleColumnClick}
+          onSelectAll={handleSelectAll}
+          onClearAll={handleClearAll}
+          onInvertSelection={handleInvertSelection}
+          title="Select Columns"
+          description="Click on columns below to add them to annotation fields"
+        />
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <Card>
+          <CardContent className="p-8">
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading dataset columns...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error State */}
+      {datasetLoadingError && (
+        <Card>
+          <CardContent className="p-8">
+            <div className="text-center py-8 text-red-500">
+              <AlertCircle className="h-16 w-16 mx-auto mb-4 text-red-300" />
+              <p className="text-lg font-medium mb-2">
+                Error Loading Dataset Columns
+              </p>
+              <p className="text-sm mb-4">{datasetLoadingError}</p>
+              <Button
+                onClick={loadDatasetColumns}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No Columns State */}
+      {!loading &&
+        !datasetLoadingError &&
+        availableColumns.csvColumns.length === 0 &&
+        availableColumns.manualColumns.length === 0 && (
+          <Card>
+            <CardContent className="p-8">
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                <p className="text-lg font-medium mb-2">No columns found</p>
+                <p className="text-sm mb-4">
+                  Please upload a CSV file first to configure annotation fields
+                </p>
+                <Button
+                  onClick={() => {
+                    if (onNavigateToUpload) {
+                      onNavigateToUpload();
+                    } else {
+                      router.push(`/dataset/${datasetId}`);
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Go to Upload
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+      {/* Configuration Tabs */}
+      {(availableColumns.csvColumns.length > 0 ||
+        availableColumns.manualColumns.length > 0) && (
+        <div className="space-y-6">
+          {/* Configured Repeatable Field Groups */}
+          <Card className="mb-6">
+            <CardHeader className="py-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="text-sm font-semibold flex items-center space-x-2">
+                    <Database className="h-4 w-4 text-purple-600" />
+                    <span>Repeatable Field Groups</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Configured repeatable groups of fields
+                  </CardDescription>
+                </div>
+                {!showGroupEditor && (
+                  <Button
+                    onClick={() => {
+                      setEditingGroup(null);
+                      setShowGroupEditor(true);
+                    }}
+                    disabled={isLocked}
+                    size="sm"
+                    className="bg-purple-600 hover:bg-purple-700 h-8 text-xs text-white"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Field Group
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-3">
+              {fieldGroups.length > 0 ? (
+                <div className="space-y-2">
+                  {fieldGroups.map((group) => (
+                    <div
+                      key={group.groupId}
+                      className="flex justify-between items-center p-3 rounded-md border border-purple-100 bg-purple-50/30"
+                    >
+                      <div>
+                        <div className="text-sm font-semibold text-purple-900 flex items-center space-x-2">
+                          <span>{group.groupName}</span>
+                          <span className="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-mono">
+                            Repeated {group.repeatCount} times
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Fields: {group.fields.map((f) => f.fieldName).join(', ')}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingGroup(group);
+                            setShowGroupEditor(true);
+                          }}
+                          className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isLocked}
+                          onClick={() => {
+                            if (window.confirm("Delete Group?\nThis action cannot be undone.")) {
+                              setFieldGroups(fieldGroups.filter((g) => g.groupId !== group.groupId));
+                              setHasChanges(true);
+                            }
+                          }}
+                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-gray-500 text-xs">
+                  No repeatable field groups configured yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Field Group Editor */}
+          {showGroupEditor && (
+            <div className="mb-6">
+              <FieldGroupEditor
+                existingGroup={editingGroup}
+                existingColumnNames={
+                  new Set([
+                    ...availableColumns.csvColumns.map(c => c.name.toLowerCase()),
+                    ...availableColumns.manualColumns.map(c => c.name.toLowerCase()),
+                    ...newColumns.map(c => c.columnName.toLowerCase()),
+                    ...annotationFields.map(f => f.fieldName.toLowerCase()),
+                  ])
+                }
+                isLocked={isLocked}
+                onSave={(group) => {
+                  if (editingGroup) {
+                    setFieldGroups(
+                      fieldGroups.map(g => (g.groupId === editingGroup.groupId ? group : g))
+                    );
+                  } else {
+                    setFieldGroups([...fieldGroups, group]);
+                  }
+                  setShowGroupEditor(false);
+                  setEditingGroup(null);
+                  setHasChanges(true);
+                }}
+                onCancel={() => {
+                  setShowGroupEditor(false);
+                  setEditingGroup(null);
+                }}
+              />
+            </div>
+          )}
+
+          {/* Annotation Fields Configuration */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Database className="h-5 w-5 text-blue-600" />
+                    <span>Select Field Types</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Configure the type of each field for annotation
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4">
+                  {annotationFields.length > 0 ? (
+                    <div className="space-y-4">
+                      {annotationFields.map((field) => {
+                        const newColumn = field.isNewColumn ? newColumns.find(col => col.id === field.newColumnId) : null;
+                        const unifiedTypes = [
+                          { value: 'text', label: 'Text Input' },
+                          { value: 'textarea', label: 'Long Text' },
+                          { value: 'number', label: 'Numeric Input' },
+                          { value: 'select', label: 'Dropdown' },
+                          { value: 'selectrange', label: 'Numeric Range Select' },
+                          { value: 'radio', label: 'Radio Options' },
+                          { value: 'checkbox', label: 'Checkbox Toggle' },
+                          { value: 'multiselect', label: 'Multiple Select Checkboxes' },
+                          { value: 'date', label: 'Date Picker' },
+                          { value: 'rating', label: 'Star Rating' },
+                        ];
+
+                        const metadataTypes = [
+                          { value: 'text-metadata', label: 'Metadata Display' },
+                        ];
+
+                        const options = field.isNewColumn ? unifiedTypes : [...unifiedTypes, ...metadataTypes];
+                        const currentUnifiedType = getUnifiedType(field);
+                        const isInputType = unifiedTypes.some(opt => opt.value === currentUnifiedType);
+                        const isTypeDisabled = isLocked || Boolean(field.isPrimaryKey);
+
+                        return (
+                          <Card 
+                            key={field.id} 
+                            className={cn(
+                              "border border-gray-200 shadow-sm overflow-hidden bg-white transition-all duration-200",
+                              field.isNewColumn ? "hover:border-purple-200" : "hover:border-blue-200"
+                            )}
+                          >
+                            <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                              {/* Left Part: Name & Selection */}
+                              <div className="flex-1 min-w-0">
+                                {field.isNewColumn ? (
+                                  <div className="space-y-1 max-w-md">
+                                    <Input
+                                      placeholder="Column name"
+                                      value={newColumn?.columnName || ''}
+                                      disabled={isLocked}
+                                      onChange={(e) => {
+                                        const columnName = e.target.value;
+                                        handleFieldChange(field.id, {
+                                          fieldName: columnName,
+                                          csvColumnName: columnName,
+                                        });
+
+                                        if (columnName.trim() === '') {
+                                          setColumnValidationErrors(prev => {
+                                            const newErrors = { ...prev };
+                                            delete newErrors[field.newColumnId!];
+                                            return newErrors;
+                                          });
+                                          return;
+                                        }
+
+                                        const validation = validateColumnName(columnName, field.newColumnId);
+                                        if (!validation.isValid) {
+                                          setColumnValidationErrors(prev => ({
+                                            ...prev,
+                                            [field.newColumnId!]: validation.error || ''
+                                          }));
+                                        } else {
+                                          setColumnValidationErrors(prev => {
+                                            const newErrors = { ...prev };
+                                            delete newErrors[field.newColumnId!];
+                                            return newErrors;
+                                          });
+                                        }
+                                      }}
+                                      className={cn(
+                                        "h-9 text-sm bg-white transition-colors",
+                                        columnValidationErrors[field.newColumnId!]
+                                          ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                                          : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                      )}
+                                    />
+                                    {columnValidationErrors[field.newColumnId!] && (
+                                      <div className="flex items-center space-x-1 mt-1">
+                                        <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                                        <p className="text-xs text-red-500">
+                                          {columnValidationErrors[field.newColumnId!]}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-semibold text-gray-800 text-sm truncate max-w-[250px]">
+                                      {field.csvColumnName}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded uppercase font-semibold">
+                                      CSV Column
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Middle Part: Type Dropdown, Primary checkbox, action buttons */}
+                              <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
+                                <div className="w-[180px]">
+                                  <select
+                                    value={currentUnifiedType}
+                                    onChange={(e) => handleUnifiedTypeChange(field, e.target.value)}
+                                    disabled={isTypeDisabled}
+                                    className="w-full h-9 px-3 border border-gray-300 bg-white rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                  >
+                                    {options.map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {!field.isNewColumn && (
+                                  <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
+                                    <input
+                                      type="checkbox"
+                                      id={`pk-${field.id}`}
+                                      checked={Boolean(field.isPrimaryKey)}
+                                      onChange={(e) => togglePrimaryKey(field.id, e.target.checked)}
+                                      disabled={isLocked}
+                                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
+                                    />
+                                    <Label htmlFor={`pk-${field.id}`} className="text-xs text-gray-600 cursor-pointer font-medium select-none">
+                                      Primary Key
+                                    </Label>
+                                  </div>
+                                )}
+
+                                {isInputType && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleRowExpanded(field.id)}
+                                    className="h-9 text-xs font-semibold flex items-center space-x-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+                                  >
+                                    <span>Configure</span>
+                                    {expandedRows.has(field.id) ? (
+                                      <ChevronUp className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                )}
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={isLocked}
+                                  onClick={() => {
+                                    if (field.isNewColumn) {
+                                      removeNewColumn(field.newColumnId!);
+                                    } else {
+                                      // Uncheck CSV column selection
+                                      setSelectedColumns(prev => {
+                                        const newSet = new Set(prev);
+                                        newSet.delete(field.csvColumnName);
+                                        return newSet;
+                                      });
+                                    }
+                                    removeAnnotationField(field.id);
+                                  }}
+                                  className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Expanded Config Panel — simplified: only Field Behavior & Validation */}
+                            {expandedRows.has(field.id) && isInputType && (
+                              <div className="px-4 pb-4 pt-3 border-t border-gray-100 bg-gray-50/50">
+                                <FieldTypeConfigurator
+                                  type={currentUnifiedType}
+                                  field={field}
+                                  onChange={(updates) => handleFieldChange(field.id, updates)}
+                                  isLocked={isLocked}
+                                />
+                              </div>
+                            )}
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Database className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <p className="text-base font-medium mb-1">
+                        Please select columns from above
+                      </p>
+                      <p className="text-sm">
+                        Click on columns in the "Select Columns" section to add them here
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              
+               {/* Fixed Footer with Save Button */}
+               <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+                 <div className="flex justify-between">
+                   <Button
+                     onClick={addNewColumn}
+                     disabled={isLocked}
+                     size="sm"
+                     className="bg-green-600 hover:bg-green-700 h-8 px-3 text-sm"
+                   >
+                     <Plus className="h-3.5 w-3.5 mr-1.5" />
+                     Add New Field
+                   </Button>
+                   <Button
+                     variant="outline"
+                     onClick={handleSave}
+                     disabled={!hasChanges || loading || isLocked}
+                     className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 h-8 px-3 text-sm"
+                   >
+                     <Save className="h-3.5 w-3.5 mr-1.5" />
+                     Save Configuration
+                   </Button>
+                 </div>
+               </div>
+            </Card>
+        </div>
+      )}
+
+      {/* Status and Progress */}
+      {(availableColumns.csvColumns.length > 0 ||
+        availableColumns.manualColumns.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <span>Configuration Status</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {annotationFields.length}
+                </div>
+                <div className="text-sm text-gray-600">Fields Configured</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-600">
+                  {availableColumns.csvColumns.length +
+                    availableColumns.manualColumns.length}
+                </div>
+                <div className="text-sm text-gray-600">Available Columns</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-teal-600">
+                  {newColumns.length}
+                </div>
+                <div className="text-sm text-gray-600">New Columns</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
