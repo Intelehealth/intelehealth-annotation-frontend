@@ -109,6 +109,12 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
             href: '/dataset',
           },
           {
+            id: 'review',
+            label: 'Review Queue',
+            icon: ClipboardList,
+            href: '/assignments/review',
+          },
+          {
             id: 'users',
             label: 'Users',
             icon: Users,

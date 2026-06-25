@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // NOTE: Do NOT add outputFileTracingExcludes here.
+  // @swc/helpers is a Next.js runtime dependency — excluding it breaks the
+  // production server with MODULE_NOT_FOUND errors.
 };
 
 export default nextConfig;

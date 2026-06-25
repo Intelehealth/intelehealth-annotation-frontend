@@ -329,7 +329,7 @@ export function AdminDatasetSettings({ datasetId }: AdminDatasetSettingsProps) {
   const availableUsers = allUsers.filter(
     u => !sharedUsers.find(su => su._id === u._id) && 
          u._id !== user?._id && 
-         u._id !== (typeof dataset?.userId === 'object' ? dataset.userId._id : dataset?.userId)
+         u._id !== (dataset?.userId && typeof dataset.userId === 'object' ? dataset.userId._id : dataset?.userId)
   );
 
   if (loading) {
@@ -518,7 +518,7 @@ export function AdminDatasetSettings({ datasetId }: AdminDatasetSettingsProps) {
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                         <span className="text-sm font-medium text-green-600">
-                          {typeof dataset.userId === 'object' 
+                          {dataset.userId && typeof dataset.userId === 'object' 
                             ? `${dataset.userId.firstName[0]}${dataset.userId.lastName[0]}` 
                             : 'U'
                           }
@@ -526,13 +526,13 @@ export function AdminDatasetSettings({ datasetId }: AdminDatasetSettingsProps) {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {typeof dataset.userId === 'object' 
+                          {dataset.userId && typeof dataset.userId === 'object' 
                             ? `${dataset.userId.firstName} ${dataset.userId.lastName}` 
                             : 'Unknown User'
                           }
                         </p>
                         <p className="text-xs text-gray-500">
-                          {typeof dataset.userId === 'object' ? dataset.userId.email : 'N/A'}
+                          {dataset.userId && typeof dataset.userId === 'object' ? dataset.userId.email : 'N/A'}
                         </p>
                       </div>
                     </div>

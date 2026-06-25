@@ -211,7 +211,7 @@ export function DatasetSettings({ datasetId }: DatasetSettingsProps) {
   // Check if current user is the owner
   const isOwner = dataset && (
     (typeof dataset.userId === 'string' && dataset.userId === user?._id) ||
-    (typeof dataset.userId === 'object' && dataset.userId._id === user?._id)
+    (dataset.userId && typeof dataset.userId === 'object' && dataset.userId._id === user?._id)
   );
 
   if (loading) {

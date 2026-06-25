@@ -220,6 +220,7 @@ export function DatasetList({
   };
 
   const isOwner = (dataset: DatasetResponse) => {
+    if (!dataset.userId) return false;
     const userId = typeof dataset.userId === 'string' ? dataset.userId : dataset.userId._id;
     return userId === user?._id;
   };
@@ -352,7 +353,7 @@ export function DatasetList({
                     {/* Owner info for non-owned datasets */}
                     {!isOwner(dataset) && (
                       <div className="mt-1 text-xs text-gray-500">
-                        by {typeof dataset.userId === 'string' ? 'Unknown' : `${dataset.userId.firstName} ${dataset.userId.lastName}`}
+                        by {dataset.userId && typeof dataset.userId === 'object' ? `${dataset.userId.firstName} ${dataset.userId.lastName}` : 'Unknown'}
                       </div>
                     )}
                   </div>

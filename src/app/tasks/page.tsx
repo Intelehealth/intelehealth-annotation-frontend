@@ -55,20 +55,22 @@ function resolveStatus(task: AnnotationTask): TaskStatus {
 
 // ─── Status Pill ──────────────────────────────────────────────────────────────
 
-const STATUS_STYLES: Record<TaskStatus, { cls: string; icon: React.ElementType }> = {
-  not_started: { cls: 'bg-gray-100 text-gray-600',  icon: Clock },
-  pending:     { cls: 'bg-gray-100 text-gray-600',  icon: Clock },
-  in_progress: { cls: 'bg-blue-100 text-blue-700',  icon: Play },
-  completed:   { cls: 'bg-green-100 text-green-700', icon: CheckCircle },
+const STATUS_STYLES: Record<string, { cls: string; label: string; icon: React.ElementType }> = {
+  PENDING:         { cls: 'bg-gray-100 text-gray-600 border border-gray-200', label: 'Pending', icon: Clock },
+  IN_PROGRESS:     { cls: 'bg-blue-100 text-blue-700 border border-blue-200', label: 'In Progress', icon: Play },
+  SUBMITTED:       { cls: 'bg-amber-100 text-amber-800 border border-amber-200', label: 'Submitted', icon: Clock },
+  REWORK_REQUIRED: { cls: 'bg-red-100 text-red-800 border border-red-200', label: 'Rework Required', icon: AlertCircle },
+  APPROVED:        { cls: 'bg-green-100 text-green-800 border border-green-200', label: 'Approved', icon: CheckCircle },
+  COMPLETED:       { cls: 'bg-purple-100 text-purple-800 border border-purple-200', label: 'Completed', icon: CheckCircle },
 };
 
-function StatusPill({ status }: { status: TaskStatus }) {
-  const config = STATUS_STYLES[status] ?? STATUS_STYLES.not_started;
-  const { cls, icon: Icon } = config;
+function StatusPill({ status }: { status: string }) {
+  const config = STATUS_STYLES[status?.toUpperCase()] ?? STATUS_STYLES.PENDING;
+  const { cls, label, icon: Icon } = config;
   return (
-    <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium', cls)}>
+    <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold', cls)}>
       <Icon className="h-3 w-3" />
-      {taskStatusLabel(status)}
+      {label}
     </span>
   );
 }
@@ -118,14 +120,17 @@ function SkeletonCard() {
 interface TaskCardProps {
   task: AnnotationTask;
   onOpen: (task: AnnotationTask) => void;
+  onRefresh?: () => void;
 }
 
-function TaskCard({ task, onOpen }: TaskCardProps) {
+function TaskCard({ task, onOpen, onRefresh }: TaskCardProps) {
   const typeKey = task.datasetType || task.dataset?.datasetType || 'text';
   const TypeIcon = datasetTypeIcon[typeKey] ?? Database;
 
-  // Status derived exclusively from real progress — never from stored taskStatus
-  const status = resolveStatus(task);
+  const assignmentStatus = (task as any).assignmentStatus || 'PENDING';
+  const isSubmittedOrDone = ['SUBMITTED', 'APPROVED', 'COMPLETED'].includes(assignmentStatus.toUpperCase());
+  const canSubmitForReview = (assignmentStatus === 'IN_PROGRESS' || assignmentStatus === 'REWORK_REQUIRED') && 
+    task.progress && task.progress.completedRows === task.progress.totalRows && task.progress.totalRows > 0;
 
   const displayName = task.name || task.dataset?.name || `Clone ${task.cloneIndex ?? '?'}`;
   const parentName = task.parentName;
@@ -134,55 +139,81 @@ function TaskCard({ task, onOpen }: TaskCardProps) {
     ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '';
 
-  const isCompleted = status === 'completed';
+  const handleOpen = () => onOpen(task);
+
+  const handleSubmit = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to submit this assignment for review? You will not be able to edit annotations while it is under review.')) {
+      return;
+    }
+    try {
+      await datasetsAPI.updateAssignmentStatus((task as any).assignmentId, 'SUBMITTED');
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to submit assignment');
+    }
+  };
 
   return (
-    <div className="group bg-white border border-gray-200 rounded-xl p-5 hover:border-blue-200 hover:shadow-sm transition-all duration-200">
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-            <TypeIcon className="h-4 w-4 text-blue-600" />
+    <div className="group bg-white border border-gray-200 rounded-xl p-5 hover:border-blue-200 hover:shadow-sm transition-all duration-200 flex flex-col justify-between h-full">
+      <div>
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+              <TypeIcon className="h-4 w-4 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
+              {parentName && (
+                <p className="text-xs text-indigo-500 flex items-center gap-1 mt-0.5">
+                  <GitBranch className="h-3 w-3" />
+                  from {parentName}
+                </p>
+              )}
+              {assignedDate && <p className="text-xs text-gray-400 mt-0.5">Assigned {assignedDate}</p>}
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
-            {parentName && (
-              <p className="text-xs text-indigo-500 flex items-center gap-1 mt-0.5">
-                <GitBranch className="h-3 w-3" />
-                from {parentName}
-              </p>
-            )}
-            {assignedDate && <p className="text-xs text-gray-400 mt-0.5">Assigned {assignedDate}</p>}
-          </div>
+          <StatusPill status={assignmentStatus} />
         </div>
-        {/* Badge always shows computed status */}
-        <StatusPill status={status} />
+
+        <ProgressBar task={task} />
       </div>
 
-      {/* Progress bar with row counts — only for in_progress / completed */}
-      <ProgressBar task={task} />
+      <div className="mt-5 space-y-2">
+        {canSubmitForReview && (
+          <Button
+            onClick={handleSubmit}
+            size="sm"
+            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium flex items-center justify-center gap-1.5"
+          >
+            <ClipboardList className="h-4 w-4" />
+            Submit for Review
+          </Button>
+        )}
 
-      <Button
-        onClick={() => onOpen(task)}
-        size="sm"
-        disabled={isCompleted}
-        className={cn(
-          'w-full mt-4 text-sm font-medium',
-          isCompleted
-            ? 'bg-green-50 text-green-700 border border-green-200 cursor-default hover:bg-green-50'
-            : 'bg-blue-600 hover:bg-blue-700 text-white',
-        )}
-      >
-        {isCompleted ? (
-          <span className="flex items-center justify-center gap-1.5">
-            <CheckCircle className="h-4 w-4" /> Completed
-          </span>
-        ) : (
-          <span className="flex items-center justify-center gap-1.5">
-            {status === 'in_progress' ? 'Resume Annotating' : 'Start Annotating'}
-            <ArrowRight className="h-4 w-4" />
-          </span>
-        )}
-      </Button>
+        <Button
+          onClick={handleOpen}
+          size="sm"
+          disabled={isSubmittedOrDone}
+          className={cn(
+            'w-full text-sm font-medium',
+            isSubmittedOrDone
+              ? 'bg-gray-100 text-gray-450 border border-gray-200 cursor-default hover:bg-gray-100'
+              : 'bg-blue-600 hover:bg-blue-700 text-white',
+          )}
+        >
+          {isSubmittedOrDone ? (
+            <span className="flex items-center justify-center gap-1.5">
+              <CheckCircle className="h-4 w-4 text-green-500" /> Locked / Under Review
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-1.5">
+              {assignmentStatus === 'PENDING' ? 'Start Annotating' : 'Resume Annotating'}
+              <ArrowRight className="h-4 w-4" />
+            </span>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -226,8 +257,17 @@ export default function MyTasksPage() {
    * Physical clone architecture:
    * task._id = clone Dataset _id → navigate to /dataset/:cloneId/annotation
    */
-  const handleOpenTask = (task: AnnotationTask) => {
-    router.push(`/dataset/${task._id}/annotation`);
+  const handleOpenTask = async (task: AnnotationTask) => {
+    const assignmentId = (task as any).assignmentId;
+    const currentStatus = (task as any).assignmentStatus;
+    if (assignmentId && currentStatus === 'PENDING') {
+      try {
+        await datasetsAPI.updateAssignmentStatus(assignmentId, 'IN_PROGRESS');
+      } catch (err) {
+        console.error('Failed to transition assignment to IN_PROGRESS:', err);
+      }
+    }
+    router.push(`/dataset/${task._id}/annotation?taskId=${task.taskId || ''}`);
   };
 
   if (authLoading) {
@@ -242,11 +282,11 @@ export default function MyTasksPage() {
 
   // Stats — all computed from real progress, never from stored taskStatus
   const notStarted = tasks.filter((t) => {
-    const s = resolveStatus(t);
-    return s === 'not_started' || s === 'pending';
+    const s = (t as any).assignmentStatus || 'PENDING';
+    return s === 'PENDING';
   }).length;
-  const inProgress = tasks.filter((t) => resolveStatus(t) === 'in_progress').length;
-  const completed  = tasks.filter((t) => resolveStatus(t) === 'completed').length;
+  const inProgress = tasks.filter((t) => (t as any).assignmentStatus === 'IN_PROGRESS' || (t as any).assignmentStatus === 'REWORK_REQUIRED').length;
+  const completed  = tasks.filter((t) => ['SUBMITTED', 'APPROVED', 'COMPLETED'].includes((t as any).assignmentStatus)).length;
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -282,8 +322,8 @@ export default function MyTasksPage() {
             <div className="grid grid-cols-3 gap-3 mb-6">
               {[
                 { label: 'Not Started', value: notStarted, color: 'text-gray-700', bg: 'bg-gray-50' },
-                { label: 'In Progress', value: inProgress, color: 'text-blue-700', bg: 'bg-blue-50' },
-                { label: 'Completed',   value: completed,  color: 'text-green-700', bg: 'bg-green-50' },
+                { label: 'In Progress/Rework', value: inProgress, color: 'text-blue-700', bg: 'bg-blue-50' },
+                { label: 'Submitted/Done',   value: completed,  color: 'text-green-700', bg: 'bg-green-50' },
               ].map((s) => (
                 <div key={s.label} className={cn('p-4 rounded-xl border border-gray-200 text-center', s.bg)}>
                   <p className={cn('text-2xl font-bold', s.color)}>{s.value}</p>
@@ -333,7 +373,7 @@ export default function MyTasksPage() {
           {!loading && !error && tasks.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {tasks.map((task) => (
-                <TaskCard key={task._id} task={task} onOpen={handleOpenTask} />
+                <TaskCard key={task._id} task={task} onOpen={handleOpenTask} onRefresh={loadTasks} />
               ))}
             </div>
           )}

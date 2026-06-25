@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI, usersAPI } from '@/lib/api';
+import { datasetsAPI } from '@/lib/api/datasets';
 
 interface User {
   _id: string;
@@ -119,16 +120,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('user', JSON.stringify(response.user));
 
       // Fetch complete profile with authProvider info
+      let currentUser = response.user;
       try {
         const profileResponse = await usersAPI.getProfile();
         localStorage.setItem('user', JSON.stringify(profileResponse));
         setUser(profileResponse);
+        currentUser = profileResponse;
       } catch (profileError) {
         // Fallback to basic user data if profile fetch fails
         setUser(response.user);
       }
 
-      router.push('/dashboard');
+      // Dynamic routing based on role and tasks
+      if (currentUser && currentUser.role && currentUser.role.toUpperCase() === 'ADMIN') {
+        router.push('/dashboard');
+      } else {
+        try {
+          const tasks = await datasetsAPI.getMyTasks();
+          if (tasks && tasks.length > 0) {
+            router.push('/tasks');
+          } else {
+            router.push('/dashboard');
+          }
+        } catch (taskError) {
+          console.error('Error fetching my tasks on redirect:', taskError);
+          router.push('/dashboard');
+        }
+      }
 
       return { success: true };
     } catch (error: any) {
@@ -152,16 +170,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('user', JSON.stringify(response.user));
 
       // Fetch complete profile with authProvider info
+      let currentUser = response.user;
       try {
         const profileResponse = await usersAPI.getProfile();
         localStorage.setItem('user', JSON.stringify(profileResponse));
         setUser(profileResponse);
+        currentUser = profileResponse;
       } catch (profileError) {
         // Fallback to basic user data if profile fetch fails
         setUser(response.user);
       }
 
-      router.push('/dashboard');
+      // Dynamic routing based on role and tasks
+      if (currentUser && currentUser.role && currentUser.role.toUpperCase() === 'ADMIN') {
+        router.push('/dashboard');
+      } else {
+        try {
+          const tasks = await datasetsAPI.getMyTasks();
+          if (tasks && tasks.length > 0) {
+            router.push('/tasks');
+          } else {
+            router.push('/dashboard');
+          }
+        } catch (taskError) {
+          console.error('Error fetching my tasks on redirect:', taskError);
+          router.push('/dashboard');
+        }
+      }
 
       return { success: true };
     } catch (error: any) {
@@ -194,6 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(response.user);
       }
 
+      // Admin always goes to dashboard
       router.push('/dashboard');
 
       return { success: true };

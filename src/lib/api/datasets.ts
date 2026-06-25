@@ -295,11 +295,85 @@ export const datasetsAPI = {
    */
   async updateAssignmentStatus(
     assignmentId: string,
-    status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'COMPLETED',
+    status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'REWORK_REQUIRED' | 'APPROVED' | 'COMPLETED',
+    reviewNote?: string,
+    rejectionReason?: string,
   ): Promise<any> {
     const response = await axios.patch(
       `${API_BASE_URL}/assignments/${assignmentId}/status`,
-      { status },
+      { status, reviewNote, rejectionReason },
+      { headers: authHeaders() },
+    );
+    return response.data;
+  },
+
+  /**
+   * Admin fetches review queue.
+   * 
+   * GET /assignments/review-queue
+   */
+  async getReviewQueue(status?: string): Promise<any[]> {
+    const response = await axios.get(
+      `${API_BASE_URL}/assignments/review-queue${status ? `?status=${status}` : ''}`,
+      { headers: authHeaders() },
+    );
+    return response.data;
+  },
+
+  /**
+   * Admin fetches pending change requests.
+   * 
+   * GET /change-requests/pending
+   */
+  async getPendingChangeRequests(): Promise<any[]> {
+    const response = await axios.get(
+      `${API_BASE_URL}/change-requests/pending`,
+      { headers: authHeaders() },
+    );
+    return response.data;
+  },
+
+  /**
+   * Admin approves a change request.
+   * 
+   * PATCH /change-requests/:id/approve
+   */
+  async approveChangeRequest(id: string): Promise<any> {
+    const response = await axios.patch(
+      `${API_BASE_URL}/change-requests/${id}/approve`,
+      {},
+      { headers: authHeaders() },
+    );
+    return response.data;
+  },
+
+  /**
+   * Admin rejects a change request.
+   * 
+   * PATCH /change-requests/:id/reject
+   */
+  async rejectChangeRequest(id: string, reason: string): Promise<any> {
+    const response = await axios.patch(
+      `${API_BASE_URL}/change-requests/${id}/reject`,
+      { reason },
+      { headers: authHeaders() },
+    );
+    return response.data;
+  },
+
+  /**
+   * Annotator submits a change request.
+   * 
+   * POST /change-requests
+   */
+  async submitChangeRequest(payload: {
+    cloneDatasetId: string;
+    type: 'ROW_ADD' | 'ROW_DELETE' | 'COLUMN_ADD' | 'CELL_UPDATE';
+    payload: any;
+  }): Promise<any> {
+    const response = await axios.post(
+      `${API_BASE_URL}/change-requests`,
+      payload,
       { headers: authHeaders() },
     );
     return response.data;

@@ -624,6 +624,7 @@ export function NewColumnDataPanel({
   // ── GroupInstance builder ────────────────────────────────────────────────────
   const groupInstances = useMemo((): GroupInstance[] => {
     if (!annotationConfig?.fieldGroups) return [];
+    const escapeRegExp = (str: string) => str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     const instances: GroupInstance[] = [];
     for (const group of annotationConfig.fieldGroups) {
       const repeatCount = group.repeatCount || 0;
@@ -637,7 +638,9 @@ export function NewColumnDataPanel({
           return (group.fields || []).some(gf => {
             const groupName = group.groupName || '';
             const gfFieldName = gf.fieldName || '';
-            const pattern = new RegExp(`^${groupName}_${gfFieldName}_(?:\\d+_)?${i}$`);
+            const escapedGroupName = escapeRegExp(groupName);
+            const escapedGfFieldName = escapeRegExp(gfFieldName);
+            const pattern = new RegExp(`^${escapedGroupName}_${escapedGfFieldName}_(?:\\d+_)?${i}$`);
             return pattern.test(f.fieldName);
           });
         });

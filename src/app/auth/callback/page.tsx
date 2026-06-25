@@ -57,9 +57,31 @@ export default function AuthCallbackPage() {
           window.dispatchEvent(new CustomEvent('auth-updated'));
 
           setStatus('success');
-          setMessage('Authentication successful! Redirecting to dashboard...');
-
-          setTimeout(() => router.push('/dashboard'), 1500);
+          if (userData.role.toUpperCase() === 'ADMIN') {
+            setMessage('Authentication successful! Redirecting to dashboard...');
+            setTimeout(() => router.push('/dashboard'), 1500);
+          } else {
+            setMessage('Authentication successful! Checking assigned tasks...');
+            import('@/lib/api/datasets').then(({ datasetsAPI }) => {
+              datasetsAPI.getMyTasks()
+                .then((tasks) => {
+                  if (tasks && tasks.length > 0) {
+                    setMessage('Authentication successful! Redirecting to tasks...');
+                    setTimeout(() => router.push('/tasks'), 1500);
+                  } else {
+                    setMessage('Authentication successful! Redirecting to dashboard...');
+                    setTimeout(() => router.push('/dashboard'), 1500);
+                  }
+                })
+                .catch((err) => {
+                  console.error('Error fetching tasks on OAuth redirect:', err);
+                  setMessage('Authentication successful! Redirecting to dashboard...');
+                  setTimeout(() => router.push('/dashboard'), 1500);
+                });
+            }).catch(() => {
+              setTimeout(() => router.push('/dashboard'), 1500);
+            });
+          }
         } catch (jwtError) {
           throw new Error('AUTH_TOKEN_INVALID');
         }
