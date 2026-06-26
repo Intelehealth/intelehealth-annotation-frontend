@@ -2,7 +2,7 @@
 // Mirrors the definitions from the backend schema but without any NestJS/Mongoose dependencies.
 
 // -------------------- Constants --------------------
-export const CLONE_MIN_ANNOTATORS = 2;
+export const CLONE_MIN_ANNOTATORS = 1;
 export const CLONE_MAX_ANNOTATORS = 5;
 
 // -------------------- Task Status Types --------------------

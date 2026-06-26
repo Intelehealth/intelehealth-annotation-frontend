@@ -240,7 +240,7 @@ export function DatasetSettings({ datasetId }: DatasetSettingsProps) {
     );
   }
 
-  if (!isOwner && user?.role !== 'admin') {
+  if (!isOwner && user?.role?.toUpperCase() !== 'ADMIN') {
     return (
       <div className="text-center p-8">
         <Lock className="h-16 w-16 mx-auto text-gray-300 mb-4" />

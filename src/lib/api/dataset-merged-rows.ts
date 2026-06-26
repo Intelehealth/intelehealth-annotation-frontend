@@ -213,6 +213,25 @@ export class DatasetMergedRowsAPI {
     }
   }
 
+  // Sprint B: Clone-based annotation save for isolation
+  static async patchCloneRowData(
+    cloneId: string,
+    rowIndex: number,
+    data: Record<string, any>,
+  ): Promise<PatchRowDataResponse> {
+    try {
+      console.log(`Patching clone row data for clone ${cloneId}, row ${rowIndex}:`, data);
+      const response = await jsonApi.patch(
+        `/dataset-merged-rows/clone/${cloneId}/row/${rowIndex}`,
+        { data },
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error patching clone row data:', error);
+      throw error;
+    }
+  }
+
   /**
    * Check if dataset has merged rows (unchanged).
    */

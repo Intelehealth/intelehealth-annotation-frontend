@@ -14,7 +14,10 @@ export default function DatasetPage() {
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, isLoading, router]);
+    if (!isLoading && user && user.invitedByAdmin === false && user.role !== 'ADMIN') {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, router, user]);
 
   if (isLoading) {
     return (
@@ -29,6 +32,10 @@ export default function DatasetPage() {
 
   if (!isAuthenticated) {
     return null; // Will redirect to login
+  }
+
+  if (user?.invitedByAdmin === false && user?.role !== 'ADMIN') {
+    return null;
   }
 
   return (

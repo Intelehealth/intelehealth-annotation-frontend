@@ -227,12 +227,15 @@ export default function MyTasksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const isInvited = user?.invitedByAdmin !== false;
+
   // Auth + role guard — admin has no tasks, redirected to dashboard
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) { router.push('/login'); return; }
     if (user?.role?.toUpperCase() === 'ADMIN') { router.push('/dashboard'); return; }
-  }, [authLoading, isAuthenticated, user, router]);
+    if (!isInvited) { router.push('/dashboard'); return; }
+  }, [authLoading, isAuthenticated, user, router, isInvited]);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated && user?.role?.toUpperCase() !== 'ADMIN') {

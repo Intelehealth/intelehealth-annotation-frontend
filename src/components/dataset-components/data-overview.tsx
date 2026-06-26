@@ -802,9 +802,40 @@ export function DataOverview({
                             }
                             <span className="font-medium text-gray-800">{annotatorName}</span>
                           </div>
-                          <span className={cn('text-xs font-semibold', isDone ? 'text-green-600' : 'text-gray-500')}>
-                            {completed} / {total} rows &nbsp;{pct}%
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={cn('text-xs font-semibold', isDone ? 'text-green-600' : 'text-gray-500')}>
+                              {completed} / {total} rows &nbsp;{pct}%
+                            </span>
+                            <button
+                              onClick={() => router.push(`/dataset/${clone._id}/annotation?mode=inspect&returnTo=/dataset/${datasetId}?tab=overview`)}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-semibold hover:underline"
+                            >
+                              Inspect
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const token = localStorage.getItem('accessToken');
+                                  const res = await fetch(`/api/clones/${clone._id}/export`, {
+                                    headers: { Authorization: `Bearer ${token}` },
+                                  });
+                                  const blob = await res.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `${annotatorName.replace(/\s+/g, '_')}_clone.csv`;
+                                  a.click();
+                                  window.URL.revokeObjectURL(url);
+                                } catch {
+                                  // Fallback: direct download
+                                  window.open(`http://localhost:5000/clones/${clone._id}/export?token=${localStorage.getItem('accessToken')}`, '_blank');
+                                }
+                              }}
+                              className="text-xs text-gray-500 hover:text-gray-700 font-medium hover:underline"
+                            >
+                              CSV
+                            </button>
+                          </div>
                         </div>
                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div

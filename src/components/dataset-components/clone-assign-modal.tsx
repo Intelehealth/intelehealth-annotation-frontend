@@ -276,7 +276,7 @@ export function CloneAssignModal({
           <div className="space-y-4 my-2">
             <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
               <p className="text-xs text-blue-700 leading-relaxed">
-                Choose between <strong>2 and 5 annotators</strong>. Each annotator will work on their own isolated clone of the dataset. Odd counts are highly recommended to prevent ties during consensus review.
+                Choose between <strong>1 and 5 annotators</strong>. Each annotator will work on their own isolated clone of the dataset. For consensus review, add 2+ annotators to compare answers.
               </p>
             </div>
 

@@ -75,14 +75,19 @@ interface AudioOverlay {
 
 interface DatasetAnnotationWorkbenchProps {
   datasetId: string;
-  /** Feature 1: When set, all API reads/writes are scoped to this annotation task.
-   *  Absent = admin view (existing behaviour, backward compatible). */
+  /** Feature 1: When set, all API reads/writes are scoped to this annotation task. */
   taskId?: string;
+  /** Sprint B: inspection mode — admin views clone in read-only */
+  mode?: 'annotation' | 'inspect';
+  /** Sprint B: return URL after inspection */
+  returnTo?: string;
 }
 
 export function DatasetAnnotationWorkbench({
   datasetId,
-  taskId,  // Feature 1: optional task scope
+  taskId,
+  mode = 'annotation',
+  returnTo,
 }: DatasetAnnotationWorkbenchProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -103,6 +108,8 @@ export function DatasetAnnotationWorkbench({
   const [datasetNewColumns, setDatasetNewColumns] = useState<any[]>([]);
   const [datasetData, setDatasetData] = useState<DatasetMergedRowsData | null>(null);
   const [orderedMetadataFields, setOrderedMetadataFields] = useState<AnnotationField[]>([]);
+
+  const isInspectMode = mode === 'inspect';
   const [editingField, setEditingField] = useState<string | null>(null);
   const [expandedTextFields, setExpandedTextFields] = useState<Set<string>>(new Set());
   const [imageOverlay, setImageOverlay] = useState<ImageOverlay>({
@@ -757,7 +764,7 @@ export function DatasetAnnotationWorkbench({
 
   // Individual field save handler for dataset row data
   const handleSaveIndividualField = useCallback(async (fieldName: string, fieldValue: string) => {
-    if (!datasetId || !currentTask) return;
+    if (!datasetId || !currentTask || isInspectMode) return;
     
     setIsSaving(true);
     try {
@@ -895,7 +902,7 @@ export function DatasetAnnotationWorkbench({
 
   // Save all new column data function
   const saveAllNewColumnData = useCallback(async () => {
-    if (!datasetId || !currentTask) return;
+    if (!datasetId || !currentTask || isInspectMode) return;
 
     const annotationFields = annotationConfig?.annotationFields.filter(
       (field) => field.isNewColumn || field.isAnnotationField
@@ -1109,7 +1116,7 @@ export function DatasetAnnotationWorkbench({
 
   // Navigation handler
   const handleNavigateBack = useCallback(() => {
-    router.push(`/dataset/${datasetId}`);
+    router.push(returnTo || `/dataset/${datasetId}`);
   }, [router, datasetId]);
 
   // Completion modal handlers
@@ -1128,7 +1135,7 @@ export function DatasetAnnotationWorkbench({
 
   // Mark row as completed with backend persistence
   const handleMarkAsCompleted = useCallback(async (rowIndex: number) => {
-    if (!datasetId) return;
+    if (!datasetId || isInspectMode) return;
     
     try {
       // Update local state immediately
@@ -1285,6 +1292,21 @@ export function DatasetAnnotationWorkbench({
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
+      {/* Inspection Banner */}
+      {isInspectMode && (
+        <div className="bg-blue-600 text-white px-6 py-2 flex items-center justify-between shadow-md z-10">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold uppercase tracking-wider">🔍 Inspection Mode</span>
+            <span className="text-blue-100 text-sm">Viewing clone — Read Only</span>
+          </div>
+          <button
+            onClick={() => router.push(returnTo || `/dataset/${datasetId}`)}
+            className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {returnTo ? 'Back' : 'Exit Inspection'}
+          </button>
+        </div>
+      )}
       {/* Main Content Area - Resizable Panels */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanels

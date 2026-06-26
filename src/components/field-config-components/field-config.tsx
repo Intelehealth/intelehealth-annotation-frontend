@@ -195,7 +195,9 @@ export function FieldConfig({
   const [fieldGroups, setFieldGroups] = useState<FieldGroup[]>([]);
   const [editingGroup, setEditingGroup] = useState<FieldGroup | null>(null);
   const [showGroupEditor, setShowGroupEditor] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
+  const [_isLocked, setIsLocked] = useState(false);
+  const [totalCSVFiles, setTotalCSVFiles] = useState(0);
+  const isLocked = _isLocked || totalCSVFiles > 1;
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [datasetLoadingError, setDatasetLoadingError] = useState<string | null>(
@@ -239,8 +241,13 @@ export function FieldConfig({
       const dataset = await datasetsAPI.getById(datasetId);
       console.log('Dataset response:', dataset);
 
-      if (dataset && (dataset as any).datasetLockStatus === 'LOCKED') {
-        setIsLocked(true);
+      if (dataset) {
+        if ((dataset as any).datasetLockStatus === 'LOCKED') {
+          setIsLocked(true);
+        }
+        if (typeof (dataset as any).totalCSVFiles === 'number') {
+          setTotalCSVFiles((dataset as any).totalCSVFiles);
+        }
       }
 
       if (dataset && (dataset as any).availableColumns) {
@@ -367,8 +374,13 @@ export function FieldConfig({
       console.log('Loading dataset info for header...');
       const dataset = await datasetsAPI.getById(datasetId);
       console.log('Dataset info loaded:', dataset);
-      if (dataset && (dataset as any).datasetLockStatus === 'LOCKED') {
-        setIsLocked(true);
+      if (dataset) {
+        if ((dataset as any).datasetLockStatus === 'LOCKED') {
+          setIsLocked(true);
+        }
+        if (typeof (dataset as any).totalCSVFiles === 'number') {
+          setTotalCSVFiles((dataset as any).totalCSVFiles);
+        }
       }
       setDatasetInfo({
         name: dataset.name,
@@ -709,6 +721,21 @@ export function FieldConfig({
       }
     });
 
+    // Validate selectrange fields require start and end
+    const allFields = [...annotationFields.filter(f => f.isNewColumn), ...newColumns];
+    allFields.forEach(field => {
+      if (field.columnType === 'selectrange' || field.fieldType === 'selectrange') {
+        const start = field.rangeStart;
+        const end = field.rangeEnd;
+        if (start === undefined || start === null || start === '') {
+          validationErrors.push(`${field.columnName || field.fieldName || 'Field'}: selectrange requires Range Start`);
+        }
+        if (end === undefined || end === null || end === '') {
+          validationErrors.push(`${field.columnName || field.fieldName || 'Field'}: selectrange requires Range End`);
+        }
+      }
+    });
+
     if (validationErrors.length > 0) {
       showToast({
         title: 'Validation Error',
@@ -990,9 +1017,14 @@ export function FieldConfig({
         <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl flex items-start space-x-3 shadow-xs animate-fadeIn">
           <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
-            <h4 className="font-bold text-sm">Dataset configuration is locked</h4>
+            <h4 className="font-bold text-sm">
+              {totalCSVFiles > 1 ? 'Field Configuration Locked' : 'Dataset configuration is locked'}
+            </h4>
             <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
-              This dataset is currently assigned to annotators. To preserve data integrity and prevent schema mismatches, the field configurations and column selections cannot be modified.
+              {totalCSVFiles > 1 
+                ? 'Dataset contains multiple upload batches. Changing schema may corrupt existing annotations.'
+                : 'This dataset is currently assigned to annotators. To preserve data integrity and prevent schema mismatches, the field configurations and column selections cannot be modified.'
+              }
             </p>
           </div>
         </div>
@@ -1426,24 +1458,48 @@ export function FieldConfig({
                   )}
                 </CardContent>
               
-               {/* Fixed Footer with Save Button */}
-               <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
-                 <div className="flex justify-between">
-                   <Button
-                     onClick={addNewColumn}
-                     disabled={isLocked}
-                     size="sm"
-                     className="bg-green-600 hover:bg-green-700 h-8 px-3 text-sm"
-                   >
-                     <Plus className="h-3.5 w-3.5 mr-1.5" />
-                     Add New Field
-                   </Button>
-                   <Button
-                     variant="outline"
-                     onClick={handleSave}
-                     disabled={!hasChanges || loading || isLocked}
-                     className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 h-8 px-3 text-sm"
-                   >
+{/* Inline validation errors */}
+                {(() => {
+                  const selectrangeErrors = [...annotationFields.filter(f => f.isNewColumn), ...newColumns]
+                    .filter(f => (f.columnType === 'selectrange' || f.fieldType === 'selectrange'))
+                    .filter(f => !f.rangeStart || !f.rangeEnd)
+                    .map(f => f.columnName || f.fieldName || 'Unnamed field');
+                  
+                  if (selectrangeErrors.length > 0) {
+                    return (
+                      <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                        <p className="text-xs text-amber-700 font-medium flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                          {selectrangeErrors.length} selectrange field{selectrangeErrors.length !== 1 ? 's' : ''} require Range Start and Range End
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* Fixed Footer with Save Button */}
+                <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+                  <div className="flex justify-between">
+                    <Button
+                      onClick={addNewColumn}
+                      disabled={isLocked}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 h-8 px-3 text-sm"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
+                      Add New Field
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleSave}
+                      disabled={!hasChanges || loading || isLocked || (() => {
+                        const hasErrors = [...annotationFields.filter(f => f.isNewColumn), ...newColumns]
+                          .some(f => (f.columnType === 'selectrange' || f.fieldType === 'selectrange') && (!f.rangeStart || !f.rangeEnd));
+                        return hasErrors;
+                      })()}
+                      className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 h-8 px-3 text-sm"
+                    >
                      <Save className="h-3.5 w-3.5 mr-1.5" />
                      Save Configuration
                    </Button>

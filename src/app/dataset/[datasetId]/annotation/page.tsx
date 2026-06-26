@@ -12,30 +12,27 @@ export default function AnnotationPage() {
   const datasetId = params.datasetId as string;
 
   // Feature 1: read taskId from URL — set by My Tasks "Open" button.
-  // Example: /dataset/123/annotation?taskId=abc
-  // When present, the workbench scopes all reads/writes to this task (isolation).
-  // When absent (admin viewing), workbench behaves exactly as before.
   const taskId = searchParams.get('taskId') ?? undefined;
 
-  // Debug logging — matches existing pattern in this file
-  console.log('AnnotationPage - csvImportId:', csvImportId);
-  console.log('AnnotationPage - datasetId:', datasetId);
-  console.log('AnnotationPage - taskId:', taskId);    // Feature 1
-  console.log('AnnotationPage - params:', params);
-  console.log('AnnotationPage - searchParams:', searchParams.toString());
+  // Sprint B: inspection mode — admin views clone in read-only
+  const mode = searchParams.get('mode') || 'annotation';
+  const returnTo = searchParams.get('returnTo') || undefined;
 
   // Determine annotation mode
   const isDatasetLevel = !csvImportId;
 
   if (isDatasetLevel) {
-    // Dataset-level annotation — Feature 1: pass taskId
     return (
       <div className="h-screen">
-        <DatasetAnnotationWorkbench datasetId={datasetId} taskId={taskId} />
+        <DatasetAnnotationWorkbench
+          datasetId={datasetId}
+          taskId={taskId}
+          mode={mode as 'annotation' | 'inspect'}
+          returnTo={returnTo}
+        />
       </div>
     );
   } else {
-    // CSV-level annotation (legacy support) — taskId not applicable here
     return (
       <div className="h-screen">
         <AnnotationWorkbench csvImportId={csvImportId} datasetId={datasetId} />

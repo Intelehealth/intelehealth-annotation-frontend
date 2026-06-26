@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
   ReactNode,
+  useRef,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI, usersAPI } from '@/lib/api';
@@ -19,6 +20,7 @@ interface User {
   role: string;
   authProvider: 'local' | 'google';
   isActive: boolean;
+  invitedByAdmin?: boolean;
   createdAt: string;
   updatedAt: string;
   googleProfile?: {
@@ -32,6 +34,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isInvited: boolean;
   login: (
     email: string,
     password: string,
@@ -72,6 +75,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Heartbeat every 60 seconds
+  const startHeartbeat = () => {
+    if (heartbeatRef.current) return;
+    heartbeatRef.current = setInterval(async () => {
+      try {
+        await authAPI.heartbeat();
+      } catch {
+        // Silently fail
+      }
+    }, 60000);
+  };
+
+  const stopHeartbeat = () => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+  };
 
   useEffect(() => {
     // Check if user is already logged in on app start
@@ -85,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Handle case where userData might be an array
           const user = Array.isArray(parsedUser) ? parsedUser[0] : parsedUser;
           setUser(user);
+          startHeartbeat();
         } catch (error) {
           console.error('Error parsing user data:', error);
           localStorage.removeItem('accessToken');
@@ -93,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setUser(null);
+        stopHeartbeat();
       }
       setIsLoading(false);
     };
@@ -108,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       window.removeEventListener('auth-updated', handleAuthUpdate);
+      stopHeartbeat();
     };
   }, []);
 
@@ -130,6 +156,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Fallback to basic user data if profile fetch fails
         setUser(response.user);
       }
+
+      startHeartbeat();
 
       // Dynamic routing based on role and tasks
       if (currentUser && currentUser.role && currentUser.role.toUpperCase() === 'ADMIN') {
@@ -181,6 +209,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(response.user);
       }
 
+      startHeartbeat();
+
       // Dynamic routing based on role and tasks
       if (currentUser && currentUser.role && currentUser.role.toUpperCase() === 'ADMIN') {
         router.push('/dashboard');
@@ -228,6 +258,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Fallback to basic user data if profile fetch fails
         setUser(response.user);
       }
+
+      startHeartbeat();
 
       // Admin always goes to dashboard
       router.push('/dashboard');
@@ -285,6 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('user', JSON.stringify(response.user));
       setUser(response.user);
+      startHeartbeat();
       router.push('/dashboard');
       return { success: true };
     } catch (error: any) {
@@ -295,16 +328,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    stopHeartbeat();
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     setUser(null);
     router.push('/login');
   };
 
+  const isInvited = user?.invitedByAdmin !== false;
+
   const value: AuthContextType = {
     user,
     isLoading,
     isAuthenticated: !!user,
+    isInvited,
     login,
     signup,
     signupAdmin,

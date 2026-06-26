@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
       if (raw) {
         const parsed = JSON.parse(raw);
         const resolved = Array.isArray(parsed) ? parsed[0] : parsed;
-        if (resolved?.role !== 'admin') {
+        if (resolved?.role?.toUpperCase() !== 'ADMIN') {
           logout(); // Clears token + user, redirects to /login
           setError(
             'This account does not have admin privileges. Use the regular sign in page instead.',

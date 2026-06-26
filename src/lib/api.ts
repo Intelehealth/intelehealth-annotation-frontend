@@ -94,7 +94,27 @@ export const authAPI = {
     return response.data;
   },
 
+  // Register/Activate an invited user
+  register: async (payload: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }) => {
+    const response = await jsonApi.post('/auth/register', payload);
+    return response.data;
+  },
 
+  // Register/Activate an invited admin
+  registerAdmin: async (payload: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }) => {
+    const response = await jsonApi.post('/auth/register', payload);
+    return response.data;
+  },
 
   // Login with email/password
   login: async (credentials: { email: string; password: string }) => {
@@ -105,6 +125,12 @@ export const authAPI = {
   // Refresh token
   refreshToken: async () => {
     const response = await jsonApi.post('/auth/refresh');
+    return response.data;
+  },
+
+  // Heartbeat - update lastSeen
+  heartbeat: async () => {
+    const response = await jsonApi.post('/auth/heartbeat');
     return response.data;
   },
 };

@@ -365,7 +365,7 @@ export default function ReviewQueuePage() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                  onClick={() => router.push(`/dataset/${a.cloneDatasetId?._id}`)}
+                                  onClick={() => router.push(`/dataset/${a.cloneDatasetId?._id}/annotation?mode=inspect&returnTo=/assignments/review`)}
                                   title="Inspect annotator workbench read-only"
                                 >
                                   <Eye className="h-4 w-4 mr-1" />

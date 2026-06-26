@@ -13,7 +13,6 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { DataOverview } from '@/components/dataset-components/data-overview';
-import { DatasetSidebar } from '@/components/dataset-components/dataset-sidebar';
 import { DatasetUploadComponent } from '@/components/upload-components/dataset-upload-component';
 import { FieldConfig } from '@/components/field-config-components/field-config';
 import { DatasetSettings } from '@/components/dataset-components/dataset-settings';
@@ -53,6 +52,10 @@ export default function DatasetDetailPage() {
     if (!isLoading) {
       if (!isAuthenticated) {
         router.push('/login');
+      } else if (user?.role?.toUpperCase() === 'ADMIN') {
+        // Admin can access
+      } else if (user?.invitedByAdmin === false) {
+        router.push('/dashboard');
       } else if (user?.role?.toUpperCase() === 'ANNOTATOR') {
         router.push('/tasks');
       }
@@ -258,15 +261,8 @@ export default function DatasetDetailPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Main Sidebar - Force collapsed state for dataset detail pages */}
-      <Sidebar forceCollapsed={true} />
-
-      {/* Dataset Sidebar */}
-      <DatasetSidebar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        datasetId={datasetId}
-      />
+      {/* Main Sidebar - Standardized single sidebar navigation */}
+      <Sidebar />
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">

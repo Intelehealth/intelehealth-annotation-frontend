@@ -6,6 +6,7 @@
 import { ExportData, generateCsvContent, downloadCsv } from './csv-export-helper';
 import { DatasetMergedRowsAPI, DatasetMergedRowsData } from './api/dataset-merged-rows';
 import { datasetsAPI } from './api/datasets';
+import { fieldSelectionAPI } from './api/field-config';
 
 export interface DatasetExportOptions {
   cleanHtml?: boolean;
@@ -60,9 +61,32 @@ export async function exportSelectedColumnsToCSV(
     }
 
     // Get selected fields (metadata fields + annotation fields)
-  const selectedFields = annotationConfig?.annotationFields.filter(
+  let selectedFields = annotationConfig?.annotationFields.filter(
       (field) => !field.isAnnotationField || field.isAnnotationField || field.isNewColumn
     ) || [];
+
+    // Fetch expanded fields to include repeating group fields
+    try {
+      const expandedResult = await fieldSelectionAPI.getExpandedFields(datasetId);
+      const expandedFields = expandedResult?.expandedFields || (Array.isArray(expandedResult) ? expandedResult : []);
+      if (expandedFields.length > 0) {
+        // Replace annotation fields with expanded versions (includes repeating group variants)
+        const expandedAnnotationFields = expandedFields
+          .filter((f: any) => f.isAnnotationField === true || f.isNewColumn === true)
+          .map((f: any) => ({
+            csvColumnName: f.csvColumnName || f.fieldName,
+            fieldName: f.fieldName,
+            isAnnotationField: f.isAnnotationField,
+            isNewColumn: f.isNewColumn,
+          }));
+        
+        // Merge: keep metadata fields from original, use expanded annotation fields
+        const metadataFields = selectedFields.filter(f => !f.isAnnotationField && !f.isNewColumn);
+        selectedFields = [...metadataFields, ...expandedAnnotationFields];
+      }
+    } catch (err) {
+      console.warn('Could not fetch expanded fields, using base fields only:', err);
+    }
 
     console.log('🏷️ [Dataset Export] Selected fields:', selectedFields.map(f => ({
       csvColumnName: f.csvColumnName,

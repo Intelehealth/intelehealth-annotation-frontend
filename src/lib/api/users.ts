@@ -8,7 +8,7 @@ export interface UserResponse {
   firstName?: string;
   lastName?: string;
   role: 'ADMIN' | 'ANNOTATOR';
-  status: 'PENDING' | 'ACTIVE' | 'DISABLED';
+  status: 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'DISABLED' | 'DELETED';
   firstLoginCompleted: boolean;
   permissions?: {
     read: boolean;
@@ -17,6 +17,10 @@ export interface UserResponse {
   };
   isActive: boolean;
   authProvider: 'local' | 'google';
+  invitedByAdmin: boolean;
+  lastSeen?: string;
+  lastLoginAt?: string;
+  isOnline: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,7 +82,7 @@ export const usersAPI = {
   // Update user status (Admin only)
   async updateStatus(
     id: string,
-    status: 'PENDING' | 'ACTIVE' | 'DISABLED',
+    status: 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'DISABLED' | 'DELETED',
   ): Promise<UserResponse> {
     const token = localStorage.getItem('accessToken');
     const response = await axios.patch(
@@ -101,5 +105,16 @@ export const usersAPI = {
         Authorization: `Bearer ${token}`,
       },
     });
+  },
+
+  // Invite existing non-invited user (Admin only)
+  async inviteExisting(id: string): Promise<UserResponse> {
+    const token = localStorage.getItem('accessToken');
+    const response = await axios.post(`${API_BASE_URL}/users/${id}/invite`, {}, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
   },
 };
