@@ -33,6 +33,7 @@ import { useToast } from '@/components/ui/toast';
 import { FieldGroup, VisibilityRule } from '@/types/feature1';
 import { FieldGroupEditor } from './field-group-editor';
 import { FieldTypeConfigurator } from './field-type-configurator';
+import { ConditionalLogicEditor } from './conditional-logic-editor';
 import { DecisionCardEngine, parseOptions } from '@/components/new-column-components/new-column-data-panel';
 
 function FieldLivePreview({ field }: { field: AnnotationField }) {
@@ -1439,6 +1440,32 @@ export function FieldConfig({
                                   onChange={(updates) => handleFieldChange(field.id, updates)}
                                   isLocked={isLocked}
                                 />
+
+                                {/* Conditional / nested-question logic */}
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                  <ConditionalLogicEditor
+                                    rule={field.visibilityRule}
+                                    candidates={annotationFields
+                                      .filter(
+                                        (f) =>
+                                          f.id !== field.id &&
+                                          f.isAnnotationField &&
+                                          !!f.fieldName,
+                                      )
+                                      .map((f) => ({
+                                        fieldName: f.fieldName,
+                                        label: f.questionTitle || f.fieldName,
+                                        columnType: f.columnType,
+                                        options: f.options,
+                                      }))}
+                                    onChange={(r) =>
+                                      handleFieldChange(field.id, {
+                                        visibilityRule: r ?? undefined,
+                                      })
+                                    }
+                                    isLocked={isLocked}
+                                  />
+                                </div>
                               </div>
                             )}
                           </Card>

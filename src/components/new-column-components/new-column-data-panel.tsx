@@ -8,6 +8,7 @@ import { CheckCircle, GripVertical, ChevronDown, ChevronRight } from 'lucide-rea
 import { AnnotationField, AnnotationConfig } from '@/lib/api/csv-imports';
 import { cn } from '@/lib/utils';
 import { DragDropHelper } from '@/lib/drag-drop-helper';
+import { indexByName, isFieldVisible as evalFieldVisible } from '@/lib/visibility';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -600,20 +601,16 @@ export function NewColumnDataPanel({
   const panelRef = useRef<HTMLDivElement>(null);
 
   // ── Visibility engine ────────────────────────────────────────────────────────
-  const isFieldVisible = useCallback((field: AnnotationField): boolean => {
-    if (!field.visibilityRule?.dependsOn) return true;
-    const { dependsOn, operator, value } = field.visibilityRule;
-    const dep = String(newColumnData[dependsOn] ?? '').toLowerCase();
-    const target = String(value ?? '').toLowerCase();
-    switch (operator) {
-      case 'equals':     return dep === target;
-      case 'not_equals': return dep !== target;
-      case 'contains':   return dep.includes(target);
-      case 'empty':      return dep === '';
-      case 'not_empty':  return dep !== '';
-      default:           return true;
-    }
-  }, [newColumnData]);
+  // Delegates to the shared cascading evaluator (src/lib/visibility.ts) so a
+  // hidden trigger question also hides its dependent sub-questions.
+  const visibilityIndex = useMemo(
+    () => indexByName((annotationConfig?.annotationFields ?? []).filter(f => f.isAnnotationField)),
+    [annotationConfig],
+  );
+  const isFieldVisible = useCallback(
+    (field: AnnotationField): boolean => evalFieldVisible(field, visibilityIndex, newColumnData),
+    [visibilityIndex, newColumnData],
+  );
 
   // ── Derived annotation fields ────────────────────────────────────────────────
   const annotationFields = useMemo(() =>
@@ -772,6 +769,8 @@ export function NewColumnDataPanel({
             ? 'border-teal-500 bg-teal-50/10 shadow-md'
             : 'hover:shadow-md hover:bg-gray-100/70',
           isDraggable ? 'cursor-move' : 'cursor-default',
+          // Visual nesting: conditional sub-questions are indented under their trigger.
+          field.visibilityRule?.dependsOn && 'ml-5 border-l-4 border-l-teal-300',
           draggedField === field.csvColumnName && 'opacity-50 bg-teal-50 border-teal-300'
         )}
       >
@@ -783,6 +782,11 @@ export function NewColumnDataPanel({
               {group ? getCleanFieldLabel(field.fieldName, group.groupName, groupInstanceIndex!) : (field.questionTitle || field.fieldName)}
               {field.isRequired && <span className="text-red-500 ml-1 font-bold">*</span>}
             </span>
+            {field.visibilityRule?.dependsOn && (
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-teal-700 bg-teal-50 border border-teal-200 rounded px-1.5 py-0.5">
+                Conditional
+              </span>
+            )}
           </div>
         </div>
 
