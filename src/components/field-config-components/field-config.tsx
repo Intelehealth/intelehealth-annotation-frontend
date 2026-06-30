@@ -26,6 +26,7 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  GitBranch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CSVColumnsDisplay } from './csv-columns-display';
@@ -160,6 +161,49 @@ interface AnnotationField {
   helpText?: string;
   section?: string;
   visibilityRule?: VisibilityRule;
+}
+
+/**
+ * Order fields so each conditional child immediately follows its trigger
+ * question, returning the nesting depth for indentation. A field is a child
+ * when its visibilityRule.dependsOn matches another field's fieldName.
+ */
+function orderFieldsByHierarchy(
+  fields: AnnotationField[],
+): { field: AnnotationField; depth: number; parent?: AnnotationField }[] {
+  const byName = new Map<string, AnnotationField>();
+  fields.forEach((f) => {
+    if (f.fieldName) byName.set(f.fieldName, f);
+  });
+
+  const childrenOf = new Map<string, AnnotationField[]>();
+  const roots: AnnotationField[] = [];
+  fields.forEach((f) => {
+    const dep = f.visibilityRule?.dependsOn;
+    const parent = dep ? byName.get(dep) : undefined;
+    if (parent && parent.id !== f.id) {
+      const list = childrenOf.get(dep!) ?? [];
+      list.push(f);
+      childrenOf.set(dep!, list);
+    } else {
+      roots.push(f);
+    }
+  });
+
+  const ordered: { field: AnnotationField; depth: number; parent?: AnnotationField }[] = [];
+  const visited = new Set<string>();
+  const walk = (f: AnnotationField, depth: number, parent?: AnnotationField) => {
+    if (visited.has(f.id)) return; // cycle guard
+    visited.add(f.id);
+    ordered.push({ field: f, depth, parent });
+    (childrenOf.get(f.fieldName) ?? []).forEach((c) => walk(c, depth + 1, f));
+  };
+  roots.forEach((r) => walk(r, 0));
+  // Any field left unvisited (e.g. a dependency cycle) falls back to top level.
+  fields.forEach((f) => {
+    if (!visited.has(f.id)) ordered.push({ field: f, depth: 0 });
+  });
+  return ordered;
 }
 
 
@@ -396,10 +440,22 @@ export function FieldConfig({
   const handleFieldChange = (fieldId: string, updates: Partial<AnnotationField>) => {
     // 1. Update annotationFields
     setAnnotationFields((currentFields) => {
+      const target = currentFields.find((f) => f.id === fieldId);
+      const oldName = target?.fieldName;
+      const newName = updates.fieldName;
+      // When a trigger question is renamed, re-point its conditional children
+      // so nested follow-up questions stay wired to it.
+      const renamed =
+        newName !== undefined && !!oldName && newName !== oldName;
       return currentFields.map((field) => {
         if (field.id === fieldId) {
-          const updatedField = { ...field, ...updates };
-          return updatedField;
+          return { ...field, ...updates };
+        }
+        if (renamed && field.visibilityRule?.dependsOn === oldName) {
+          return {
+            ...field,
+            visibilityRule: { ...field.visibilityRule, dependsOn: newName! },
+          };
         }
         return field;
       });
@@ -572,6 +628,64 @@ export function FieldConfig({
       newColumnId: newColumn.id,
     };
     setAnnotationFields([...annotationFields, newField]);
+    setHasChanges(true);
+  };
+
+  /**
+   * Add a new column question that is shown only when `parentField` is answered
+   * a certain way — i.e. a nested/follow-up question. The child is pre-wired
+   * with a visibility rule depending on the parent and rendered indented
+   * underneath it; the author then names it and picks the trigger answer.
+   */
+  const addNestedQuestion = (parentField: AnnotationField) => {
+    if (!parentField.fieldName) return;
+
+    // Seed the trigger value with the parent's first option for choice types.
+    const choiceTypes = ['select', 'radio', 'multiselect'];
+    const firstOption = parentField.options?.[0] ?? '';
+    const optionLabel = firstOption.includes(':')
+      ? firstOption.slice(0, firstOption.indexOf(':'))
+      : firstOption;
+    const seedValue = choiceTypes.includes(parentField.columnType || '')
+      ? optionLabel
+      : '';
+
+    const newColumnId = Date.now().toString();
+    const fieldId = `${newColumnId}_field`;
+
+    const newColumn: NewColumn = {
+      id: newColumnId,
+      columnName: '',
+      columnType: 'text',
+      isRequired: false,
+      defaultValue: '',
+      placeholder: '',
+      validation: {},
+    };
+
+    const newField: AnnotationField = {
+      id: fieldId,
+      csvColumnName: '',
+      fieldName: '',
+      fieldType: 'text',
+      isRequired: false,
+      isAnnotationField: true,
+      isPrimaryKey: false,
+      options: [],
+      isNewColumn: true,
+      newColumnId,
+      columnType: 'text',
+      visibilityRule: {
+        dependsOn: parentField.fieldName,
+        operator: 'equals',
+        value: seedValue,
+      },
+    };
+
+    setNewColumns((cols) => [...cols, newColumn]);
+    setAnnotationFields((fields) => [...fields, newField]);
+    // Auto-expand the new child so the author can configure it immediately.
+    setExpandedRows((prev) => new Set(prev).add(fieldId));
     setHasChanges(true);
   };
 
@@ -1259,7 +1373,7 @@ export function FieldConfig({
             <CardContent className="p-4">
                   {annotationFields.length > 0 ? (
                     <div className="space-y-4">
-                      {annotationFields.map((field) => {
+                      {orderFieldsByHierarchy(annotationFields).map(({ field, depth, parent }) => {
                         const newColumn = field.isNewColumn ? newColumns.find(col => col.id === field.newColumnId) : null;
                         const unifiedTypes = [
                           { value: 'text', label: 'Text Input' },
@@ -1284,13 +1398,28 @@ export function FieldConfig({
                         const isTypeDisabled = isLocked || Boolean(field.isPrimaryKey);
 
                         return (
-                          <Card 
-                            key={field.id} 
+                          <div
+                            key={field.id}
+                            style={depth > 0 ? { marginLeft: depth * 28 } : undefined}
+                            className={depth > 0 ? "border-l-4 border-l-teal-300 pl-3 rounded-l" : undefined}
+                          >
+                          <Card
                             className={cn(
                               "border border-gray-200 shadow-sm overflow-hidden bg-white transition-all duration-200",
                               field.isNewColumn ? "hover:border-purple-200" : "hover:border-blue-200"
                             )}
                           >
+                            {depth > 0 && parent && (
+                              <div className="px-4 pt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-teal-700">
+                                <GitBranch className="h-3.5 w-3.5" />
+                                <span>
+                                  Follow-up to{' '}
+                                  <span className="text-teal-800">
+                                    {parent.questionTitle || parent.fieldName}
+                                  </span>
+                                </span>
+                              </div>
+                            )}
                             <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                               {/* Left Part: Name & Selection */}
                               <div className="flex-1 min-w-0">
@@ -1468,7 +1597,29 @@ export function FieldConfig({
                                 </div>
                               </div>
                             )}
+
+                            {/* Add a nested follow-up question triggered by this one */}
+                            {field.isAnnotationField && isInputType && (
+                              <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/40">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={isLocked || !field.fieldName}
+                                  onClick={() => addNestedQuestion(field)}
+                                  title={
+                                    field.fieldName
+                                      ? 'Add a question shown only when this one has a specific answer'
+                                      : 'Name this question first to add a follow-up'
+                                  }
+                                  className="h-7 text-xs font-medium text-teal-700 hover:text-teal-800 hover:bg-teal-50 flex items-center gap-1.5 disabled:opacity-40"
+                                >
+                                  <GitBranch className="h-3.5 w-3.5" />
+                                  Add follow-up question
+                                </Button>
+                              </div>
+                            )}
                           </Card>
+                          </div>
                         );
                       })}
                     </div>
