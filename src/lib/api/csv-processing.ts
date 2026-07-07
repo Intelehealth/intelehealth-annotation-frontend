@@ -83,9 +83,13 @@ export const csvProcessingAPI = {
   uploadCSV: async (
     datasetId: string,
     file: File,
+    schemaSyncActions?: Record<string, any>,
   ): Promise<CSVUploadResult> => {
     const formData = new FormData();
     formData.append('file', file);
+    if (schemaSyncActions) {
+      formData.append('schemaSyncActions', JSON.stringify(schemaSyncActions));
+    }
 
     const response = await api.post(
       `/csv-processing/upload/${datasetId}`,

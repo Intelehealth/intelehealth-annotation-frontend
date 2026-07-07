@@ -16,6 +16,7 @@ import { DataOverview } from '@/components/dataset-components/data-overview';
 import { DatasetUploadComponent } from '@/components/upload-components/dataset-upload-component';
 import { FieldConfig } from '@/components/field-config-components/field-config';
 import { DatasetSettings } from '@/components/dataset-components/dataset-settings';
+import { SchemaRequestsTab } from '@/components/dataset-components/schema-requests-tab';
 import { Sidebar } from '@/components/sidebar';
 import {
   ArrowLeft,
@@ -55,7 +56,7 @@ export default function DatasetDetailPage() {
       } else if (user?.role?.toUpperCase() === 'ADMIN') {
         // Admin can access
       } else if (user?.invitedByAdmin === false) {
-        router.push('/dashboard');
+        // Non-invited user can access their personal datasets
       } else if (user?.role?.toUpperCase() === 'ANNOTATOR') {
         router.push('/tasks');
       }
@@ -65,7 +66,7 @@ export default function DatasetDetailPage() {
   // Handle tab query parameter
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['overview', 'upload', 'field-configuration', 'settings'].includes(tabParam)) {
+    if (tabParam && ['overview', 'upload', 'field-configuration', 'settings', 'schema-requests'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -180,6 +181,14 @@ export default function DatasetDetailPage() {
 
       case 'settings':
         return <DatasetSettings datasetId={datasetId} />;
+
+      case 'schema-requests':
+        return (
+          <SchemaRequestsTab
+            datasetId={datasetId}
+            onNavigateToOverview={() => setActiveTab('overview')}
+          />
+        );
 
       default:
         return (

@@ -9,7 +9,7 @@ export const fieldSelectionAPI = {
     annotationFields: {
       csvColumnName: string;
       fieldName: string;
-      fieldType: 'text' | 'image' | 'audio';
+      fieldType: string;
       isRequired: boolean;
       isMetadataField: boolean;
       options?: string[];
@@ -62,7 +62,7 @@ export const fieldSelectionAPI = {
     annotationFields: {
       csvColumnName: string;
       fieldName: string;
-      fieldType: 'text' | 'image' | 'audio';
+      fieldType: string;
       isRequired: boolean;
       isAnnotationField: boolean;
       isPrimaryKey?: boolean;
@@ -85,6 +85,7 @@ export const fieldSelectionAPI = {
       maxRating?: number;
       allowHalf?: boolean;
       rows?: number;
+      branching?: any;
     }[];
     annotationLabels: {
       name: string;
@@ -120,6 +121,7 @@ export const fieldSelectionAPI = {
         max?: number;
         pattern?: string;
       };
+      branching?: any;
     }[];
     fieldGroups?: FieldGroup[];
   }) => {

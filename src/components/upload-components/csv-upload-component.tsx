@@ -22,6 +22,14 @@ import { useRouter } from 'next/navigation';
 import { CSVImportsAPI } from '@/lib/api/csv-imports';
 import { fieldSelectionAPI } from '@/lib/api/field-config';
 import * as ExcelJS from 'exceljs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface CSVUploadComponentProps {
   selectedDatasetId: string;
@@ -54,8 +62,17 @@ export function CSVUploadComponent({
   const [headerValidation, setHeaderValidation] =
     useState<HeaderValidationResult | null>(null);
   const [isValidatingHeaders, setIsValidatingHeaders] = useState(false);
+  const [isSchemaDialogOpen, setIsSchemaDialogOpen] = useState(false);
+  const [schemaSyncActions, setSchemaSyncActions] = useState<
+    Record<string, { action: 'add' | 'ignore' | 'rename'; targetColumn?: string }>
+  >({});
   const { showToast } = useToast();
   const router = useRouter();
+
+  const extraColumns = headerValidation?.errors.filter(
+    (error) => error.errorType === 'EXTRA_COLUMN'
+  ) || [];
+  const hasExtraColumns = extraColumns.length > 0;
 
   // Auto-preview when a file is selected
   useEffect(() => {
@@ -115,7 +132,7 @@ export function CSVUploadComponent({
     }
   };
 
-  const handleUpload = async () => {
+  const handleUpload = async (actions?: Record<string, any>) => {
     if (!selectedDatasetId) {
       showToast({
         type: 'error',
@@ -138,10 +155,16 @@ export function CSVUploadComponent({
     setUploadStatus('uploading');
     setUploadProgress(0);
 
+    // Make sure we don't accidentally treat a Click event object as actions
+    const actualActions = actions && typeof actions === 'object' && !('nativeEvent' in actions)
+      ? actions
+      : undefined;
+
     try {
       const result = await csvProcessingAPI.uploadCSV(
         selectedDatasetId,
         selectedFile,
+        actualActions,
       );
 
       setUploadStatus('success');
@@ -361,6 +384,21 @@ export function CSVUploadComponent({
         selectedFile,
       );
       setHeaderValidation(validation);
+
+      // Initialize schema sync actions if new columns are detected
+      const extraCols = validation.errors
+        .filter((error) => error.errorType === 'EXTRA_COLUMN')
+        .map((error) => error.columnName);
+
+      if (extraCols.length > 0) {
+        const initialActions: Record<string, { action: 'add' | 'ignore' | 'rename'; targetColumn?: string }> = {};
+        extraCols.forEach((col) => {
+          initialActions[col] = { action: 'add' };
+        });
+        setSchemaSyncActions(initialActions);
+      } else {
+        setSchemaSyncActions({});
+      }
 
       if (showToasts) {
         if (validation.isDuplicate) {
@@ -697,7 +735,7 @@ export function CSVUploadComponent({
                   )}
                 >
                   {headerValidation.isValid && !headerValidation.isDuplicate
-                    ? 'Valid'
+                    ? hasExtraColumns ? 'Schema Differences' : 'Valid'
                     : headerValidation.isDuplicate
                       ? 'Duplicate File'
                       : headerValidation.errors.some(error => error.message.includes('Primary key conflicts detected'))
@@ -712,21 +750,61 @@ export function CSVUploadComponent({
                     <p className="mb-2">❌ Duplicate file detected. Please upload a different file.</p>
                   </div>
                 </div>
-              ) : headerValidation.errors.some(error => error.message.includes('Primary key conflicts detected')) ? (
+              ) : headerValidation.errors.some(error => error.message.includes('Primary key conflicts detected') || error.message.includes('Duplicate Primary Key') || error.message.includes('Missing Primary Key') || error.message.includes('Invalid/Corrupted file')) ? (
                 <div className="space-y-3">
                   <div className="text-sm text-red-700">
-                    <p className="mb-2">❌ {headerValidation.errors.find(error => error.message.includes('Primary key conflicts detected'))?.message}</p>
+                    {headerValidation.errors
+                      .filter(error => error.message.includes('Primary key conflicts detected') || error.message.includes('Duplicate Primary Key') || error.message.includes('Missing Primary Key') || error.message.includes('Invalid/Corrupted file'))
+                      .map((error, idx) => (
+                        <p key={idx} className="mb-2">❌ {error.message}</p>
+                      ))
+                    }
                   </div>
                 </div>
               ) : headerValidation.isValid ? (
-                <div className="text-sm text-green-700">
-                  <p className="mb-2">
-                    ✅ CSV headers match existing files in this dataset.
-                  </p>
-                  <p className="text-xs text-green-600">
-                    Found {headerValidation.existingImportCount} existing CSV
-                    file(s) with matching headers.
-                  </p>
+                <div className="space-y-4">
+                  {hasExtraColumns ? (
+                    <div className="space-y-3">
+                      <p className="text-xs text-green-800 font-medium">
+                        ✅ Non-blocking schema differences detected. You can proceed with the upload.
+                      </p>
+                      <div className="grid grid-cols-2 gap-4 bg-white p-3 rounded-lg border border-green-100">
+                        <div>
+                          <span className="text-xs font-semibold text-gray-700 block mb-1">Existing Columns</span>
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {headerValidation.expectedHeaders.map((col, index) => (
+                              <div key={index} className="flex items-center text-xs text-gray-600">
+                                <span className="text-green-500 mr-1.5 font-bold">✓</span>
+                                <span className="truncate">{col}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-xs font-semibold text-gray-700 block mb-1">New Columns</span>
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {extraColumns.map((error, index) => (
+                              <div key={index} className="flex items-center text-xs text-gray-600">
+                                <span className="text-blue-500 mr-1.5 font-bold">+</span>
+                                <span className="truncate">{error.columnName}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-green-700">
+                      <p className="mb-2">
+                        ✅ CSV headers match existing files in this dataset.
+                      </p>
+                      <p className="text-xs text-green-600">
+                        Found {headerValidation.existingImportCount} existing CSV
+                        file(s) with matching headers.
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -811,13 +889,19 @@ export function CSVUploadComponent({
             <Button
               className="w-full"
               size="sm"
-              onClick={handleUpload}
+              onClick={() => {
+                if (hasExtraColumns) {
+                  setIsSchemaDialogOpen(true);
+                } else {
+                  handleUpload();
+                }
+              }}
               disabled={
                 isUploading ||
                 !selectedDatasetId ||
                 headerValidation?.isValid === false ||
                 headerValidation?.isDuplicate === true ||
-                headerValidation?.errors?.some(error => error.message.includes('Primary key conflicts detected')) ||
+                headerValidation?.errors?.some(error => error.message.includes('Primary key conflicts detected') || error.message.includes('Duplicate Primary Key') || error.message.includes('Missing Primary Key') || error.message.includes('Invalid/Corrupted file')) ||
                 csvPreview?.totalRows === 0 ||
                 (csvPreview?.duplicateColumns && csvPreview.duplicateColumns.length > 0)
               }
@@ -835,6 +919,128 @@ export function CSVUploadComponent({
               )}
             </Button>
           </div>
+
+          {/* Schema Update Dialog */}
+          <Dialog open={isSchemaDialogOpen} onOpenChange={setIsSchemaDialogOpen}>
+            <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto bg-white">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-semibold text-gray-900">
+                  Schema Update
+                </DialogTitle>
+                <DialogDescription className="text-sm text-gray-500">
+                  Select how you want to handle the new columns detected in the uploaded file.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 my-2">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1">
+                  <p className="font-semibold">What happens for each action?</p>
+                  <ul className="list-disc pl-4 space-y-1">
+                    <li><strong>Add column:</strong> Adds the new column to the dataset and Select Columns in Field Config. Existing rows receive empty values. All existing annotations, clone assignments, and consensus are preserved.</li>
+                    <li><strong>Ignore column:</strong> The column is skipped and not added to the dataset rows.</li>
+                    <li><strong>Rename to existing column:</strong> Maps this new column's values into an existing column name.</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-3 divide-y divide-gray-100">
+                  {extraColumns.map((error, idx) => {
+                    const colName = error.columnName;
+                    const currentAction = schemaSyncActions[colName]?.action || 'add';
+                    const currentTarget = schemaSyncActions[colName]?.targetColumn || '';
+
+                    return (
+                      <div key={idx} className={cn("pt-3 space-y-2", idx === 0 && "pt-0")}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-800 truncate max-w-[200px]" title={colName}>
+                            <span className="text-blue-500 font-bold mr-1">+</span> {colName}
+                          </span>
+                          <div className="flex space-x-2">
+                            {(['add', 'ignore', 'rename'] as const).map((act) => (
+                              <button
+                                key={act}
+                                type="button"
+                                onClick={() => {
+                                  setSchemaSyncActions(prev => ({
+                                    ...prev,
+                                    [colName]: {
+                                      action: act,
+                                      targetColumn: act === 'rename' ? headerValidation?.expectedHeaders[0] || '' : undefined
+                                    }
+                                  }));
+                                }}
+                                className={cn(
+                                  "px-2.5 py-1 text-xs font-medium rounded-full border transition-all",
+                                  currentAction === act
+                                    ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                )}
+                              >
+                                {act === 'add' ? 'Add' : act === 'ignore' ? 'Ignore' : 'Rename'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {currentAction === 'rename' && (
+                          <div className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                            <span className="text-xs text-gray-500 whitespace-nowrap">Map to:</span>
+                            <select
+                              value={currentTarget}
+                              onChange={(e) => {
+                                setSchemaSyncActions(prev => ({
+                                  ...prev,
+                                  [colName]: {
+                                    ...prev[colName],
+                                    targetColumn: e.target.value
+                                  }
+                                }));
+                              }}
+                              className="w-full h-8 text-xs border border-gray-200 rounded-lg px-2 outline-none focus:border-blue-500 bg-white"
+                            >
+                              {headerValidation?.expectedHeaders.map((eh, eidx) => (
+                                <option key={eidx} value={eh}>
+                                  {eh}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <DialogFooter className="border-t border-gray-100 pt-3 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsSchemaDialogOpen(false)}
+                  disabled={isUploading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    setIsSchemaDialogOpen(false);
+                    await handleUpload(schemaSyncActions);
+                  }}
+                  disabled={isUploading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    'Confirm Upload & Sync'
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       )}
 

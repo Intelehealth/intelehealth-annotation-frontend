@@ -11,6 +11,7 @@ import {
 import { notificationsAPI, NotificationResponse } from '@/lib/api/notifications';
 import { datasetsAPI } from '@/lib/api/datasets';
 import { consensusAPI } from '@/lib/api/consensus';
+import { schemaRequestsAPI } from '@/lib/api/schema-requests';
 import { useToast } from '@/components/ui/toast';
 import {
   Settings,
@@ -60,6 +61,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
   const [datasetName, setDatasetName] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [annotatorCount, setAnnotatorCount] = useState<number>(0);
+  const [pendingSchemaCount, setPendingSchemaCount] = useState<number>(0);
 
   // Extract active dataset ID from path
   const pathParts = pathname?.split('/') || [];
@@ -69,7 +71,22 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
   const fetchNotifications = async () => {
     if (!user) return;
     try {
-      const list = await notificationsAPI.getAll();
+      let list = await notificationsAPI.getAll();
+      if (user.invitedByAdmin === false && user.status === 'PENDING') {
+        const hasApprovalNotif = list.some(n => n.title === 'Waiting for admin approval');
+        if (!hasApprovalNotif) {
+          list = [
+            {
+              _id: 'pending-approval-virtual',
+              title: 'Waiting for admin approval',
+              message: 'Your account has not yet been approved.',
+              isRead: false,
+              createdAt: new Date().toISOString(),
+            } as any,
+            ...list,
+          ];
+        }
+      }
       setNotifications(list);
     } catch (err) {
       console.error('Failed to load notifications', err);
@@ -111,6 +128,27 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
     loadDatasetName();
   }, [datasetId]);
 
+  // Load pending schema requests count
+  useEffect(() => {
+    const fetchPendingSchemaRequests = async () => {
+      if (datasetId && user?.role?.toUpperCase() === 'ADMIN') {
+        try {
+          const reqs = await schemaRequestsAPI.getByDataset(datasetId);
+          setPendingSchemaCount(reqs.filter((r: any) => r.status === 'PENDING').length);
+        } catch {
+          setPendingSchemaCount(0);
+        }
+      } else {
+        setPendingSchemaCount(0);
+      }
+    };
+    fetchPendingSchemaRequests();
+    if (datasetId && user?.role?.toUpperCase() === 'ADMIN') {
+      const timer = setInterval(fetchPendingSchemaRequests, 15000);
+      return () => clearInterval(timer);
+    }
+  }, [datasetId, user]);
+
   const handleGenerateConsensus = async () => {
     if (!datasetId) return;
     try {
@@ -123,10 +161,9 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
       });
       router.push(`/dataset/${datasetId}/consensus`);
     } catch (err: any) {
-      const rawMsg: string = err?.response?.data?.message || err?.message || '';
       showToast({
-        title: 'Cannot generate consensus',
-        description: rawMsg || 'Ensure annotators have completed their tasks.',
+        title: 'Consensus generation failed',
+        description: err?.response?.data?.message || err?.message || 'Failed to generate consensus',
         type: 'error',
       });
     } finally {
@@ -307,6 +344,27 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                     <span>Field Configuration</span>
                   </button>
 
+                  {/* Schema Requests */}
+                  <button
+                    onClick={() => router.push(`/dataset/${datasetId}?tab=schema-requests`)}
+                    className={cn(
+                      'w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
+                      pathname === `/dataset/${datasetId}` && pathname.includes('tab=schema-requests')
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    )}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-3.5 w-3.5 text-gray-400" />
+                      <span>Schema Requests</span>
+                    </div>
+                    {pendingSchemaCount > 0 && (
+                      <span className="bg-red-500 text-white font-semibold rounded-full px-1.5 py-0.5 text-[10px] min-w-[18px] text-center">
+                        {pendingSchemaCount}
+                      </span>
+                    )}
+                  </button>
+
                   {/* Settings */}
                   <button
                     onClick={() => router.push(`/dataset/${datasetId}?tab=settings`)}
@@ -321,55 +379,36 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                     <span>Settings</span>
                   </button>
 
-                  {/* Generate Consensus - only when 2+ annotators */}
-                  {annotatorCount >= 2 && (
-                    <button
-                      onClick={handleGenerateConsensus}
-                      disabled={isGenerating}
-                      className="w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 transition-colors text-left"
-                    >
-                      {isGenerating ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
-                      ) : (
-                        <Wand2 className="h-3.5 w-3.5 text-gray-400" />
-                      )}
-                      <span>Generate Consensus</span>
-                    </button>
-                  )}
+                  {/* Generate Consensus - always visible for admin */}
+                  <Link
+                    href={`/dataset/${datasetId}/generate-consensus`}
+                    className={cn(
+                      'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
+                      pathname === `/dataset/${datasetId}/generate-consensus`
+                        ? 'bg-blue-50 text-blue-700 font-semibold'
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    )}
+                  >
+                    <Settings className="h-3.5 w-3.5 text-gray-400" />
+                    <span>Generate Consensus</span>
+                  </Link>
 
-                  {/* Review Consensus - only when 2+ annotators */}
-                  {annotatorCount >= 2 && (
-                    <Link
-                      href={`/dataset/${datasetId}/consensus`}
-                      className={cn(
-                        'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left block',
-                        pathname === `/dataset/${datasetId}/consensus`
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
-                          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                      )}
-                    >
-                      <Scale className="h-3.5 w-3.5 text-gray-400" />
-                      <span>Review Consensus</span>
-                    </Link>
-                  )}
+                  {/* Review Consensus - always visible for admin */}
+                  <Link
+                    href={`/dataset/${datasetId}/consensus`}
+                    className={cn(
+                      'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left block',
+                      pathname === `/dataset/${datasetId}/consensus`
+                        ? 'bg-blue-50 text-blue-700 font-semibold'
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    )}
+                  >
+                    <Scale className="h-3.5 w-3.5 text-gray-400" />
+                    <span>Review Consensus</span>
+                  </Link>
                 </div>
               )}
             </div>
-
-            {/* REVIEW QUEUE */}
-            <Link
-              href="/assignments/review"
-              className={cn(
-                'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
-                pathname === '/assignments/review'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                effectiveCollapsed && 'justify-center px-2',
-              )}
-            >
-              <ClipboardList className={cn('h-5 w-5 flex-shrink-0', pathname === '/assignments/review' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
-              {!effectiveCollapsed && <span className="font-medium text-sm">Review Queue</span>}
-            </Link>
 
             {/* USERS */}
             <Link
@@ -386,8 +425,8 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
               {!effectiveCollapsed && <span className="font-medium text-sm">Users</span>}
             </Link>
           </>
-        ) : isInvited ? (
-          /* ANNOTATOR SIDEBAR SECTIONS (invited) */
+        ) : (
+          /* ANNOTATOR SIDEBAR SECTIONS */
           <>
             {/* MY TASKS */}
             <Link
@@ -403,12 +442,24 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
               <ClipboardList className={cn('h-5 w-5 flex-shrink-0', pathname === '/tasks' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
               {!effectiveCollapsed && <span className="font-medium text-sm">My Tasks</span>}
             </Link>
+
+            {/* PERSONAL DATASETS (only for non-invited users) */}
+            {!isInvited && (
+              <Link
+                href="/dataset"
+                className={cn(
+                  'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
+                  pathname === '/dataset'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                  effectiveCollapsed && 'justify-center px-2',
+                )}
+              >
+                <Database className={cn('h-5 w-5 flex-shrink-0', pathname === '/dataset' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
+                {!effectiveCollapsed && <span className="font-medium text-sm">Personal Datasets</span>}
+              </Link>
+            )}
           </>
-        ) : (
-          /* NON-INVITED USER - No tasks or dataset links */
-          <div className="px-4 py-3 text-xs text-gray-400 italic">
-            {!effectiveCollapsed && 'You are not invited by administrator.'}
-          </div>
         )}
 
         {/* PROFILE SETTINGS */}

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -50,8 +50,11 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Bypass redirect if this is a pending activation check
-      if (error.response?.data?.message === 'PENDING_ACTIVATION') {
+      // Bypass redirect if this is a login request or a pending activation check
+      if (
+        error.response?.data?.message === 'PENDING_ACTIVATION' ||
+        error.config?.url?.includes('/auth/login')
+      ) {
         return Promise.reject(error);
       }
       // Token expired or invalid, redirect to login
@@ -68,8 +71,11 @@ jsonApi.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Bypass redirect if this is a pending activation check
-      if (error.response?.data?.message === 'PENDING_ACTIVATION') {
+      // Bypass redirect if this is a login request or a pending activation check
+      if (
+        error.response?.data?.message === 'PENDING_ACTIVATION' ||
+        error.config?.url?.includes('/auth/login')
+      ) {
         return Promise.reject(error);
       }
       // Token expired or invalid, redirect to login
@@ -90,8 +96,16 @@ export const authAPI = {
     firstName?: string;
     lastName?: string;
   }) => {
-    const response = await jsonApi.post('/auth/activate', payload);
-    return response.data;
+    try {
+      const response = await jsonApi.post('/auth/activate', payload);
+      return response.data;
+    } catch (error: any) {
+      return {
+        _isError: true,
+        message: error.response?.data?.message || 'Activation failed',
+        code: error.response?.data?.code,
+      };
+    }
   },
 
   // Register/Activate an invited user
@@ -101,8 +115,16 @@ export const authAPI = {
     firstName: string;
     lastName: string;
   }) => {
-    const response = await jsonApi.post('/auth/register', payload);
-    return response.data;
+    try {
+      const response = await jsonApi.post('/auth/register', payload);
+      return response.data;
+    } catch (error: any) {
+      return {
+        _isError: true,
+        message: error.response?.data?.message || 'Signup failed',
+        code: error.response?.data?.code,
+      };
+    }
   },
 
   // Register/Activate an invited admin
@@ -112,14 +134,30 @@ export const authAPI = {
     firstName: string;
     lastName: string;
   }) => {
-    const response = await jsonApi.post('/auth/register', payload);
-    return response.data;
+    try {
+      const response = await jsonApi.post('/auth/register', payload);
+      return response.data;
+    } catch (error: any) {
+      return {
+        _isError: true,
+        message: error.response?.data?.message || 'Admin registration failed',
+        code: error.response?.data?.code,
+      };
+    }
   },
 
   // Login with email/password
   login: async (credentials: { email: string; password: string }) => {
-    const response = await jsonApi.post('/auth/login', credentials);
-    return response.data;
+    try {
+      const response = await jsonApi.post('/auth/login', credentials);
+      return response.data;
+    } catch (error: any) {
+      return {
+        _isError: true,
+        message: error.response?.data?.message || 'Login failed',
+        code: error.response?.data?.code,
+      };
+    }
   },
 
   // Refresh token
@@ -132,6 +170,50 @@ export const authAPI = {
   heartbeat: async () => {
     const response = await jsonApi.post('/auth/heartbeat');
     return response.data;
+  },
+
+  // Forgot password - request reset link
+  forgotPassword: async (email: string) => {
+    try {
+      const response = await jsonApi.post('/auth/forgot-password', { email });
+      return response.data;
+    } catch (error: any) {
+      // Network error = server is down / unreachable
+      if (!error.response) {
+        return {
+          _isError: true,
+          message: 'Cannot connect to the server. Please make sure the backend is running and try again.',
+          statusCode: 0,
+        };
+      }
+      return {
+        _isError: true,
+        message: error.response?.data?.message || 'Failed to request password reset',
+        statusCode: error.response?.status,
+      };
+    }
+  },
+
+  // Reset password with token
+  resetPassword: async (token: string, password: string) => {
+    try {
+      const response = await jsonApi.post('/auth/reset-password', { token, password });
+      return response.data;
+    } catch (error: any) {
+      // Network error = server is down / unreachable
+      if (!error.response) {
+        return {
+          _isError: true,
+          message: 'Cannot connect to the server. Please make sure the backend is running and try again.',
+          statusCode: 0,
+        };
+      }
+      return {
+        _isError: true,
+        message: error.response?.data?.message || 'Failed to reset password',
+        statusCode: error.response?.status,
+      };
+    }
   },
 };
 

@@ -8,6 +8,7 @@ import { FieldGroup, FieldGroupChildField } from '@/types/feature1';
 import { Plus, Trash2, HelpCircle, Eye, RefreshCw, X, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FieldTypeConfigurator } from './field-type-configurator';
+import { RecursiveFieldEditor } from './recursive-field-editor';
 
 interface FieldGroupEditorProps {
   onSave: (group: FieldGroup) => void;
@@ -111,7 +112,6 @@ export function FieldGroupEditor({
   ];
 
   const addField = () => {
-    if (isLocked) return;
     setFields([
       ...fields,
       {
@@ -127,13 +127,11 @@ export function FieldGroupEditor({
   };
 
   const removeField = (index: number) => {
-    if (isLocked) return;
     if (fields.length <= 1) return;
     setFields(fields.filter((_, i) => i !== index));
   };
 
   const updateField = (index: number, updates: Partial<FieldGroupChildField>) => {
-    if (isLocked) return;
     setFields(
       fields.map((f, i) => (i === index ? { ...f, ...updates } : f))
     );
@@ -232,6 +230,12 @@ export function FieldGroupEditor({
         allowHalf: f.allowHalf,
         rows: f.rows,
         id: f.id || `field_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        questionTitle: f.questionTitle,
+        questionDescription: f.questionDescription,
+        helpText: f.helpText,
+        section: f.section,
+        visibilityRule: f.visibilityRule,
+        branching: f.branching ? structuredClone(f.branching) : undefined,
       })),
     });
   };
@@ -248,13 +252,7 @@ export function FieldGroupEditor({
             Define a group of fields to be repeated dynamically.
           </p>
         </div>
-        {isLocked && (
-          <span className="text-[10px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full">
-            Locked (Annotations Started)
-          </span>
-        )}
       </div>
-
       <div className="p-4 space-y-4">
         {/* Errors list */}
         {errors.length > 0 && (
@@ -280,7 +278,7 @@ export function FieldGroupEditor({
                   onChange={(e) => setGroupName(e.target.value)}
                   placeholder="e.g. Defect Details"
                   className="h-8 text-xs mt-1"
-                  disabled={isLocked}
+                  disabled={false}
                 />
               </div>
               <div>
@@ -292,7 +290,7 @@ export function FieldGroupEditor({
                   value={repeatCount}
                   onChange={(e) => setRepeatCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
                   className="h-8 text-xs mt-1"
-                  disabled={isLocked}
+                  disabled={false}
                 />
               </div>
             </div>
@@ -301,7 +299,6 @@ export function FieldGroupEditor({
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <Label className="text-xs font-bold text-gray-700">Fields inside group</Label>
-                {!isLocked && (
                   <Button
                     onClick={addField}
                     size="sm"
@@ -311,7 +308,6 @@ export function FieldGroupEditor({
                     <Plus className="h-3 w-3 mr-1" />
                     Add Child Field
                   </Button>
-                )}
               </div>
 
               <div className="space-y-2 border border-gray-100 rounded-md p-2 bg-gray-50/50 max-h-[350px] overflow-y-auto">
@@ -344,7 +340,7 @@ export function FieldGroupEditor({
                               onChange={(e) => updateField(index, { fieldName: e.target.value })}
                               placeholder="e.g. Severity"
                               className="h-8 text-xs mt-0.5"
-                              disabled={isLocked}
+                              disabled={false}
                             />
                           </div>
                           <div className="col-span-4">
@@ -374,7 +370,7 @@ export function FieldGroupEditor({
                                 });
                               }}
                               className="w-full h-8 px-2 py-1 mt-0.5 border border-gray-300 bg-white rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              disabled={isLocked}
+                              disabled={false}
                             >
                               {fieldTypes.map((type) => (
                                 <option key={type.value} value={type.value}>
@@ -395,7 +391,7 @@ export function FieldGroupEditor({
                                 updateField(index, { repeatCount: val });
                               }}
                               className="h-8 text-xs mt-0.5"
-                              disabled={isLocked}
+                              disabled={false}
                             />
                           </div>
                           <div className="col-span-2 flex items-center space-x-1 mb-1 justify-end">
@@ -435,7 +431,7 @@ export function FieldGroupEditor({
                             id={`req-${index}`}
                             checked={field.isRequired}
                             onChange={(e) => updateField(index, { isRequired: e.target.checked })}
-                            disabled={isLocked}
+                            disabled={false}
                             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
                           />
                           <label htmlFor={`req-${index}`} className="text-[10px] text-gray-600 cursor-pointer font-medium select-none">
@@ -446,13 +442,23 @@ export function FieldGroupEditor({
 
                       {/* Collapsible config panel */}
                       {isExpanded && isInputType && (
-                        <div className="border-t border-gray-100 pt-3 mt-2 bg-gray-50/50 p-2.5 rounded-md border border-gray-100">
+                        <div className="border-t border-gray-100 pt-3 mt-2 bg-gray-50/50 p-2.5 rounded-md border border-gray-100 space-y-4">
                           <FieldTypeConfigurator
                             type={field.fieldType}
                             field={field}
                             onChange={(updates) => updateField(index, updates)}
                             isLocked={isLocked}
                           />
+                          {/* Recursive Branching Editor for choice types inside group fields */}
+                          {['radio', 'multiselect', 'select', 'rating', 'checkbox'].includes(field.fieldType) && !isLocked && (
+                            <div className="pt-3 border-t border-gray-200">
+                              <RecursiveFieldEditor
+                                field={field as any}
+                                depth={0}
+                                onChange={(updated) => updateField(index, updated as any)}
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

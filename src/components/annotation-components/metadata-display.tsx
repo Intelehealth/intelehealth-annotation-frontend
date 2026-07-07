@@ -9,6 +9,7 @@ import {
   GripVertical,
   Eye,
   Volume2,
+  Video,
   ArrowLeft,
 } from 'lucide-react';
 import { ImageThumbnails } from './image-thumbnails';
@@ -28,14 +29,21 @@ interface AudioOverlay {
   audioUrl: string;
 }
 
+interface VideoOverlay {
+  isOpen: boolean;
+  videoUrl: string;
+}
+
 interface MetadataDisplayProps {
   metadata: Record<string, any>;
   orderedMetadataFields: AnnotationField[];
+  linkedFieldNames?: Set<string>; // csvColumnNames of data fields linked to annotation panel
   draggedField: string | null;
   editingField: string | null;
   expandedTextFields: Set<string>;
   imageOverlay: ImageOverlay;
   audioOverlay: AudioOverlay;
+  videoOverlay: VideoOverlay;
   datasetName?: string;
   onMetadataChange: (metadata: Record<string, any>) => void;
   onDragStart: (e: React.DragEvent, fieldName: string) => void;
@@ -47,7 +55,8 @@ interface MetadataDisplayProps {
   onCancelEdit: () => void;
   onToggleTextExpansion: (fieldName: string) => void;
   onOpenImageOverlay: (imageUrls: string[], startIndex?: number) => void;
-  onOpenAudioOverlay: (audioUrl: string) => void;
+  onOpenAudioOverlay: (audioUrls: string[], startIndex?: number) => void;
+  onOpenVideoOverlay: (videoUrls: string[], startIndex?: number) => void;
   onNavigateBack: () => void;
   onPanelDragOver?: (e: React.DragEvent) => void;
   onDropFromAnnotation?: () => void;
@@ -86,11 +95,13 @@ const formatTextContent = (content: any, fieldName: string): string => {
 export function MetadataDisplay({
   metadata,
   orderedMetadataFields,
+  linkedFieldNames,
   draggedField,
   editingField,
   expandedTextFields,
   imageOverlay,
   audioOverlay,
+  videoOverlay,
   datasetName,
   onMetadataChange,
   onDragStart,
@@ -103,6 +114,7 @@ export function MetadataDisplay({
   onToggleTextExpansion,
   onOpenImageOverlay,
   onOpenAudioOverlay,
+  onOpenVideoOverlay,
   onNavigateBack,
   onPanelDragOver,
   onDropFromAnnotation,
@@ -138,7 +150,7 @@ export function MetadataDisplay({
           Data Fields
         </h2>
         <p className="text-sm text-gray-500 mt-1">
-          Drag fields to reorder • Click edit to modify content
+          Drag fields to reorder • View metadata
         </p>
       </div>
 
@@ -176,19 +188,17 @@ export function MetadataDisplay({
                   )}
                 </Label>
               </div>
-              {!field.isPrimaryKey && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onEditField(field.csvColumnName)}
-                  className="h-6 w-6 p-0"
-                >
-                  <Edit3 className="h-3 w-3" />
-                </Button>
-              )}
               {field.isPrimaryKey && (
                 <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                   Primary Key
+                </div>
+              )}
+              {linkedFieldNames?.has(field.csvColumnName) && (
+                <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded flex items-center gap-1">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  Linked
                 </div>
               )}
             </div>
@@ -200,45 +210,7 @@ export function MetadataDisplay({
             {/* Field Content Display */}
             {/* Field Content Display */}
             <div className="space-y-2">
-              {editingField === field.csvColumnName && !field.isPrimaryKey ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={metadata?.[field.csvColumnName] || ''}
-                    onChange={(e) => {
-                      onMetadataChange({
-                        ...(metadata || {}),
-                        [field.csvColumnName]: e.target.value
-                      });
-                      // Auto-resize textarea
-                      e.target.style.height = 'auto';
-                      e.target.style.height = Math.max(200, e.target.scrollHeight) + 'px';
-                    }}
-                    className="min-h-[200px] resize-y overflow-hidden"
-                    placeholder="Enter content..."
-                    style={{ height: '200px' }}
-                  />
-                  <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        onSaveIndividualField(field.csvColumnName, metadata?.[field.csvColumnName] || '');
-                        onCancelEdit();
-                      }}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={onCancelEdit}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
+              <div className="space-y-2">
                   {/* Text Fields */}
                   {field.fieldType === 'text' && (
                     <div className={`p-3 border border-gray-200 rounded-md ${field.isPrimaryKey ? 'bg-gray-100' : 'bg-white'}`}>
@@ -281,38 +253,93 @@ export function MetadataDisplay({
                   {field.fieldType === 'audio' && (
                     <div className="p-3 border border-gray-200 rounded-md bg-white">
                       {(() => {
-                        const audioUrl = metadata?.[field.csvColumnName];
-                        return audioUrl ? (
-                          <div className="flex items-center space-x-3">
-                            <Button
-                              size="sm"
-                              onClick={() => onOpenAudioOverlay(audioUrl)}
-                              className="bg-blue-600 hover:bg-blue-700"
-                            >
-                              <Volume2 className="h-4 w-4 mr-2" />
-                              Play Audio
-                            </Button>
-                            <span className="text-sm text-gray-600 truncate">
-                              {audioUrl}
-                            </span>
+                        const raw = metadata?.[field.csvColumnName];
+                        const urls: string[] = raw
+                          ? String(raw).split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean)
+                          : [];
+                        return urls.length > 0 ? (
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">
+                              {field.fieldName} Audio ({urls.length})
+                            </Label>
+                            <div className="grid grid-cols-2 gap-2">
+                              {urls.slice(0, 4).map((url: string, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className="relative group cursor-pointer rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all bg-gray-50"
+                                  onClick={() => onOpenAudioOverlay(urls, idx)}
+                                >
+                                  <div className="flex items-center justify-center h-20 bg-gradient-to-br from-blue-50 to-blue-100">
+                                    <Volume2 className="h-8 w-8 text-blue-500" />
+                                  </div>
+                                  <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                                    {idx + 1}
+                                  </div>
+                                </div>
+                              ))}
+                              {urls.length > 4 && (
+                                <div className="flex items-center justify-center h-20 bg-gray-100 rounded border border-gray-200 text-xs text-gray-500">
+                                  +{urls.length - 4} more
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ) : (
-                          <div className="text-sm text-gray-500 text-center">
-                            No audio found
+                          <div className="text-sm text-gray-500 text-center">No audio found</div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Video Fields */}
+                  {field.fieldType === 'video' && (
+                    <div className="p-3 border border-gray-200 rounded-md bg-white">
+                      {(() => {
+                        const raw = metadata?.[field.csvColumnName];
+                        const urls: string[] = raw
+                          ? String(raw).split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean)
+                          : [];
+                        return urls.length > 0 ? (
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">
+                              {field.fieldName} Video ({urls.length})
+                            </Label>
+                            <div className="grid grid-cols-2 gap-2">
+                              {urls.slice(0, 4).map((url: string, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className="relative group cursor-pointer rounded-lg overflow-hidden border-2 border-gray-200 hover:border-green-400 transition-all bg-gray-50"
+                                  onClick={() => onOpenVideoOverlay(urls, idx)}
+                                >
+                                  <div className="flex items-center justify-center h-20 bg-gradient-to-br from-green-50 to-green-100">
+                                    <Video className="h-8 w-8 text-green-500" />
+                                  </div>
+                                  <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                                    {idx + 1}
+                                  </div>
+                                </div>
+                              ))}
+                              {urls.length > 4 && (
+                                <div className="flex items-center justify-center h-20 bg-gray-100 rounded border border-gray-200 text-xs text-gray-500">
+                                  +{urls.length - 4} more
+                                </div>
+                              )}
+                            </div>
                           </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 text-center">No video found</div>
                         );
                       })()}
                     </div>
                   )}
 
                   {/* Default display for other field types */}
-                  {!['text', 'image', 'audio'].includes(field.fieldType) && (
+                  {!['text', 'image', 'audio', 'video'].includes(field.fieldType) && (
                     <div className="p-3 border border-gray-200 rounded-md bg-white text-sm text-gray-800 whitespace-pre-wrap">
                       {formatTextContent(metadata?.[field.csvColumnName], field.csvColumnName)}
                     </div>
                   )}
                 </div>
-              )}
             </div>
           </div>
         );

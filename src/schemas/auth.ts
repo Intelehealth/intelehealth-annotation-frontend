@@ -20,6 +20,15 @@ export const signupSchema = z
     path: ['confirmPassword'],
   });
 
+// Password strength checks
+export const PASSWORD_CHECKS = [
+  { test: (val: string) => val.length >= 8, label: '8+ characters', error: 'Must be at least 8 characters' },
+  { test: (val: string) => /[A-Z]/.test(val), label: 'One uppercase', error: 'Must contain an uppercase letter' },
+  { test: (val: string) => /[a-z]/.test(val), label: 'One lowercase', error: 'Must contain a lowercase letter' },
+  { test: (val: string) => /[0-9]/.test(val), label: 'One number', error: 'Must contain a number' },
+  { test: (val: string) => /[^A-Za-z0-9]/.test(val), label: 'One special character', error: 'Must contain a special character' },
+] as const;
+
 // Type exports
 export type LoginFormData = z.infer<typeof loginSchema>;
 export type SignupFormData = z.infer<typeof signupSchema>;

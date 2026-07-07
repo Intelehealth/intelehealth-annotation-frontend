@@ -2,8 +2,14 @@
 // Mirrors the definitions from the backend schema but without any NestJS/Mongoose dependencies.
 
 // -------------------- Constants --------------------
+// Only odd annotator counts are allowed: 1, 3, 5, 7, 9
 export const CLONE_MIN_ANNOTATORS = 1;
-export const CLONE_MAX_ANNOTATORS = 5;
+export const CLONE_MAX_ANNOTATORS = 9;
+
+/** Returns true if n is a valid odd annotator count (1, 3, 5, 7, 9) */
+export function isOddCount(n: number): boolean {
+  return n >= CLONE_MIN_ANNOTATORS && n <= CLONE_MAX_ANNOTATORS && n % 2 !== 0;
+}
 
 // -------------------- Task Status Types --------------------
 export type TaskStatus = 'not_started' | 'pending' | 'in_progress' | 'completed';
@@ -99,10 +105,7 @@ export interface CloneGroup {
   totalClones: number;
 }
 
-// -------------------- Utility Functions --------------------
-export function isOddCount(count: number): boolean {
-  return count % 2 !== 0;
-}
+// -------------------- Utility Functions (isOddCount defined at top) --------------------
 
 // -------------------- Types --------------------
 export interface TaskAnnotation {
@@ -282,6 +285,59 @@ export interface VisibilityRule {
   value: string;
 }
 
+export interface BranchOption {
+  value: string;
+  requireDescription?: boolean;
+  descriptionPlaceholder?: string;
+  childFields: AnnotationField[];
+}
+
+export interface BranchOption {
+  value: string;
+  requireDescription?: boolean;
+  descriptionPlaceholder?: string;
+  childFields: AnnotationField[];
+}
+
+export interface AnnotationField {
+  csvColumnName: string;
+  fieldName: string;
+  fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'image' | 'audio' | 'video';
+  isRequired: boolean;
+  isAnnotationField?: boolean;
+  isPrimaryKey?: boolean;
+  options?: string[];
+  instructions?: string;
+  isNewColumn?: boolean;
+  newColumnId?: string;
+  columnType?: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
+  placeholder?: string;
+  defaultValue?: string;
+  maxLength?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  rangeStart?: number;
+  rangeEnd?: number;
+  rangeStep?: number;
+  maxSelections?: number;
+  minDate?: string;
+  maxDate?: string;
+  maxRating?: number;
+  allowHalf?: boolean;
+  rows?: number;
+  id?: string;
+  questionTitle?: string;
+  questionDescription?: string;
+  helpText?: string;
+  section?: string;
+  visibilityRule?: VisibilityRule;
+  branching?: {
+    enabled: boolean;
+    options: BranchOption[];
+  };
+}
+
 export interface FieldGroupChildField {
   fieldName: string;
   fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
@@ -311,6 +367,10 @@ export interface FieldGroupChildField {
   helpText?: string;
   section?: string;
   visibilityRule?: VisibilityRule;
+  branching?: {
+    enabled: boolean;
+    options: BranchOption[];
+  };
 }
 
 export interface FieldGroup {

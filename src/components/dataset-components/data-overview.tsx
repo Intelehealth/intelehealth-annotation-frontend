@@ -105,15 +105,11 @@ export function DataOverview({
         description: `${result.reviewsCreated} rows compared. Redirecting to review…`,
         type: 'success',
       });
-      // Navigate to the consensus review page
-      router.push(`/dataset/${datasetId}/consensus`);
+      router.push(`/dataset/${datasetId}/generate-consensus`);
     } catch (err: any) {
-      const msg: string =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Could not generate consensus.';
+      const msg: string = err?.response?.data?.message || err?.message || 'Failed to generate consensus.';
       showToast({
-        title: 'Cannot generate consensus',
+        title: 'Consensus generation failed',
         description: msg,
         type: 'error',
       });
@@ -851,46 +847,20 @@ export function DataOverview({
                   })}
                 </div>
 
-                {/* Status summary + action buttons */}
+                {/* Status summary + action buttons — always visible when clones exist */}
                 {(() => {
                   const clones = cloneGroup.clones as any[];
-                  const allDone = clones.every((c: any) => {
-                    const total = c.progress?.totalRows ?? 0;
-                    const done = c.progress?.completedRows ?? 0;
-                    return total > 0 && done >= total;
-                  });
-                  const incomplete = clones.filter((c: any) => {
-                    const total = c.progress?.totalRows ?? 0;
-                    const done = c.progress?.completedRows ?? 0;
-                    return !(total > 0 && done >= total);
-                  });
-
                   return (
                     <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-gray-100">
                       <Button
                         onClick={handleGenerateConsensus}
-                        disabled={!allDone || isGeneratingConsensus}
-                        className={cn(
-                          'flex-1 text-sm font-medium',
-                          allDone
-                            ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                        )}
-                        title={
-                          !allDone
-                            ? `Waiting for ${incomplete.length} annotator${incomplete.length !== 1 ? 's' : ''} to finish`
-                            : 'Generate consensus comparison'
-                        }
+                        disabled={isGeneratingConsensus}
+                        className="flex-1 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white"
                       >
                         {isGeneratingConsensus ? (
                           <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Generating…</>
                         ) : (
-                          <><Wand2 className="h-4 w-4 mr-1.5" />
-                            {allDone
-                              ? 'Generate Consensus'
-                              : `Waiting for ${incomplete.length} annotator${incomplete.length !== 1 ? 's' : ''}…`
-                            }
-                          </>
+                          <><Wand2 className="h-4 w-4 mr-1.5" />Generate Consensus</>
                         )}
                       </Button>
                       <Button

@@ -28,9 +28,10 @@ export default function GoogleOAuth({
   return (
     <div className={className}>
       <Button
+        id="google-signin-btn"
         type="button"
         variant="outline"
-        className="w-full h-10 border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-xl transition-all duration-200 text-sm"
+        className="w-full h-10 border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-xl transition-all duration-200 text-sm focus:outline-none"
         disabled={disabled}
         onClick={handleGoogleAuth}
       >

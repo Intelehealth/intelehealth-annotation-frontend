@@ -32,7 +32,7 @@ import { fieldSelectionAPI } from '@/lib/api/field-config';
 import { datasetsAPI } from '@/lib/api/datasets';
 import { RowFooter, NewColumnDataPanel } from '@/components/new-column-components';
 import { MetadataDisplay } from './metadata-display';
-import { ImageOverlay, AudioOverlay } from './media-overlays';
+import { ImageOverlay, AudioOverlay, VideoOverlay } from './media-overlays';
 import { useToast } from '@/components/ui/toast';
 import { exportSelectedColumnsToCSV, exportAllColumnsToCSV } from '@/lib/dataset-export-helper';
 import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
@@ -71,6 +71,15 @@ interface ImageOverlay {
 interface AudioOverlay {
   isOpen: boolean;
   audioUrl: string;
+  audioUrls: string[];
+  currentIndex: number;
+}
+
+interface VideoOverlay {
+  isOpen: boolean;
+  videoUrl: string;
+  videoUrls: string[];
+  currentIndex: number;
 }
 
 interface DatasetAnnotationWorkbenchProps {
@@ -98,7 +107,9 @@ export function DatasetAnnotationWorkbench({
   const [newColumnData, setNewColumnData] = useState<NewColumnData>({});
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [draftExists, setDraftExists] = useState(false);
+  const [draftData, setDraftData] = useState<any>(null);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -121,10 +132,19 @@ export function DatasetAnnotationWorkbench({
   const [audioOverlay, setAudioOverlay] = useState<AudioOverlay>({
     isOpen: false,
     audioUrl: '',
+    audioUrls: [],
+    currentIndex: 0,
+  });
+  const [videoOverlay, setVideoOverlay] = useState<VideoOverlay>({
+    isOpen: false,
+    videoUrl: '',
+    videoUrls: [],
+    currentIndex: 0,
   });
   const [draggedField, setDraggedField] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Record<string, any>>({});
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const loadedRowIndexRef = useRef<number | null>(null);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [completionStats, setCompletionStats] = useState<{
     completedCount: number;
@@ -138,7 +158,7 @@ export function DatasetAnnotationWorkbench({
     if (annotationConfig) {
       // Metadata fields are existing CSV columns that are NOT new columns
       const metadataFields = annotationConfig.annotationFields.filter(
-        (field) => !field.isAnnotationField && !field.isNewColumn
+        (field) => !field.isNewColumn
       );
       console.log('Metadata fields (existing CSV columns only):', metadataFields.map(f => ({
         csvColumnName: f.csvColumnName,
@@ -185,6 +205,8 @@ export function DatasetAnnotationWorkbench({
           );
           console.log('API call completed successfully');
           console.log('Dataset field config loaded:', config);
+          console.log('FRONTEND AFTER FETCH - loaded configuration fields with branching:', JSON.stringify(config?.annotationFields?.filter((f: any) => f.branching), null, 2));
+          console.log('FRONTEND AFTER FETCH - loaded custom columns with branching:', JSON.stringify(config?.newColumns?.filter((c: any) => c.branching), null, 2));
           console.log('Config annotationFields:', config?.annotationFields);
           console.log('Config annotationLabels:', config?.annotationLabels);
            if (config) {
@@ -201,6 +223,15 @@ export function DatasetAnnotationWorkbench({
               isRequired: Boolean(f.isRequired),
               columnType: f.columnType,
             }));
+
+            // Migrate existing duplicated data fields to linked references
+            const migration = DragDropHelper.migrateExistingDataFields(normalizedFields);
+            if (migration.migrated) {
+              console.log('Migrated existing data fields to linked references:', migration.migrationLog);
+              // Use the migrated fields for rendering
+              normalizedFields.length = 0;
+              normalizedFields.push(...migration.migratedFields);
+            }
 
             // Transform the dataset config to match the expected AnnotationConfig format
             const annotationConfig: AnnotationConfig = {
@@ -402,6 +433,7 @@ export function DatasetAnnotationWorkbench({
     if (currentTask && currentTask.metadata) {
       console.log('Updating metadata for task:', currentTask.rowIndex, currentTask.metadata);
       setMetadata(currentTask.metadata);
+      loadedRowIndexRef.current = currentTask.rowIndex;
     }
   }, [currentTask]);
 
@@ -563,6 +595,54 @@ export function DatasetAnnotationWorkbench({
     };
   }, []);
 
+  // Save field configuration updates immediately to backend (debounced)
+  const handleUpdateFieldConfig = useCallback(async (updatedFields: AnnotationField[], updatedGroups?: any[]) => {
+    if (!annotationConfig) return;
+    
+    // Update local state immediately
+    setAnnotationConfig((prev) => {
+      if (!prev) return null;
+      const next = { ...prev, annotationFields: updatedFields };
+      if (updatedGroups) {
+        next.fieldGroups = updatedGroups;
+      }
+      return next;
+    });
+
+    // Also update orderedMetadataFields since layout depends on it
+    const metadataFields = updatedFields.filter((field) => !field.isNewColumn && !field.isAnnotationField);
+    setOrderedMetadataFields(metadataFields);
+    
+    // Debounce backend save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await fieldSelectionAPI.saveDatasetFieldConfig({
+          datasetId,
+          annotationFields: updatedFields,
+          annotationLabels: annotationConfig.annotationLabels || [],
+          newColumns: datasetNewColumns || [],
+          fieldGroups: updatedGroups !== undefined ? updatedGroups : (annotationConfig.fieldGroups || []),
+        });
+        showToast({
+          type: 'success',
+          title: 'Auto-saved',
+          description: 'Field configuration updated successfully.'
+        });
+      } catch (error) {
+        console.error('Failed to save updated field configuration:', error);
+        showToast({
+          type: 'error',
+          title: 'Save Failed',
+          description: 'Failed to auto-save field configuration changes.'
+        });
+      }
+    }, 800);
+  }, [annotationConfig, datasetId, datasetNewColumns, showToast]);
+
   // Undo/Redo functionality
   const addToHistory = useCallback(
     (state: any) => {
@@ -634,6 +714,10 @@ export function DatasetAnnotationWorkbench({
               undo();
             }
             break;
+          case 'y':
+            e.preventDefault();
+            redo();
+            break;
           case 'ArrowLeft':
             e.preventDefault();
             navigateTask('prev');
@@ -649,6 +733,70 @@ export function DatasetAnnotationWorkbench({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, navigateTask]);
+
+  // Draft auto-save to localStorage
+  useEffect(() => {
+    if (!datasetId || !currentTask || !autoSaveEnabled || isInspectMode) return;
+    if (loadedRowIndexRef.current !== currentTask.rowIndex) return;
+    
+    // Check if there are actual changes from the initial task state
+    const isDirty = Object.keys(metadata).some(
+      k => metadata[k] !== (currentTask.metadata?.[k] || '')
+    );
+    if (!isDirty) return;
+
+    const key = `dyno_draft_${datasetId}_${currentTask.rowIndex}`;
+    localStorage.setItem(key, JSON.stringify({
+      metadata,
+      newColumnData,
+      timestamp: Date.now()
+    }));
+  }, [metadata, newColumnData, datasetId, currentTask, autoSaveEnabled, isInspectMode]);
+
+  // Check if draft exists when changing rows
+  useEffect(() => {
+    if (!datasetId || !currentTask || isInspectMode) {
+      setDraftExists(false);
+      setDraftData(null);
+      return;
+    }
+    const key = `dyno_draft_${datasetId}_${currentTask.rowIndex}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Verify the draft is actually different from current task metadata
+        const hasDiff = Object.keys(parsed.metadata || {}).some(
+          k => parsed.metadata[k] !== (currentTask.metadata?.[k] || '')
+        );
+        if (hasDiff) {
+          setDraftExists(true);
+          setDraftData(parsed);
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to parse draft', e);
+      }
+    }
+    setDraftExists(false);
+    setDraftData(null);
+  }, [currentTaskIndex, datasetId, currentTask, isInspectMode]);
+
+  // Unsaved changes beforeunload warning
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const isDirty = Object.keys(metadata).some(
+        k => metadata[k] !== (currentTask?.metadata?.[k] || '')
+      );
+      if (isDirty && !isInspectMode) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [metadata, currentTask, isInspectMode]);
 
   const jumpToRow = (rowIndex: number) => {
     // Find the task with the matching rowIndex
@@ -691,6 +839,18 @@ export function DatasetAnnotationWorkbench({
     const result = await DragDropHelper.handleDragDrop(params);
 
     if (result.success) {
+      // Block cross-panel moves for non-admins before updating state
+      const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+      if (!isAdmin && result.changedPanels) {
+        showToast({
+          type: 'info',
+          title: 'Request Sent',
+          description: 'Only admins can modify field configuration. Please use the "Request Change" button instead.'
+        });
+        setDraggedField(null);
+        return;
+      }
+
       // Update state based on result
       if (result.updatedFields) {
         setAnnotationConfig((prev) => (prev ? { ...prev, annotationFields: result.updatedFields! } : prev));
@@ -886,10 +1046,12 @@ export function DatasetAnnotationWorkbench({
   };
 
   // Audio overlay handlers
-  const openAudioOverlay = (audioUrl: string) => {
+  const openAudioOverlay = (audioUrls: string[], startIndex: number = 0) => {
     setAudioOverlay({
       isOpen: true,
-      audioUrl,
+      audioUrl: audioUrls[startIndex] || '',
+      audioUrls,
+      currentIndex: startIndex,
     });
   };
 
@@ -897,7 +1059,58 @@ export function DatasetAnnotationWorkbench({
     setAudioOverlay({
       isOpen: false,
       audioUrl: '',
+      audioUrls: [],
+      currentIndex: 0,
     });
+  };
+
+  const navigateAudio = (direction: 'prev' | 'next') => {
+    const { audioUrls, currentIndex } = audioOverlay;
+    let newIndex = currentIndex;
+    if (direction === 'prev' && currentIndex > 0) {
+      newIndex = currentIndex - 1;
+    } else if (direction === 'next' && currentIndex < audioUrls.length - 1) {
+      newIndex = currentIndex + 1;
+    }
+    setAudioOverlay(prev => ({
+      ...prev,
+      currentIndex: newIndex,
+      audioUrl: audioUrls[newIndex] || '',
+    }));
+  };
+
+  // Video overlay handlers
+  const openVideoOverlay = (videoUrls: string[], startIndex: number = 0) => {
+    setVideoOverlay({
+      isOpen: true,
+      videoUrl: videoUrls[startIndex] || '',
+      videoUrls,
+      currentIndex: startIndex,
+    });
+  };
+
+  const closeVideoOverlay = () => {
+    setVideoOverlay({
+      isOpen: false,
+      videoUrl: '',
+      videoUrls: [],
+      currentIndex: 0,
+    });
+  };
+
+  const navigateVideo = (direction: 'prev' | 'next') => {
+    const { videoUrls, currentIndex } = videoOverlay;
+    let newIndex = currentIndex;
+    if (direction === 'prev' && currentIndex > 0) {
+      newIndex = currentIndex - 1;
+    } else if (direction === 'next' && currentIndex < videoUrls.length - 1) {
+      newIndex = currentIndex + 1;
+    }
+    setVideoOverlay(prev => ({
+      ...prev,
+      currentIndex: newIndex,
+      videoUrl: videoUrls[newIndex] || '',
+    }));
   };
 
   // Save all new column data function
@@ -927,13 +1140,25 @@ export function DatasetAnnotationWorkbench({
       }
     }
 
-    // Collect only fields that have actual data from newColumnData
+    // Collect all fields that have actual data from newColumnData (including nested child fields)
+    const newColumnKeys = Object.keys(newColumnData);
     for (const field of annotationFields) {
       const fieldValue = newColumnData[field.fieldName];
-      if (fieldValue !== undefined && fieldValue !== null && fieldValue.trim() !== '') {
+      if (fieldValue !== undefined && fieldValue !== null && String(fieldValue).trim() !== '') {
         dataToSave[field.fieldName] = fieldValue;
         hasActualData = true;
       }
+
+      // Collect any nested child fields (e.g. notes.yes.hii)
+      newColumnKeys.forEach((key) => {
+        if (key.startsWith(`${field.fieldName}.`) || key.includes(`${field.fieldName}.`) || key.endsWith(`_description`)) {
+          const val = newColumnData[key];
+          if (val !== undefined && val !== null && String(val).trim() !== '') {
+            dataToSave[key] = val;
+            hasActualData = true;
+          }
+        }
+      });
     }
 
     setIsSaving(true);
@@ -1006,6 +1231,9 @@ export function DatasetAnnotationWorkbench({
 
       setLastSavedTime(new Date());
       setPendingChanges({});
+      if (datasetId && currentTask) {
+        localStorage.removeItem(`dyno_draft_${datasetId}_${currentTask.rowIndex}`);
+      }
 
       // Check if ALL rows are completed using API
       try {
@@ -1207,22 +1435,28 @@ export function DatasetAnnotationWorkbench({
   // Track the previous task to detect navigation
   const prevTaskRef = useRef<Task | null>(null);
 
-  // Effect 1: Load fresh data when navigating to a new task
+  const prevConfigFieldsRef = useRef<string[]>([]);
+
+  // Effect 1: Load fresh data when navigating to a new task or fields change via drag-drop
   useEffect(() => {
     if (!currentTask || !annotationConfig) return;
 
     // Check if we're navigating to a different task
     const isNewTask = prevTaskRef.current?.id !== currentTask.id;
+    const currentFieldNames = annotationConfig.annotationFields.map(f => f.fieldName);
+    const fieldsChanged = JSON.stringify(currentFieldNames) !== JSON.stringify(prevConfigFieldsRef.current);
     
-    if (isNewTask) {
-      console.log('Navigating to new task:', currentTask.rowIndex);
+    if (isNewTask || fieldsChanged) {
+      if (isNewTask) {
+        console.log('Navigating to new task:', currentTask.rowIndex);
+      }
       
-      const annotationFields = annotationConfig.annotationFields.filter(
-        (field) => field.isNewColumn || field.isAnnotationField
-      );
+      const annotationFields = annotationConfig.annotationFields;
 
       // Load fresh data for the new task
       const newColumnData: NewColumnData = {};
+      const metadataKeys = currentTask.metadata ? Object.keys(currentTask.metadata) : [];
+
       annotationFields.forEach((field) => {
         // First check if the field data exists in the current task's metadata (saved annotation data)
         let fieldValue = currentTask.metadata?.[field.fieldName];
@@ -1233,40 +1467,32 @@ export function DatasetAnnotationWorkbench({
         }
         
         newColumnData[field.fieldName] = fieldValue || '';
+
+        // Load any nested child fields for this field (e.g. notes.yes.hii)
+        metadataKeys.forEach((key) => {
+          if (key.startsWith(`${field.fieldName}.`) || key.includes(`${field.fieldName}.`) || key.endsWith(`_description`)) {
+            newColumnData[key] = currentTask.metadata?.[key] || '';
+          }
+        });
       });
 
       setNewColumnData(newColumnData);
-      setPendingChanges({}); // Clear pending changes for new task
-      
-      console.log('Loaded fresh data for new task:', {
-        taskRowIndex: currentTask.rowIndex,
-        newColumnData,
-        annotationFields: annotationFields.map(f => f.fieldName)
-      });
+      prevConfigFieldsRef.current = currentFieldNames;
+
+      if (isNewTask) {
+        setPendingChanges({}); // Clear pending changes for new task
+        
+        console.log('Loaded fresh data for new task:', {
+          taskRowIndex: currentTask.rowIndex,
+          newColumnData,
+          annotationFields: annotationFields.map(f => f.fieldName)
+        });
+      }
     }
 
     // Update the previous task reference
     prevTaskRef.current = currentTask;
   }, [currentTask, annotationConfig]);
-
-  // Effect 2: Initialize annotation fields when config changes
-  useEffect(() => {
-    if (!annotationConfig) return;
-
-    const annotationFields = annotationConfig.annotationFields.filter(
-      (field) => field.isNewColumn || field.isAnnotationField
-    );
-
-    // Initialize new column data structure
-    setNewColumnData(prevNewColumnData => {
-      const initialNewColumnData: NewColumnData = {};
-      annotationFields.forEach((field) => {
-        // Preserve existing values or initialize with empty string
-        initialNewColumnData[field.fieldName] = prevNewColumnData[field.fieldName] || '';
-      });
-      return initialNewColumnData;
-    });
-  }, [annotationConfig]);
 
   if (loading) {
     return (
@@ -1314,11 +1540,13 @@ export function DatasetAnnotationWorkbench({
             <MetadataDisplay
               metadata={metadata}
               orderedMetadataFields={orderedMetadataFields}
+              linkedFieldNames={new Set(annotationConfig?.annotationFields.filter(f => f.isDataFieldLink).map(f => f.sourceCsvColumnName || f.csvColumnName) ?? [])}
               draggedField={draggedField}
               editingField={editingField}
               expandedTextFields={expandedTextFields}
               imageOverlay={imageOverlay}
               audioOverlay={audioOverlay}
+              videoOverlay={videoOverlay}
               datasetName={datasetName}
               onMetadataChange={setMetadata}
               onDragStart={handleDragStart}
@@ -1331,6 +1559,7 @@ export function DatasetAnnotationWorkbench({
               onToggleTextExpansion={toggleTextExpansion}
               onOpenImageOverlay={openImageOverlay}
               onOpenAudioOverlay={openAudioOverlay}
+              onOpenVideoOverlay={openVideoOverlay}
               onNavigateBack={handleNavigateBack}
               onPanelDragOver={handleUnifiedDragOver}
               onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
@@ -1354,6 +1583,10 @@ export function DatasetAnnotationWorkbench({
               onAnnotationFieldDragStart={handleDragStart}
               onAnnotationFieldDragOver={handleUnifiedDragOver}
               onAnnotationFieldDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation')}
+              onUpdateFieldConfig={handleUpdateFieldConfig}
+              isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
+              cloneId={datasetId}
+              currentRowId={currentTask?._id}
             />
           }
           defaultLeftWidth={50}
@@ -1387,7 +1620,20 @@ export function DatasetAnnotationWorkbench({
       <AudioOverlay
         isOpen={audioOverlay.isOpen}
         audioUrl={audioOverlay.audioUrl}
+        audioUrls={audioOverlay.audioUrls}
+        currentIndex={audioOverlay.currentIndex}
         onClose={closeAudioOverlay}
+        onNavigate={navigateAudio}
+      />
+
+      {/* Video Overlay */}
+      <VideoOverlay
+        isOpen={videoOverlay.isOpen}
+        videoUrl={videoOverlay.videoUrl}
+        videoUrls={videoOverlay.videoUrls}
+        currentIndex={videoOverlay.currentIndex}
+        onClose={closeVideoOverlay}
+        onNavigate={navigateVideo}
       />
 
       {/* Completion Modal */}

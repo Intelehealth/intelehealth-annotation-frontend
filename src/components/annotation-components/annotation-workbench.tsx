@@ -31,9 +31,10 @@ import { fieldSelectionAPI } from '@/lib/api/field-config';
 import { csvProcessingAPI } from '@/lib/api/csv-processing';
 import { RowFooter, NewColumnDataPanel } from '@/components/new-column-components';
 import { MetadataDisplay } from './metadata-display';
-import { ImageOverlay, AudioOverlay } from './media-overlays';
+import { ImageOverlay, AudioOverlay, VideoOverlay } from './media-overlays';
 import { useToast } from '@/components/ui/toast';
 import { exportToCsv, ExportData } from '@/lib/csv-export-helper';
+import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
 
 interface Task {
   id: string;
@@ -63,6 +64,15 @@ interface ImageOverlay {
 interface AudioOverlay {
   isOpen: boolean;
   audioUrl: string;
+  audioUrls: string[];
+  currentIndex: number;
+}
+
+interface VideoOverlay {
+  isOpen: boolean;
+  videoUrl: string;
+  videoUrls: string[];
+  currentIndex: number;
 }
 
 interface AnnotationWorkbenchProps {
@@ -104,25 +114,27 @@ export function AnnotationWorkbench({
   const [audioOverlay, setAudioOverlay] = useState<AudioOverlay>({
     isOpen: false,
     audioUrl: '',
+    audioUrls: [],
+    currentIndex: 0,
+  });
+  const [videoOverlay, setVideoOverlay] = useState<VideoOverlay>({
+    isOpen: false,
+    videoUrl: '',
+    videoUrls: [],
+    currentIndex: 0,
   });
   const [draggedField, setDraggedField] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Record<string, any>>({});
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [datasetNewColumns, setDatasetNewColumns] = useState<any[]>([]);
 
   // Initialize ordered metadata fields when annotation config changes
   useEffect(() => {
     if (annotationConfig) {
       // Metadata fields are existing CSV columns that are NOT new columns
       const metadataFields = annotationConfig.annotationFields.filter(
-        (field) => !field.isAnnotationField && !field.isNewColumn
+        (field) => !field.isNewColumn
       );
-      console.log('Metadata fields (existing CSV columns only):', metadataFields.map(f => ({
-        csvColumnName: f.csvColumnName,
-        fieldName: f.fieldName,
-        // legacy log removed
-        isNewColumn: f.isNewColumn,
-        isAnnotationField: f.isAnnotationField
-      })));
       setOrderedMetadataFields(metadataFields);
     }
   }, [annotationConfig]);
@@ -168,6 +180,14 @@ export function AnnotationWorkbench({
               isRequired: Boolean(f.isRequired),
             }));
 
+            // Migrate existing duplicated data fields to linked references
+            const migration = DragDropHelper.migrateExistingDataFields(normalizedFields);
+            if (migration.migrated) {
+              console.log('Migrated existing data fields to linked references:', migration.migrationLog);
+              normalizedFields.length = 0;
+              normalizedFields.push(...migration.migratedFields);
+            }
+
             // Transform the dataset config to match the expected AnnotationConfig format
             const annotationConfig: AnnotationConfig = {
               _id: config._id || '',
@@ -199,6 +219,7 @@ export function AnnotationWorkbench({
               isNewColumn: f.isNewColumn
             })));
             setAnnotationConfig(annotationConfig);
+            setDatasetNewColumns(config.newColumns || []);
           } else {
             throw new Error('No field configuration found');
           }
@@ -779,23 +800,139 @@ export function AnnotationWorkbench({
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e: React.DragEvent, targetFieldName: string) => {
-    e.preventDefault();
-    if (!draggedField || draggedField === targetFieldName) return;
-
-    const newOrder = [...orderedMetadataFields];
-    const draggedIndex = newOrder.findIndex(field => field.csvColumnName === draggedField);
-    const targetIndex = newOrder.findIndex(field => field.csvColumnName === targetFieldName);
-
-    if (draggedIndex !== -1 && targetIndex !== -1) {
-      const draggedFieldData = newOrder[draggedIndex];
-      newOrder.splice(draggedIndex, 1);
-      newOrder.splice(targetIndex, 0, draggedFieldData);
-      setOrderedMetadataFields(newOrder);
+  // Unified drag handler using the DragDropHelper
+  const handleUnifiedDrop = async (e: React.DragEvent | null, targetFieldName: string, targetPanel: 'metadata' | 'annotation') => {
+    if (e) {
+      e.preventDefault();
     }
+    
+    if (!draggedField || !annotationConfig) return;
 
+    console.log('handleUnifiedDrop called with:', { draggedField, targetFieldName, targetPanel });
+
+    // Use the DragDropHelper to handle the operation
+    const params: DragDropParams = {
+      draggedField,
+      targetFieldName,
+      targetPanel,
+      annotationConfig,
+      orderedMetadataFields
+    };
+
+    const result = await DragDropHelper.handleDragDrop(params);
+
+    if (result.success) {
+      // Block cross-panel moves for non-admins before updating state
+      const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+      if (!isAdmin && result.changedPanels) {
+        showToast({
+          type: 'info',
+          title: 'Request Sent',
+          description: 'Only admins can modify field configuration. Please use the "Request Change" button instead.'
+        });
+        setDraggedField(null);
+        return;
+      }
+
+      // Update state based on result
+      if (result.updatedFields) {
+        setAnnotationConfig((prev) => (prev ? { ...prev, annotationFields: result.updatedFields! } : prev));
+      }
+      
+      if (result.updatedMetadataFields) {
+        setOrderedMetadataFields(result.updatedMetadataFields);
+      }
+
+      // Persist changes to backend
+      if (result.updatedFields) {
+        try {
+          await fieldSelectionAPI.saveDatasetFieldConfig({
+            datasetId,
+            annotationFields: result.updatedFields,
+            annotationLabels: annotationConfig.annotationLabels || [],
+            newColumns: datasetNewColumns || [],
+          });
+
+          showToast({
+            type: 'success',
+            title: 'Operation Successful',
+            description: result.message
+          });
+        } catch (error) {
+          console.error('Failed to persist changes:', error);
+          showToast({
+            type: 'error',
+            title: 'Save Failed',
+            description: 'Failed to save field configuration'
+          });
+        }
+      } else {
+        // For metadata-only reordering (no backend persistence needed)
+        showToast({
+          type: 'success',
+          title: 'Fields Reordered',
+          description: result.message
+        });
+      }
+    } else {
+      // Show error message
+      showToast({
+        type: 'error',
+        title: 'Operation Failed',
+        description: result.message
+      });
+    }
+    
     setDraggedField(null);
   };
+
+  // Save field configuration updates immediately to backend (debounced)
+  const handleUpdateFieldConfig = useCallback(async (updatedFields: AnnotationField[], updatedGroups?: any[]) => {
+    if (!annotationConfig) return;
+    
+    // Update local state immediately
+    setAnnotationConfig((prev) => {
+      if (!prev) return null;
+      const next = { ...prev, annotationFields: updatedFields };
+      if (updatedGroups) {
+        next.fieldGroups = updatedGroups;
+      }
+      return next;
+    });
+
+    // Also update orderedMetadataFields since layout depends on it
+    const metadataFields = updatedFields.filter((field) => !field.isNewColumn && !field.isAnnotationField);
+    setOrderedMetadataFields(metadataFields);
+    
+    // Debounce backend save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await fieldSelectionAPI.saveDatasetFieldConfig({
+          datasetId,
+          annotationFields: updatedFields,
+          annotationLabels: annotationConfig.annotationLabels || [],
+          newColumns: datasetNewColumns || [],
+          fieldGroups: updatedGroups !== undefined ? updatedGroups : (annotationConfig.fieldGroups || []),
+        });
+        showToast({
+          type: 'success',
+          title: 'Auto-saved',
+          description: 'Field configuration updated successfully.'
+        });
+      } catch (error) {
+        console.error('Failed to save updated field configuration:', error);
+        showToast({
+          type: 'error',
+          title: 'Save Failed',
+          description: 'Failed to auto-save field configuration changes.'
+        });
+      }
+    }, 800);
+  }, [annotationConfig, datasetId, datasetNewColumns, showToast]);
 
   // Field editing handlers
   const handleEditField = (fieldName: string) => {
@@ -924,10 +1061,12 @@ export function AnnotationWorkbench({
   };
 
   // Audio overlay handlers
-  const openAudioOverlay = (audioUrl: string) => {
+  const openAudioOverlay = (audioUrls: string[], startIndex: number = 0) => {
     setAudioOverlay({
       isOpen: true,
-      audioUrl,
+      audioUrl: audioUrls[startIndex] || '',
+      audioUrls,
+      currentIndex: startIndex,
     });
   };
 
@@ -935,7 +1074,58 @@ export function AnnotationWorkbench({
     setAudioOverlay({
       isOpen: false,
       audioUrl: '',
+      audioUrls: [],
+      currentIndex: 0,
     });
+  };
+
+  const navigateAudio = (direction: 'prev' | 'next') => {
+    const { audioUrls, currentIndex } = audioOverlay;
+    let newIndex = currentIndex;
+    if (direction === 'prev' && currentIndex > 0) {
+      newIndex = currentIndex - 1;
+    } else if (direction === 'next' && currentIndex < audioUrls.length - 1) {
+      newIndex = currentIndex + 1;
+    }
+    setAudioOverlay(prev => ({
+      ...prev,
+      currentIndex: newIndex,
+      audioUrl: audioUrls[newIndex] || '',
+    }));
+  };
+
+  // Video overlay handlers
+  const openVideoOverlay = (videoUrls: string[], startIndex: number = 0) => {
+    setVideoOverlay({
+      isOpen: true,
+      videoUrl: videoUrls[startIndex] || '',
+      videoUrls,
+      currentIndex: startIndex,
+    });
+  };
+
+  const closeVideoOverlay = () => {
+    setVideoOverlay({
+      isOpen: false,
+      videoUrl: '',
+      videoUrls: [],
+      currentIndex: 0,
+    });
+  };
+
+  const navigateVideo = (direction: 'prev' | 'next') => {
+    const { videoUrls, currentIndex } = videoOverlay;
+    let newIndex = currentIndex;
+    if (direction === 'prev' && currentIndex > 0) {
+      newIndex = currentIndex - 1;
+    } else if (direction === 'next' && currentIndex < videoUrls.length - 1) {
+      newIndex = currentIndex + 1;
+    }
+    setVideoOverlay(prev => ({
+      ...prev,
+      currentIndex: newIndex,
+      videoUrl: videoUrls[newIndex] || '',
+    }));
   };
 
   // Save all new column data function
@@ -1249,9 +1439,7 @@ export function AnnotationWorkbench({
   useEffect(() => {
     if (!currentTask || !annotationConfig) return;
 
-    const annotationFields = annotationConfig.annotationFields.filter(
-      (field) => field.isNewColumn || field.isAnnotationField
-    );
+    const annotationFields = annotationConfig.annotationFields;
 
     // Load existing data for this row from CSV row data
     const loadRowData = async () => {
@@ -1311,15 +1499,17 @@ export function AnnotationWorkbench({
         <MetadataDisplay
           metadata={{ ...metadata, rowIndex: currentTask?.rowIndex }}
           orderedMetadataFields={orderedMetadataFields}
+          linkedFieldNames={new Set(annotationConfig?.annotationFields.filter(f => f.isDataFieldLink).map(f => f.sourceCsvColumnName || f.csvColumnName) ?? [])}
           draggedField={draggedField}
           editingField={editingField}
           expandedTextFields={expandedTextFields}
           imageOverlay={imageOverlay}
           audioOverlay={audioOverlay}
+          videoOverlay={videoOverlay}
           onMetadataChange={setMetadata}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
-          onDrop={handleDrop}
+          onDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'metadata')}
           onEditField={handleEditField}
           onSaveField={handleSaveField}
           onSaveIndividualField={handleSaveIndividualField}
@@ -1327,7 +1517,10 @@ export function AnnotationWorkbench({
           onToggleTextExpansion={toggleTextExpansion}
           onOpenImageOverlay={openImageOverlay}
           onOpenAudioOverlay={openAudioOverlay}
+          onOpenVideoOverlay={openVideoOverlay}
           onNavigateBack={handleNavigateBack}
+          onPanelDragOver={handleDragOver}
+          onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
         />
 
         {/* Right Panel: New Column Data Entry */}
@@ -1341,6 +1534,17 @@ export function AnnotationWorkbench({
           isSaving={isSaving}
           completedCount={annotatedTasks.length}
           pendingCount={unannotatedTasks.length}
+          currentRowIndex={currentTask?.rowIndex}
+          onPanelDragOver={handleDragOver}
+          onDropFromMetadata={() => handleUnifiedDrop(null, '', 'annotation')}
+          draggedField={draggedField}
+          onAnnotationFieldDragStart={handleDragStart}
+          onAnnotationFieldDragOver={handleDragOver}
+          onAnnotationFieldDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation')}
+          onUpdateFieldConfig={handleUpdateFieldConfig}
+          isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
+          cloneId={datasetId}
+          currentRowId={currentTask?._id}
         />
               </div>
 
@@ -1367,7 +1571,20 @@ export function AnnotationWorkbench({
       <AudioOverlay
         isOpen={audioOverlay.isOpen}
         audioUrl={audioOverlay.audioUrl}
+        audioUrls={audioOverlay.audioUrls}
+        currentIndex={audioOverlay.currentIndex}
         onClose={closeAudioOverlay}
+        onNavigate={navigateAudio}
+      />
+
+      {/* Video Overlay */}
+      <VideoOverlay
+        isOpen={videoOverlay.isOpen}
+        videoUrl={videoOverlay.videoUrl}
+        videoUrls={videoOverlay.videoUrls}
+        currentIndex={videoOverlay.currentIndex}
+        onClose={closeVideoOverlay}
+        onNavigate={navigateVideo}
       />
     </div>
   );

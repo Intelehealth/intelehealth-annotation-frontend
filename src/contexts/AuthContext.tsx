@@ -18,6 +18,7 @@ interface User {
   firstName: string;
   lastName: string;
   role: string;
+  status: string;
   authProvider: 'local' | 'google';
   isActive: boolean;
   invitedByAdmin?: boolean;
@@ -38,7 +39,7 @@ interface AuthContextType {
   login: (
     email: string,
     password: string,
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; error?: string; code?: string }>;
   signup: (userData: {
     email: string;
     password: string;
@@ -140,6 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const response = await authAPI.login({ email, password });
+      if (response && response._isError) {
+        return { success: false, error: response.message, code: response.code };
+      }
 
       // Store token and user data
       localStorage.setItem('accessToken', response.accessToken);
@@ -159,28 +163,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       startHeartbeat();
 
-      // Dynamic routing based on role and tasks
+      // Dynamic routing based on role
       if (currentUser && currentUser.role && currentUser.role.toUpperCase() === 'ADMIN') {
         router.push('/dashboard');
       } else {
-        try {
-          const tasks = await datasetsAPI.getMyTasks();
-          if (tasks && tasks.length > 0) {
-            router.push('/tasks');
-          } else {
-            router.push('/dashboard');
-          }
-        } catch (taskError) {
-          console.error('Error fetching my tasks on redirect:', taskError);
-          router.push('/dashboard');
-        }
+        router.push('/documentation');
       }
 
       return { success: true };
     } catch (error: any) {
       console.error('Login error:', error);
       const errorMessage = error.response?.data?.message || 'Login failed';
-      return { success: false, error: errorMessage };
+      const errorCode = error.response?.data?.code;
+      return { success: false, error: errorMessage, code: errorCode };
     }
   };
 
@@ -192,6 +187,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }) => {
     try {
       const response = await authAPI.register(userData);
+      if (response && response._isError) {
+        return { success: false, error: response.message };
+      }
 
       // Store token and user data
       localStorage.setItem('accessToken', response.accessToken);
@@ -211,21 +209,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       startHeartbeat();
 
-      // Dynamic routing based on role and tasks
+      // Dynamic routing based on role
       if (currentUser && currentUser.role && currentUser.role.toUpperCase() === 'ADMIN') {
         router.push('/dashboard');
       } else {
-        try {
-          const tasks = await datasetsAPI.getMyTasks();
-          if (tasks && tasks.length > 0) {
-            router.push('/tasks');
-          } else {
-            router.push('/dashboard');
-          }
-        } catch (taskError) {
-          console.error('Error fetching my tasks on redirect:', taskError);
-          router.push('/dashboard');
-        }
+        router.push('/documentation');
       }
 
       return { success: true };
@@ -244,6 +232,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }) => {
     try {
       const response = await authAPI.registerAdmin(userData);
+      if (response && response._isError) {
+        return { success: false, error: response.message };
+      }
 
       // Store token and user data
       localStorage.setItem('accessToken', response.accessToken);
@@ -314,6 +305,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }) => {
     try {
       const response = await authAPI.activate(payload);
+      if (response && response._isError) {
+        return { success: false, error: response.message };
+      }
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('user', JSON.stringify(response.user));
       setUser(response.user);

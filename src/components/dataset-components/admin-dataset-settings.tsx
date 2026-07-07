@@ -119,6 +119,10 @@ export function AdminDatasetSettings({ datasetId }: AdminDatasetSettingsProps) {
                 role: 'ANNOTATOR' as const,
                 isActive: true,
                 authProvider: 'local' as const,
+                status: 'ACTIVE' as const,
+                firstLoginCompleted: true,
+                invitedByAdmin: true,
+                isOnline: false,
                 createdAt: '',
                 updatedAt: ''
               };
@@ -154,6 +158,10 @@ export function AdminDatasetSettings({ datasetId }: AdminDatasetSettingsProps) {
               role: 'ANNOTATOR' as const,
               isActive: true,
               authProvider: 'local' as const,
+              status: 'ACTIVE' as const,
+              firstLoginCompleted: true,
+              invitedByAdmin: true,
+              isOnline: false,
               createdAt: '',
               updatedAt: ''
             };
@@ -693,7 +701,7 @@ export function AdminDatasetSettings({ datasetId }: AdminDatasetSettingsProps) {
                           <div className="flex items-center space-x-3">
                             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                               <span className="text-sm font-medium text-blue-600">
-                                {sharedUser.firstName[0]}{sharedUser.lastName[0] || sharedUser.email[0].toUpperCase()}
+                                {sharedUser.firstName?.[0] ?? ''}{sharedUser.lastName?.[0] ?? sharedUser.email[0].toUpperCase()}
                               </span>
                             </div>
                             <div>

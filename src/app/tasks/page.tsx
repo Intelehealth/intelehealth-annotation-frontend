@@ -163,7 +163,14 @@ function TaskCard({ task, onOpen, onRefresh }: TaskCardProps) {
               <TypeIcon className="h-4 w-4 text-blue-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
+                {(task as any).pendingUpdate && (
+                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 animate-pulse">
+                    ⚠ Pending Update
+                  </span>
+                )}
+              </div>
               {parentName && (
                 <p className="text-xs text-indigo-500 flex items-center gap-1 mt-0.5">
                   <GitBranch className="h-3 w-3" />
@@ -234,14 +241,17 @@ export default function MyTasksPage() {
     if (authLoading) return;
     if (!isAuthenticated) { router.push('/login'); return; }
     if (user?.role?.toUpperCase() === 'ADMIN') { router.push('/dashboard'); return; }
-    if (!isInvited) { router.push('/dashboard'); return; }
-  }, [authLoading, isAuthenticated, user, router, isInvited]);
+  }, [authLoading, isAuthenticated, user, router]);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated && user?.role?.toUpperCase() !== 'ADMIN') {
-      loadTasks();
+      if (isInvited) {
+        loadTasks();
+      } else {
+        setLoading(false);
+      }
     }
-  }, [authLoading, isAuthenticated, user]);
+  }, [authLoading, isAuthenticated, user, isInvited]);
 
   const loadTasks = async () => {
     try {
@@ -282,6 +292,43 @@ export default function MyTasksPage() {
   }
 
   if (!isAuthenticated || user?.role?.toUpperCase() === 'ADMIN') return null;
+
+  if (!isInvited) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+
+        <main className="flex-1 overflow-auto">
+          <div className="p-6 max-w-5xl mx-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-2.5 mb-1">
+                  <ClipboardList className="h-6 w-6 text-blue-600" />
+                  <h1 className="text-2xl font-semibold text-gray-900">My Tasks</h1>
+                </div>
+                <p className="text-gray-500 text-sm">
+                  Datasets assigned to you for annotation
+                </p>
+              </div>
+            </div>
+
+            <Card className="border-amber-100 bg-amber-50/10">
+              <CardContent className="flex flex-col items-center py-16 text-center">
+                <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
+                  <AlertCircle className="h-8 w-8 text-amber-500" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-950 mb-2">Waiting for admin approval</h3>
+                <p className="text-sm text-gray-650 max-w-md">
+                  Your account has not yet been approved.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // Stats — all computed from real progress, never from stored taskStatus
   const notStarted = tasks.filter((t) => {

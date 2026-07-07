@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { ConsensusReview, ResolveConsensusRequest } from '@/types/feature1';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 const authHeaders = () => {
   const token = localStorage.getItem('accessToken');
@@ -43,7 +43,7 @@ export const consensusAPI = {
     return res.data;
   },
 
-  async exportCsv(datasetId: string, exportType: 'audit' | 'dataset' = 'audit'): Promise<void> {
+  async exportCsv(datasetId: string, exportType: string = 'audit'): Promise<void> {
     const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/export`, {
       params: { exportType },
       headers: authHeaders(),

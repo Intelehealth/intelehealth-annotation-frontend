@@ -130,6 +130,7 @@ export function CloneAssignModal({
   const available = allUsers.filter((u) => !selected.find((s) => s._id === u._id));
 
   const addUser = (user: UserResponse) => {
+    // Don't allow adding beyond max or if next count would exceed max
     if (selected.length >= CLONE_MAX_ANNOTATORS) return;
     setSelected((prev) => [...prev, user]);
     setComboOpen(false);
@@ -142,6 +143,14 @@ export function CloneAssignModal({
 
   const handleConfirm = async () => {
     if (selected.length < CLONE_MIN_ANNOTATORS) return;
+    if (!isOddCount(selected.length)) {
+      showToast({
+        title: 'Invalid annotator count',
+        description: 'Consensus and future LLM Evaluation require an odd number of annotators.',
+        type: 'error',
+      });
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -184,8 +193,8 @@ export function CloneAssignModal({
 
   const count = selected.length;
   const canAdd = count < CLONE_MAX_ANNOTATORS;
-  const canGoToStep2 = count >= CLONE_MIN_ANNOTATORS;
-  const showEvenWarning = count >= CLONE_MIN_ANNOTATORS && !isOddCount(count);
+  const canGoToStep2 = count >= CLONE_MIN_ANNOTATORS && isOddCount(count);
+  const showEvenWarning = count > 0 && !isOddCount(count);
 
   const getWorkloadBadgeClass = (userId: string) => {
     const tasks = workloads[userId] || 0;
@@ -276,8 +285,14 @@ export function CloneAssignModal({
           <div className="space-y-4 my-2">
             <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
               <p className="text-xs text-blue-700 leading-relaxed">
-                Choose between <strong>1 and 5 annotators</strong>. Each annotator will work on their own isolated clone of the dataset. For consensus review, add 2+ annotators to compare answers.
+                Select an <strong>odd number of annotators</strong> — <strong>1, 3, 5, 7, or 9</strong>. Each annotator works in their own isolated clone. Odd counts are required for consensus voting and future LLM Evaluation.
               </p>
+              <div className="flex items-center gap-1.5 mt-2">
+                {[1,3,5,7,9].map(n => (
+                  <span key={n} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">{n}</span>
+                ))}
+                <span className="text-[10px] text-blue-500 ml-1">allowed</span>
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
@@ -285,20 +300,22 @@ export function CloneAssignModal({
               <span
                 className={cn(
                   'text-xs font-medium px-2.5 py-1 rounded-full',
-                  count >= CLONE_MIN_ANNOTATORS
+                  isOddCount(count)
                     ? 'bg-green-100 text-green-700'
+                    : count > 0
+                    ? 'bg-red-100 text-red-700'
                     : 'bg-gray-100 text-gray-600'
                 )}
               >
-                {count} / {CLONE_MAX_ANNOTATORS} selected
+                {count} / {CLONE_MAX_ANNOTATORS} selected {count > 0 && !isOddCount(count) ? '— even not allowed' : ''}
               </span>
             </div>
 
             {showEvenWarning && (
-              <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-100 rounded-lg">
-                <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-700">
-                  Even counts (e.g. 2, 4) can result in tie votes. Consider adding one more annotator.
+              <div className="flex items-start gap-2 p-2.5 bg-red-50 border border-red-100 rounded-lg">
+                <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-red-700 font-medium">
+                  Consensus and future LLM Evaluation require an odd number of annotators.
                 </p>
               </div>
             )}

@@ -8,7 +8,7 @@ import type {
   CloneGroup,
 } from '@/types/feature1';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 // ─── Existing types (unchanged) ────────────────────────────────────────────────
 

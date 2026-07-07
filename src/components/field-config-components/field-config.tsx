@@ -26,16 +26,17 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
-  GitBranch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CSVColumnsDisplay } from './csv-columns-display';
 import { useToast } from '@/components/ui/toast';
-import { FieldGroup, VisibilityRule } from '@/types/feature1';
+import { FieldGroup, VisibilityRule, BranchOption } from '@/types/feature1';
 import { FieldGroupEditor } from './field-group-editor';
+import { RecursiveFieldEditor } from './recursive-field-editor';
+import { LivePreviewTree } from './live-preview-tree';
 import { FieldTypeConfigurator } from './field-type-configurator';
-import { ConditionalLogicEditor } from './conditional-logic-editor';
 import { DecisionCardEngine, parseOptions } from '@/components/new-column-components/new-column-data-panel';
+import { ConditionalFieldRenderer } from '@/components/new-column-components/conditional-field-renderer';
 
 function FieldLivePreview({ field }: { field: AnnotationField }) {
   const [value, setValue] = useState<string>('');
@@ -74,12 +75,20 @@ function FieldLivePreview({ field }: { field: AnnotationField }) {
       </div>
 
       <div className="pt-2 border-t border-gray-100">
-        <DecisionCardEngine
-          field={field}
-          options={richOptions}
-          value={value}
-          onChange={(val) => setValue(val)}
-        />
+        {field.branching?.enabled ? (
+          <ConditionalFieldRenderer
+            field={field}
+            formData={{ [field.fieldName]: value }}
+            onChange={(data) => setValue(data[field.fieldName] || '')}
+          />
+        ) : (
+          <DecisionCardEngine
+            field={field}
+            options={richOptions}
+            value={value}
+            onChange={(val) => setValue(val)}
+          />
+        )}
       </div>
 
       <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400 font-mono select-none">
@@ -123,13 +132,14 @@ interface NewColumn {
     max?: number;
     pattern?: string;
   };
+  branching?: any;
 }
 
 interface AnnotationField {
   id: string;
   csvColumnName: string;
   fieldName: string;
-  fieldType: 'text' | 'image' | 'audio';
+  fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'image' | 'audio' | 'video';
   isRequired: boolean;
   // true if it needs annotation (shown on right), false if metadata (left)
   isAnnotationField: boolean;
@@ -161,49 +171,7 @@ interface AnnotationField {
   helpText?: string;
   section?: string;
   visibilityRule?: VisibilityRule;
-}
-
-/**
- * Order fields so each conditional child immediately follows its trigger
- * question, returning the nesting depth for indentation. A field is a child
- * when its visibilityRule.dependsOn matches another field's fieldName.
- */
-function orderFieldsByHierarchy(
-  fields: AnnotationField[],
-): { field: AnnotationField; depth: number; parent?: AnnotationField }[] {
-  const byName = new Map<string, AnnotationField>();
-  fields.forEach((f) => {
-    if (f.fieldName) byName.set(f.fieldName, f);
-  });
-
-  const childrenOf = new Map<string, AnnotationField[]>();
-  const roots: AnnotationField[] = [];
-  fields.forEach((f) => {
-    const dep = f.visibilityRule?.dependsOn;
-    const parent = dep ? byName.get(dep) : undefined;
-    if (parent && parent.id !== f.id) {
-      const list = childrenOf.get(dep!) ?? [];
-      list.push(f);
-      childrenOf.set(dep!, list);
-    } else {
-      roots.push(f);
-    }
-  });
-
-  const ordered: { field: AnnotationField; depth: number; parent?: AnnotationField }[] = [];
-  const visited = new Set<string>();
-  const walk = (f: AnnotationField, depth: number, parent?: AnnotationField) => {
-    if (visited.has(f.id)) return; // cycle guard
-    visited.add(f.id);
-    ordered.push({ field: f, depth, parent });
-    (childrenOf.get(f.fieldName) ?? []).forEach((c) => walk(c, depth + 1, f));
-  };
-  roots.forEach((r) => walk(r, 0));
-  // Any field left unvisited (e.g. a dependency cycle) falls back to top level.
-  fields.forEach((f) => {
-    if (!visited.has(f.id)) ordered.push({ field: f, depth: 0 });
-  });
-  return ordered;
+  branching?: any;
 }
 
 
@@ -240,9 +208,7 @@ export function FieldConfig({
   const [fieldGroups, setFieldGroups] = useState<FieldGroup[]>([]);
   const [editingGroup, setEditingGroup] = useState<FieldGroup | null>(null);
   const [showGroupEditor, setShowGroupEditor] = useState(false);
-  const [_isLocked, setIsLocked] = useState(false);
   const [totalCSVFiles, setTotalCSVFiles] = useState(0);
-  const isLocked = _isLocked || totalCSVFiles > 1;
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [datasetLoadingError, setDatasetLoadingError] = useState<string | null>(
@@ -287,9 +253,6 @@ export function FieldConfig({
       console.log('Dataset response:', dataset);
 
       if (dataset) {
-        if ((dataset as any).datasetLockStatus === 'LOCKED') {
-          setIsLocked(true);
-        }
         if (typeof (dataset as any).totalCSVFiles === 'number') {
           setTotalCSVFiles((dataset as any).totalCSVFiles);
         }
@@ -384,6 +347,9 @@ export function FieldConfig({
               helpText: field.helpText,
               section: field.section,
               visibilityRule: field.visibilityRule,
+
+              // Nested Conditional Workflow
+              branching: field.branching,
             } as AnnotationField;
             // Enforce invariant: primary key cannot be an annotation field
             if (cleanField.isPrimaryKey) {
@@ -400,8 +366,6 @@ export function FieldConfig({
         const progressStarted = config.completedRows > 0 || (config.rowAnnotations || []).some(
           (row: any) => row.status !== 'pending' || (row.annotations && Object.keys(row.annotations).length > 0)
         );
-        setIsLocked(progressStarted);
-        
         // Update selected columns based on existing annotation fields
         const existingColumnNames = cleanFields
           .filter((field: AnnotationField) => !field.isNewColumn)
@@ -420,9 +384,6 @@ export function FieldConfig({
       const dataset = await datasetsAPI.getById(datasetId);
       console.log('Dataset info loaded:', dataset);
       if (dataset) {
-        if ((dataset as any).datasetLockStatus === 'LOCKED') {
-          setIsLocked(true);
-        }
         if (typeof (dataset as any).totalCSVFiles === 'number') {
           setTotalCSVFiles((dataset as any).totalCSVFiles);
         }
@@ -440,26 +401,15 @@ export function FieldConfig({
   const handleFieldChange = (fieldId: string, updates: Partial<AnnotationField>) => {
     // 1. Update annotationFields
     setAnnotationFields((currentFields) => {
-      const target = currentFields.find((f) => f.id === fieldId);
-      const oldName = target?.fieldName;
-      const newName = updates.fieldName;
-      // When a trigger question is renamed, re-point its conditional children
-      // so nested follow-up questions stay wired to it.
-      const renamed =
-        newName !== undefined && !!oldName && newName !== oldName;
       return currentFields.map((field) => {
         if (field.id === fieldId) {
-          return { ...field, ...updates };
-        }
-        if (renamed && field.visibilityRule?.dependsOn === oldName) {
-          return {
-            ...field,
-            visibilityRule: { ...field.visibilityRule, dependsOn: newName! },
-          };
+          const updatedField = { ...field, ...updates };
+          return updatedField;
         }
         return field;
       });
     });
+    setHasChanges(true);
 
     // 2. If it is a new column, synchronize with newColumns list
     const field = annotationFields.find(f => f.id === fieldId);
@@ -525,6 +475,9 @@ export function FieldConfig({
             if (updates.rows !== undefined) {
               columnUpdates.rows = updates.rows;
             }
+            if (updates.branching !== undefined) {
+              columnUpdates.branching = updates.branching;
+            }
             return { ...col, ...columnUpdates };
           }
           return col;
@@ -539,6 +492,7 @@ export function FieldConfig({
     if (!field.isAnnotationField) {
       if (field.fieldType === 'image') return 'image';
       if (field.fieldType === 'audio') return 'audio';
+      if (field.fieldType === 'video') return 'video';
       return 'text-metadata';
     }
     return field.columnType || 'text';
@@ -551,6 +505,9 @@ export function FieldConfig({
       updates.isAnnotationField = false;
     } else if (type === 'audio') {
       updates.fieldType = 'audio';
+      updates.isAnnotationField = false;
+    } else if (type === 'video') {
+      updates.fieldType = 'video';
       updates.isAnnotationField = false;
     } else if (type === 'text-metadata') {
       updates.fieldType = 'text';
@@ -628,64 +585,6 @@ export function FieldConfig({
       newColumnId: newColumn.id,
     };
     setAnnotationFields([...annotationFields, newField]);
-    setHasChanges(true);
-  };
-
-  /**
-   * Add a new column question that is shown only when `parentField` is answered
-   * a certain way — i.e. a nested/follow-up question. The child is pre-wired
-   * with a visibility rule depending on the parent and rendered indented
-   * underneath it; the author then names it and picks the trigger answer.
-   */
-  const addNestedQuestion = (parentField: AnnotationField) => {
-    if (!parentField.fieldName) return;
-
-    // Seed the trigger value with the parent's first option for choice types.
-    const choiceTypes = ['select', 'radio', 'multiselect'];
-    const firstOption = parentField.options?.[0] ?? '';
-    const optionLabel = firstOption.includes(':')
-      ? firstOption.slice(0, firstOption.indexOf(':'))
-      : firstOption;
-    const seedValue = choiceTypes.includes(parentField.columnType || '')
-      ? optionLabel
-      : '';
-
-    const newColumnId = Date.now().toString();
-    const fieldId = `${newColumnId}_field`;
-
-    const newColumn: NewColumn = {
-      id: newColumnId,
-      columnName: '',
-      columnType: 'text',
-      isRequired: false,
-      defaultValue: '',
-      placeholder: '',
-      validation: {},
-    };
-
-    const newField: AnnotationField = {
-      id: fieldId,
-      csvColumnName: '',
-      fieldName: '',
-      fieldType: 'text',
-      isRequired: false,
-      isAnnotationField: true,
-      isPrimaryKey: false,
-      options: [],
-      isNewColumn: true,
-      newColumnId,
-      columnType: 'text',
-      visibilityRule: {
-        dependsOn: parentField.fieldName,
-        operator: 'equals',
-        value: seedValue,
-      },
-    };
-
-    setNewColumns((cols) => [...cols, newColumn]);
-    setAnnotationFields((fields) => [...fields, newField]);
-    // Auto-expand the new child so the author can configure it immediately.
-    setExpandedRows((prev) => new Set(prev).add(fieldId));
     setHasChanges(true);
   };
 
@@ -838,7 +737,7 @@ export function FieldConfig({
 
     // Validate selectrange fields require start and end
     const allFields = [...annotationFields.filter(f => f.isNewColumn), ...newColumns];
-    allFields.forEach(field => {
+    allFields.forEach((field: any) => {
       if (field.columnType === 'selectrange' || field.fieldType === 'selectrange') {
         const start = field.rangeStart;
         const end = field.rangeEnd;
@@ -863,22 +762,25 @@ export function FieldConfig({
     setLoading(true);
     try {
       console.log('Saving field configuration for dataset:', datasetId);
-      console.log('Annotation fields:', annotationFields);
 
-      await fieldSelectionAPI.saveDatasetFieldConfig({
+      // Build payload with full deep-cloned recursive structures
+      const payload = {
         datasetId,
         annotationFields: annotationFields.map((field) => ({
           id: field.id || field.fieldName || `field-${Math.random().toString(36).substr(2, 9)}`,
           csvColumnName: field.csvColumnName,
           fieldName: field.fieldName,
-          fieldType: field.fieldType,
+          fieldType: field.fieldType === 'radio' || field.fieldType === 'rating' || field.fieldType === 'multiselect'
+            || field.fieldType === 'select' || field.fieldType === 'checkbox' || field.fieldType === 'selectrange'
+            || field.fieldType === 'textarea' || field.fieldType === 'number' || field.fieldType === 'date'
+            ? 'text' : (field.fieldType || 'text'),
           isRequired: field.isRequired,
           isAnnotationField: field.isAnnotationField,
           isPrimaryKey: field.isPrimaryKey,
           options: Array.isArray(field.options) ? field.options.map(o => o.trim()).filter(Boolean) : field.options,
           isNewColumn: field.isNewColumn,
           newColumnId: field.newColumnId,
-          columnType: field.columnType,
+          columnType: field.columnType || (field.fieldType !== 'text' && field.fieldType !== 'image' && field.fieldType !== 'audio' && field.fieldType !== 'video' ? field.fieldType : undefined),
           placeholder: field.placeholder,
           defaultValue: field.defaultValue,
           maxLength: field.maxLength,
@@ -894,39 +796,109 @@ export function FieldConfig({
           maxRating: field.maxRating,
           allowHalf: field.allowHalf,
           rows: field.rows,
-          // NEW Redesign properties
           questionTitle: field.questionTitle,
           questionDescription: field.questionDescription,
           helpText: field.helpText,
           section: field.section,
           visibilityRule: field.visibilityRule,
+          branching: field.branching ? structuredClone(field.branching) : undefined,
         })),
-        annotationLabels: [], // Empty array since we removed annotation labels
-        newColumns: newColumns.map((column) => ({
-          id: column.id,
-          columnName: column.columnName,
-          columnType: column.columnType,
-          isRequired: column.isRequired,
-          defaultValue: column.defaultValue,
-          options: Array.isArray(column.options) ? column.options.map(o => o.trim()).filter(Boolean) : column.options,
-          placeholder: column.placeholder,
-          maxLength: column.maxLength,
-          min: column.min,
-          max: column.max,
-          step: column.step,
-          rangeStart: column.rangeStart,
-          rangeEnd: column.rangeEnd,
-          rangeStep: column.rangeStep,
-          maxSelections: column.maxSelections,
-          minDate: column.minDate,
-          maxDate: column.maxDate,
-          maxRating: column.maxRating,
-          allowHalf: column.allowHalf,
-          rows: column.rows,
-          validation: column.validation,
-        })),
-        fieldGroups: fieldGroups,
+        annotationLabels: [],
+        newColumns: newColumns.map((column) => {
+          const mapped = {
+            id: column.id,
+            columnName: column.columnName,
+            columnType: column.columnType,
+            isRequired: column.isRequired,
+            defaultValue: column.defaultValue,
+            options: Array.isArray(column.options) ? column.options.map(o => o.trim()).filter(Boolean) : column.options,
+            placeholder: column.placeholder,
+            maxLength: column.maxLength,
+            min: column.min,
+            max: column.max,
+            step: column.step,
+            rangeStart: column.rangeStart,
+            rangeEnd: column.rangeEnd,
+            rangeStep: column.rangeStep,
+            maxSelections: column.maxSelections,
+            minDate: column.minDate,
+            maxDate: column.maxDate,
+            maxRating: column.maxRating,
+            allowHalf: column.allowHalf,
+            rows: column.rows,
+            validation: column.validation,
+            branching: column.branching ? structuredClone(column.branching) : undefined,
+          };
+          return mapped;
+        }),
+        fieldGroups: fieldGroups ? structuredClone(fieldGroups) : [],
+      };
+
+      // === DEBUG: Verify branching exists before sending ===
+      const getBranchingDepth = (branching: any): number => {
+        if (!branching || !branching.enabled || !branching.options) return 0;
+        let maxChildDepth = 0;
+        for (const option of branching.options) {
+          if (option.childFields && option.childFields.length > 0) {
+            for (const child of option.childFields) {
+              const childDepth = child.branching ? getBranchingDepth(child.branching) : 0;
+              if (childDepth > maxChildDepth) {
+                maxChildDepth = childDepth;
+              }
+            }
+          }
+        }
+        return 1 + maxChildDepth;
+      };
+
+      const getOptionWiseChildCount = (branching: any, depth = 1): any[] => {
+        if (!branching || !branching.enabled || !branching.options) return [];
+        return branching.options.map((option: any) => {
+          const children = option.childFields || [];
+          const childDetails = children.map((c: any) => ({
+            fieldName: c.fieldName || c.columnName,
+            hasBranching: !!c.branching?.enabled,
+            nested: c.branching ? getOptionWiseChildCount(c.branching, depth + 1) : []
+          }));
+          return {
+            optionValue: option.value,
+            depth,
+            childCount: children.length,
+            childDetails
+          };
+        });
+      };
+
+      const afBranching = payload.annotationFields.filter((f: any) => f.branching);
+      const ncBranching = payload.newColumns.filter((c: any) => c.branching);
+      
+      console.log('--- SAVE DEBUG START ---');
+      afBranching.forEach((f: any) => {
+        console.log(`[SAVE DEBUG] Field: ${f.fieldName}`);
+        console.log(`SAVE DEBUG: branching tree depth: ${getBranchingDepth(f.branching)}`);
+        console.log(`SAVE DEBUG: option-wise child count:`, JSON.stringify(getOptionWiseChildCount(f.branching), null, 2));
       });
+      ncBranching.forEach((c: any) => {
+        console.log(`[SAVE DEBUG] New Column: ${c.columnName}`);
+        console.log(`SAVE DEBUG: branching tree depth: ${getBranchingDepth(c.branching)}`);
+        console.log(`SAVE DEBUG: option-wise child count:`, JSON.stringify(getOptionWiseChildCount(c.branching), null, 2));
+      });
+
+      const fgBranching = (payload.fieldGroups || []).filter((g: any) => g.fields?.some((f: any) => f.branching));
+      console.log('[SAVE DEBUG] fieldGroups with branching:', fgBranching.length);
+      fgBranching.forEach((g: any) => {
+        g.fields.forEach((f: any) => {
+          if (f.branching) {
+            console.log(`[SAVE DEBUG] FieldGroup field: ${f.fieldName}`);
+            console.log(`SAVE DEBUG: branching tree depth: ${getBranchingDepth(f.branching)}`);
+            console.log(`SAVE DEBUG: option-wise child count:`, JSON.stringify(getOptionWiseChildCount(f.branching), null, 2));
+          }
+        });
+      });
+      console.log('[SAVE DEBUG] Full payload:', JSON.stringify(payload, null, 2));
+      console.log('--- SAVE DEBUG END ---');
+
+      await fieldSelectionAPI.saveDatasetFieldConfig(payload);
 
       setHasChanges(false);
       showToast({
@@ -1015,7 +987,6 @@ export function FieldConfig({
 
   // Handle column selection from CSV display
   const handleColumnClick = (columnName: string) => {
-    if (isLocked) return;
     // Check if column is already selected
     if (selectedColumns.has(columnName)) {
       // Remove from selection and annotation fields
@@ -1052,7 +1023,6 @@ export function FieldConfig({
   };
 
   const handleSelectAll = () => {
-    if (isLocked) return;
     const csvCols = availableColumns.csvColumns.map(col => col.name);
     setSelectedColumns(new Set(csvCols));
     setAnnotationFields(prev => {
@@ -1075,14 +1045,12 @@ export function FieldConfig({
   };
 
   const handleClearAll = () => {
-    if (isLocked) return;
     setSelectedColumns(new Set());
     setAnnotationFields(prev => prev.filter(f => f.isNewColumn));
     setHasChanges(true);
   };
 
   const handleInvertSelection = () => {
-    if (isLocked) return;
     const csvCols = availableColumns.csvColumns.map(col => col.name);
     const newSelected = new Set<string>();
     csvCols.forEach(col => {
@@ -1127,23 +1095,7 @@ export function FieldConfig({
         </p>
       </div>
 
-      {/* Lock Banner */}
-      {isLocked && (
-        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl flex items-start space-x-3 shadow-xs animate-fadeIn">
-          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-bold text-sm">
-              {totalCSVFiles > 1 ? 'Field Configuration Locked' : 'Dataset configuration is locked'}
-            </h4>
-            <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
-              {totalCSVFiles > 1 
-                ? 'Dataset contains multiple upload batches. Changing schema may corrupt existing annotations.'
-                : 'This dataset is currently assigned to annotators. To preserve data integrity and prevent schema mismatches, the field configurations and column selections cannot be modified.'
-              }
-            </p>
-          </div>
-        </div>
-      )}
+
 
       {datasetLoadingError && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center space-x-2">
@@ -1254,7 +1206,7 @@ export function FieldConfig({
                       setEditingGroup(null);
                       setShowGroupEditor(true);
                     }}
-                    disabled={isLocked}
+                    disabled={false}
                     size="sm"
                     className="bg-purple-600 hover:bg-purple-700 h-8 text-xs text-white"
                   >
@@ -1298,7 +1250,7 @@ export function FieldConfig({
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={isLocked}
+                          disabled={false}
                           onClick={() => {
                             if (window.confirm("Delete Group?\nThis action cannot be undone.")) {
                               setFieldGroups(fieldGroups.filter((g) => g.groupId !== group.groupId));
@@ -1334,7 +1286,6 @@ export function FieldConfig({
                     ...annotationFields.map(f => f.fieldName.toLowerCase()),
                   ])
                 }
-                isLocked={isLocked}
                 onSave={(group) => {
                   if (editingGroup) {
                     setFieldGroups(
@@ -1373,7 +1324,7 @@ export function FieldConfig({
             <CardContent className="p-4">
                   {annotationFields.length > 0 ? (
                     <div className="space-y-4">
-                      {orderFieldsByHierarchy(annotationFields).map(({ field, depth, parent }) => {
+                      {annotationFields.map((field) => {
                         const newColumn = field.isNewColumn ? newColumns.find(col => col.id === field.newColumnId) : null;
                         const unifiedTypes = [
                           { value: 'text', label: 'Text Input' },
@@ -1386,6 +1337,9 @@ export function FieldConfig({
                           { value: 'multiselect', label: 'Multiple Select Checkboxes' },
                           { value: 'date', label: 'Date Picker' },
                           { value: 'rating', label: 'Star Rating' },
+                          { value: 'image', label: 'Image' },
+                          { value: 'audio', label: 'Audio' },
+                          { value: 'video', label: 'Video' },
                         ];
 
                         const metadataTypes = [
@@ -1395,31 +1349,16 @@ export function FieldConfig({
                         const options = field.isNewColumn ? unifiedTypes : [...unifiedTypes, ...metadataTypes];
                         const currentUnifiedType = getUnifiedType(field);
                         const isInputType = unifiedTypes.some(opt => opt.value === currentUnifiedType);
-                        const isTypeDisabled = isLocked || Boolean(field.isPrimaryKey);
+                        const isTypeDisabled = Boolean(field.isPrimaryKey);
 
                         return (
-                          <div
-                            key={field.id}
-                            style={depth > 0 ? { marginLeft: depth * 28 } : undefined}
-                            className={depth > 0 ? "border-l-4 border-l-teal-300 pl-3 rounded-l" : undefined}
-                          >
-                          <Card
+                          <Card 
+                            key={field.id} 
                             className={cn(
                               "border border-gray-200 shadow-sm overflow-hidden bg-white transition-all duration-200",
                               field.isNewColumn ? "hover:border-purple-200" : "hover:border-blue-200"
                             )}
                           >
-                            {depth > 0 && parent && (
-                              <div className="px-4 pt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-teal-700">
-                                <GitBranch className="h-3.5 w-3.5" />
-                                <span>
-                                  Follow-up to{' '}
-                                  <span className="text-teal-800">
-                                    {parent.questionTitle || parent.fieldName}
-                                  </span>
-                                </span>
-                              </div>
-                            )}
                             <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                               {/* Left Part: Name & Selection */}
                               <div className="flex-1 min-w-0">
@@ -1428,7 +1367,7 @@ export function FieldConfig({
                                     <Input
                                       placeholder="Column name"
                                       value={newColumn?.columnName || ''}
-                                      disabled={isLocked}
+                                      disabled={false}
                                       onChange={(e) => {
                                         const columnName = e.target.value;
                                         handleFieldChange(field.id, {
@@ -1511,7 +1450,7 @@ export function FieldConfig({
                                       id={`pk-${field.id}`}
                                       checked={Boolean(field.isPrimaryKey)}
                                       onChange={(e) => togglePrimaryKey(field.id, e.target.checked)}
-                                      disabled={isLocked}
+                                      disabled={false}
                                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
                                     />
                                     <Label htmlFor={`pk-${field.id}`} className="text-xs text-gray-600 cursor-pointer font-medium select-none">
@@ -1539,7 +1478,7 @@ export function FieldConfig({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  disabled={isLocked}
+                                  disabled={false}
                                   onClick={() => {
                                     if (field.isNewColumn) {
                                       removeNewColumn(field.newColumnId!);
@@ -1560,66 +1499,44 @@ export function FieldConfig({
                               </div>
                             </div>
 
-                            {/* Expanded Config Panel — simplified: only Field Behavior & Validation */}
+                            {/* Expanded Config Panel */}
                             {expandedRows.has(field.id) && isInputType && (
                               <div className="px-4 pb-4 pt-3 border-t border-gray-100 bg-gray-50/50">
-                                <FieldTypeConfigurator
-                                  type={currentUnifiedType}
-                                  field={field}
-                                  onChange={(updates) => handleFieldChange(field.id, updates)}
-                                  isLocked={isLocked}
-                                />
-
-                                {/* Conditional / nested-question logic */}
-                                <div className="mt-4 pt-4 border-t border-gray-100">
-                                  <ConditionalLogicEditor
-                                    rule={field.visibilityRule}
-                                    candidates={annotationFields
-                                      .filter(
-                                        (f) =>
-                                          f.id !== field.id &&
-                                          f.isAnnotationField &&
-                                          !!f.fieldName,
-                                      )
-                                      .map((f) => ({
-                                        fieldName: f.fieldName,
-                                        label: f.questionTitle || f.fieldName,
-                                        columnType: f.columnType,
-                                        options: f.options,
-                                      }))}
-                                    onChange={(r) =>
-                                      handleFieldChange(field.id, {
-                                        visibilityRule: r ?? undefined,
-                                      })
-                                    }
-                                    isLocked={isLocked}
-                                  />
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                  {/* LEFT: Configuration */}
+                                  <div className="space-y-4">
+                                    <FieldTypeConfigurator
+                                      type={currentUnifiedType}
+                                      field={field}
+                                      onChange={(updates) => handleFieldChange(field.id, updates)}
+                                    />
+                                    {/* Recursive Branching Editor for choice types */}
+                                    {['radio', 'multiselect', 'select', 'rating', 'checkbox'].includes(currentUnifiedType) && (
+                                      <div className="pt-4 border-t border-gray-200">
+                                        <RecursiveFieldEditor
+                                          field={field}
+                                          depth={0}
+                                          onChange={(updated) => handleFieldChange(field.id, updated)}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                  {/* RIGHT: Live Preview Tree */}
+                                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                      <span>👁</span> Live Workflow Tree
+                                    </h4>
+                                    <LivePreviewTree fields={[field]} />
+                                    {!['radio', 'multiselect', 'select', 'rating', 'checkbox'].includes(currentUnifiedType) && (
+                                      <div className="text-xs text-gray-400 italic mt-4 text-center">
+                                        Branching is only available for choice-based fields (Radio, Multi-Select, Dropdown, Rating).
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             )}
-
-                            {/* Add a nested follow-up question triggered by this one */}
-                            {field.isAnnotationField && isInputType && (
-                              <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/40">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={isLocked || !field.fieldName}
-                                  onClick={() => addNestedQuestion(field)}
-                                  title={
-                                    field.fieldName
-                                      ? 'Add a question shown only when this one has a specific answer'
-                                      : 'Name this question first to add a follow-up'
-                                  }
-                                  className="h-7 text-xs font-medium text-teal-700 hover:text-teal-800 hover:bg-teal-50 flex items-center gap-1.5 disabled:opacity-40"
-                                >
-                                  <GitBranch className="h-3.5 w-3.5" />
-                                  Add follow-up question
-                                </Button>
-                              </div>
-                            )}
                           </Card>
-                          </div>
                         );
                       })}
                     </div>
@@ -1636,12 +1553,12 @@ export function FieldConfig({
                   )}
                 </CardContent>
               
-{/* Inline validation errors */}
+                {/* Inline validation errors */}
                 {(() => {
                   const selectrangeErrors = [...annotationFields.filter(f => f.isNewColumn), ...newColumns]
-                    .filter(f => (f.columnType === 'selectrange' || f.fieldType === 'selectrange'))
-                    .filter(f => !f.rangeStart || !f.rangeEnd)
-                    .map(f => f.columnName || f.fieldName || 'Unnamed field');
+                    .filter((f: any) => (f.columnType === 'selectrange' || f.fieldType === 'selectrange'))
+                    .filter((f: any) => !f.rangeStart || !f.rangeEnd)
+                    .map((f: any) => f.columnName || f.fieldName || 'Unnamed field');
                   
                   if (selectrangeErrors.length > 0) {
                     return (
@@ -1661,7 +1578,7 @@ export function FieldConfig({
                   <div className="flex justify-between">
                     <Button
                       onClick={addNewColumn}
-                      disabled={isLocked}
+                      disabled={false}
                       size="sm"
                       className="bg-green-600 hover:bg-green-700 h-8 px-3 text-sm"
                     >
@@ -1671,9 +1588,9 @@ export function FieldConfig({
                     <Button
                       variant="outline"
                       onClick={handleSave}
-                      disabled={!hasChanges || loading || isLocked || (() => {
+                      disabled={!hasChanges || loading || (() => {
                         const hasErrors = [...annotationFields.filter(f => f.isNewColumn), ...newColumns]
-                          .some(f => (f.columnType === 'selectrange' || f.fieldType === 'selectrange') && (!f.rangeStart || !f.rangeEnd));
+                          .some((f: any) => (f.columnType === 'selectrange' || f.fieldType === 'selectrange') && (!f.rangeStart || !f.rangeEnd));
                         return hasErrors;
                       })()}
                       className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 h-8 px-3 text-sm"
@@ -1685,42 +1602,6 @@ export function FieldConfig({
                </div>
             </Card>
         </div>
-      )}
-
-      {/* Status and Progress */}
-      {(availableColumns.csvColumns.length > 0 ||
-        availableColumns.manualColumns.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <span>Configuration Status</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {annotationFields.length}
-                </div>
-                <div className="text-sm text-gray-600">Fields Configured</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-600">
-                  {availableColumns.csvColumns.length +
-                    availableColumns.manualColumns.length}
-                </div>
-                <div className="text-sm text-gray-600">Available Columns</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-teal-600">
-                  {newColumns.length}
-                </div>
-                <div className="text-sm text-gray-600">New Columns</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       )}
     </div>
   );

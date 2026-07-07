@@ -1,5 +1,5 @@
 import { jsonApi } from '../api';
-import { VisibilityRule } from '@/types/feature1';
+import { VisibilityRule, BranchOption } from '@/types/feature1';
 
 export interface CSVRowData {
   rowIndex: number;
@@ -35,7 +35,7 @@ export interface CSVImport {
 export interface AnnotationField {
   csvColumnName: string;
   fieldName: string;
-  fieldType: 'text' | 'image' | 'audio';
+  fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'image' | 'audio' | 'video';
   isRequired: boolean;
   // true if it needs annotation (right panel); false if metadata (left)
   isAnnotationField: boolean;
@@ -69,6 +69,15 @@ export interface AnnotationField {
   helpText?: string;
   section?: string;
   visibilityRule?: VisibilityRule;
+  branching?: {
+    enabled: boolean;
+    options: BranchOption[];
+  };
+
+  // Data field link — when true, this field is a read-only reference to a source data field
+  isDataFieldLink?: boolean;
+  // The csvColumnName of the source data field this link refers to
+  sourceCsvColumnName?: string;
 }
 
 export interface AnnotationConfig {

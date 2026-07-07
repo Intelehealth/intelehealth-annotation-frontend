@@ -480,15 +480,26 @@ export function UsersManagement() {
                       </Button>
                     </div>
                   ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleInviteExisting(user._id)}
-                      className="text-blue-600 border-blue-200 hover:bg-blue-50 rounded-xl text-xs h-8 px-3"
-                    >
-                      <UserPlus className="h-3.5 w-3.5 mr-1" />
-                      Invite
-                    </Button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleApproveUser(user._id)}
+                        className="text-green-600 border-green-205 hover:bg-green-50 rounded-xl text-xs h-8 px-2.5 font-semibold flex items-center gap-1 bg-white"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        Approve
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRejectUser(user._id)}
+                        className="text-red-650 border-red-200 hover:bg-red-50 rounded-xl text-xs h-8 px-2.5 font-semibold flex items-center gap-1 bg-white"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Reject
+                      </Button>
+                    </div>
                   )}
                 </td>
               </tr>
@@ -513,6 +524,42 @@ export function UsersManagement() {
       showToast({
         title: 'Error',
         description: err.response?.data?.message || 'Failed to change status',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleApproveUser = async (userId: string) => {
+    try {
+      const updated = await usersAPI.updateStatus(userId, 'ACTIVE');
+      setUsers((prev) => prev.map((u) => (u._id === userId ? updated : u)));
+      showToast({
+        title: 'User Approved',
+        description: 'The user has been successfully approved.',
+        type: 'success',
+      });
+    } catch (err: any) {
+      showToast({
+        title: 'Error',
+        description: err.response?.data?.message || 'Failed to approve user',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleRejectUser = async (userId: string) => {
+    try {
+      const updated = await usersAPI.updateStatus(userId, 'DISABLED');
+      setUsers((prev) => prev.map((u) => (u._id === userId ? updated : u)));
+      showToast({
+        title: 'User Rejected',
+        description: 'The user has been rejected.',
+        type: 'success',
+      });
+    } catch (err: any) {
+      showToast({
+        title: 'Error',
+        description: err.response?.data?.message || 'Failed to reject user',
         type: 'error',
       });
     }
@@ -962,16 +1009,29 @@ export function UsersManagement() {
               )}
 
               {selectedUser.invitedByAdmin === false && (
-                <Button
-                  onClick={() => {
-                    handleInviteExisting(selectedUser._id);
-                    setIsDrawerOpen(false);
-                  }}
-                  className="w-full rounded-xl h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm flex items-center justify-center gap-2"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Invite User
-                </Button>
+                <div className="flex gap-2 w-full">
+                  <Button
+                    onClick={() => {
+                      handleApproveUser(selectedUser._id);
+                      setIsDrawerOpen(false);
+                    }}
+                    className="flex-1 rounded-xl h-11 bg-green-600 hover:bg-green-700 text-white font-semibold shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <Check className="h-4 w-4" />
+                    Approve
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handleRejectUser(selectedUser._id);
+                      setIsDrawerOpen(false);
+                    }}
+                    variant="outline"
+                    className="flex-1 rounded-xl h-11 border-red-200 text-red-650 hover:bg-red-50 font-semibold flex items-center justify-center gap-2 bg-white"
+                  >
+                    <X className="h-4 w-4" />
+                    Reject
+                  </Button>
+                </div>
               )}
 
               {selectedUser.role?.toUpperCase() === 'ADMIN' && (
