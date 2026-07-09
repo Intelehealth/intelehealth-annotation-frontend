@@ -1,1 +1,83 @@
+name: Deploy Frontend to Cloud Run
 
+# Builds the Next.js standalone image and deploys it to Cloud Run.
+# NEXT_PUBLIC_API_URL is baked into the client bundle at BUILD time, so it is
+# passed as a Docker build-arg here (it is a public value, not a secret).
+
+on:
+  push:
+    branches: [feature/nested-conditional-questions]
+  workflow_dispatch: {}   # allow manual runs from the Actions tab
+
+env:
+  PROJECT_ID: refined-outlet-249712
+  REGION: asia-south1
+  SERVICE_NAME: data-annotation-frontend
+  # Artifact Registry: <region>-docker.pkg.dev/<project>/<repo>/<image>
+  AR_REPO: data-annotation
+  IMAGE_NAME: frontend
+  # Deployed backend base URL — baked into the frontend at build time.
+  NEXT_PUBLIC_API_URL: https://annotation-backend-1045030213449.asia-south1.run.app
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # Required for Workload Identity Federation (keyless auth to GCP).
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOYER_SA }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}" \
+            -t "${IMAGE}:${GITHUB_SHA}" \
+            -t "${IMAGE}:latest" \
+            .
+
+      - name: Push image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          docker push "${IMAGE}:${GITHUB_SHA}"
+          docker push "${IMAGE}:latest"
+
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          gcloud run deploy "${SERVICE_NAME}" \
+            --image "${IMAGE}:${GITHUB_SHA}" \
+            --project "${PROJECT_ID}" \
+            --region "${REGION}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 3000 \
+            --memory 512Mi \
+            --cpu 1 \
+            --min-instances 0 \
+            --max-instances 4
+
+      - name: Show service URL
+        run: |
+          gcloud run services describe "${SERVICE_NAME}" \
+            --project "${PROJECT_ID}" --region "${REGION}" \
+            --format 'value(status.url)'
