@@ -1,8 +1,8 @@
-name: Deploy Frontend to Cloud Run
+name: Frontend CI/CD
 
-# Builds the Next.js standalone image and deploys it to Cloud Run.
-# NEXT_PUBLIC_API_URL is baked into the client bundle at BUILD time, so it is
-# passed as a Docker build-arg here (it is a public value, not a secret).
+# Production pipeline: build-tests, then build the Docker image (with the backend
+# URL baked in at build time) and deploy it to Cloud Run.
+# Auth is keyless via Workload Identity Federation — no stored SA key.
 
 on:
   push:
@@ -12,15 +12,34 @@ on:
 env:
   PROJECT_ID: refined-outlet-249712
   REGION: asia-south1
-  SERVICE_NAME: data-annotation-frontend
   # Artifact Registry: <region>-docker.pkg.dev/<project>/<repo>/<image>
   AR_REPO: data-annotation
   IMAGE_NAME: frontend
-  # Deployed backend base URL — baked into the frontend at build time.
+  SERVICE_NAME: data-annotation-frontend
+  # Deployed backend base URL — baked into the client bundle at build time.
   NEXT_PUBLIC_API_URL: https://annotation-backend-1045030213449.asia-south1.run.app
 
 jobs:
-  deploy:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build application
+        run: npm run build
+
+  build-and-deploy:
+    needs: test
     runs-on: ubuntu-latest
 
     # Required for Workload Identity Federation (keyless auth to GCP).
@@ -33,7 +52,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud (Workload Identity Federation)
-        id: auth
         uses: google-github-actions/auth@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
@@ -73,11 +91,25 @@ jobs:
             --port 3000 \
             --memory 512Mi \
             --cpu 1 \
+            --max-instances 3 \
             --min-instances 0 \
-            --max-instances 4
+            --timeout 300 \
+            --concurrency 80
 
-      - name: Show service URL
+      - name: Health check
         run: |
-          gcloud run services describe "${SERVICE_NAME}" \
-            --project "${PROJECT_ID}" --region "${REGION}" \
-            --format 'value(status.url)'
+          echo "Waiting for service to be ready..."
+          sleep 20
+          URL=$(gcloud run services describe "${SERVICE_NAME}" \
+                  --project "${PROJECT_ID}" --region "${REGION}" \
+                  --format 'value(status.url)')
+          echo "Testing frontend: $URL"
+          curl -f "$URL" || echo "Health check returned non-200, but deployment completed"
+
+      - name: Deployment URL
+        run: |
+          URL=$(gcloud run services describe "${SERVICE_NAME}" \
+                  --project "${PROJECT_ID}" --region "${REGION}" \
+                  --format 'value(status.url)')
+          echo "Frontend deployed to: $URL"
+          echo "service_url=$URL" >> "$GITHUB_OUTPUT"

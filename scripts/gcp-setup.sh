@@ -60,6 +60,18 @@ else
   echo "    already exists."
 fi
 
+# A freshly-created SA takes a few seconds to propagate; IAM bindings against it
+# fail with "does not exist" until then. Wait for it before granting roles.
+echo "==> Waiting for service account to propagate..."
+for i in $(seq 1 12); do
+  if gcloud iam service-accounts describe "${SA_EMAIL}" \
+       --project "${PROJECT_ID}" >/dev/null 2>&1; then
+    echo "    ready."
+    break
+  fi
+  sleep 5
+done
+
 # ── 4. Grant the deployer the roles it needs ─────────────────────────────────
 echo "==> Granting IAM roles to deployer..."
 for ROLE in \
