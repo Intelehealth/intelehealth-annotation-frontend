@@ -1,6 +1,6 @@
 # Dyno Annotation Platform — Frontend
 
-> **Next.js 15** | Node 26-alpine | Port **3000**
+> **Next.js 15** | Node 26-alpine | Port **3000 / 3001**
 
 This folder is the React/Next.js frontend.  
 It is a **separate Docker container** from the backend.
