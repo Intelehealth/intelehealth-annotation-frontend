@@ -3,7 +3,6 @@
 
 // -------------------- Constants --------------------
 // Only odd annotator counts are allowed: 1, 3, 5, 7, 9
-// Only odd annotator counts are allowed: 1, 3, 5, 7, 9
 export const CLONE_MIN_ANNOTATORS = 1;
 export const CLONE_MAX_ANNOTATORS = 9;
 
@@ -302,13 +301,6 @@ export interface BranchOption {
   childFields: AnnotationField[];
 }
 
-export interface BranchOption {
-  value: string;
-  requireDescription?: boolean;
-  descriptionPlaceholder?: string;
-  childFields: AnnotationField[];
-}
-
 export interface AnnotationField {
   csvColumnName: string;
   fieldName: string;
@@ -350,7 +342,7 @@ export interface AnnotationField {
 
 export interface FieldGroupChildField {
   fieldName: string;
-  fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
+  fieldType: 'text' | 'image' | 'audio' | 'video' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
   isRequired: boolean;
   options?: string[];
   placeholder?: string;

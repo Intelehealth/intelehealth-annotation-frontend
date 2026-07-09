@@ -31,7 +31,6 @@ import { cn } from '@/lib/utils';
 import { CSVColumnsDisplay } from './csv-columns-display';
 import { useToast } from '@/components/ui/toast';
 import { FieldGroup, VisibilityRule, BranchOption } from '@/types/feature1';
-import { FieldGroup, VisibilityRule, BranchOption } from '@/types/feature1';
 import { FieldGroupEditor } from './field-group-editor';
 import { RecursiveFieldEditor } from './recursive-field-editor';
 import { LivePreviewTree } from './live-preview-tree';

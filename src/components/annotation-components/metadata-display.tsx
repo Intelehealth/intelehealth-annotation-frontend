@@ -204,11 +204,6 @@ export function MetadataDisplay({
             </div>
 
             {/* Field Content Display */}
-            {/* Field Content Display */}
-            {/* Field Content Display */}
-            {/* Field Content Display */}
-            {/* Field Content Display */}
-            {/* Field Content Display */}
             <div className="space-y-2">
               <div className="space-y-2">
                   {/* Text Fields */}

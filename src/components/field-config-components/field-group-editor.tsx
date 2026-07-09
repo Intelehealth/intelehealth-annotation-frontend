@@ -9,7 +9,6 @@ import { Plus, Trash2, HelpCircle, Eye, RefreshCw, X, Check, ChevronDown, Chevro
 import { cn } from '@/lib/utils';
 import { FieldTypeConfigurator } from './field-type-configurator';
 import { RecursiveFieldEditor } from './recursive-field-editor';
-import { RecursiveFieldEditor } from './recursive-field-editor';
 
 interface FieldGroupEditorProps {
   onSave: (group: FieldGroup) => void;

@@ -107,12 +107,9 @@ export function DataOverview({
         type: 'success',
       });
       router.push(`/dataset/${datasetId}/generate-consensus`);
-      router.push(`/dataset/${datasetId}/generate-consensus`);
     } catch (err: any) {
       const msg: string = err?.response?.data?.message || err?.message || 'Failed to generate consensus.';
-      const msg: string = err?.response?.data?.message || err?.message || 'Failed to generate consensus.';
       showToast({
-        title: 'Consensus generation failed',
         title: 'Consensus generation failed',
         description: msg,
         type: 'error',

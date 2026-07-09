@@ -33,7 +33,6 @@ import { datasetsAPI } from '@/lib/api/datasets';
 import { RowFooter, NewColumnDataPanel } from '@/components/new-column-components';
 import { MetadataDisplay } from './metadata-display';
 import { ImageOverlay, AudioOverlay, VideoOverlay } from './media-overlays';
-import { ImageOverlay, AudioOverlay, VideoOverlay } from './media-overlays';
 import { useToast } from '@/components/ui/toast';
 import { exportSelectedColumnsToCSV, exportAllColumnsToCSV } from '@/lib/dataset-export-helper';
 import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
@@ -633,12 +632,16 @@ export function DatasetAnnotationWorkbench({
           title: 'Auto-saved',
           description: 'Field configuration updated successfully.'
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to save updated field configuration:', error);
+        const backendMsg = error?.response?.data?.message;
+        const description = Array.isArray(backendMsg)
+          ? backendMsg.join('\n')
+          : backendMsg || 'Failed to auto-save field configuration changes.';
         showToast({
           type: 'error',
           title: 'Save Failed',
-          description: 'Failed to auto-save field configuration changes.'
+          description,
         });
       }
     }, 800);

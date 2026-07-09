@@ -4,26 +4,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CheckCircle, GripVertical, ChevronDown, ChevronRight, Settings, Plus, Trash2, Edit3, Wrench, Link2 } from 'lucide-react';
-import { Label } from '@/components/ui/label';
-import { CheckCircle, GripVertical, ChevronDown, ChevronRight, Settings, Plus, Trash2, Edit3, Wrench, Link2 } from 'lucide-react';
 import { AnnotationField, AnnotationConfig } from '@/lib/api/csv-imports';
 import { cn } from '@/lib/utils';
 import { DragDropHelper } from '@/lib/drag-drop-helper';
-import { ConditionalFieldRenderer } from './conditional-field-renderer';
-import { FieldTypeConfigurator } from '@/components/field-config-components/field-type-configurator';
-import { RecursiveFieldEditor } from '@/components/field-config-components/recursive-field-editor';
-import { LivePreviewTree } from '@/components/field-config-components/live-preview-tree';
-import { FieldGroupEditor } from '@/components/field-config-components/field-group-editor';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { useToast } from '@/components/ui/toast';
-import { schemaRequestsAPI } from '@/lib/api/schema-requests';
 import { ConditionalFieldRenderer } from './conditional-field-renderer';
 import { FieldTypeConfigurator } from '@/components/field-config-components/field-type-configurator';
 import { RecursiveFieldEditor } from '@/components/field-config-components/recursive-field-editor';
@@ -1774,8 +1757,7 @@ export function NewColumnDataPanel({
                             <ChevronRight className="h-4 w-4 text-gray-500" />
                           )}
                         </div>
-</div>
-</div>
+                      </div>
 
                       {/* Expanded child cards */}
                       {isOpen && (

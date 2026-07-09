@@ -1,142 +1,22 @@
 'use client';
 
 import { Fragment, useEffect, useState, useMemo } from 'react';
-import { Fragment, useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from '@/components/sidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { consensusAPI } from '@/lib/api/consensus';
-import { fieldSelectionAPI } from '@/lib/api/field-config';
-import { STATUS_DISPLAY } from '@/lib/consensus-constants';
 import { fieldSelectionAPI } from '@/lib/api/field-config';
 import { STATUS_DISPLAY } from '@/lib/consensus-constants';
 import {
   ArrowLeft, Loader2, Search, RotateCcw, Scale, Download,
   ChevronDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight,
   Layers, Info, Play, FileAudio
-  ArrowLeft, Loader2, Search, RotateCcw, Scale, Download,
-  ChevronDown, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight,
-  Layers, Info, Play, FileAudio
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const STATUS_BADGE: Record<string, { dot: string; bg: string; text: string; label: string }> = {
-  NOT_STARTED:     { dot: 'bg-gray-400',      bg: 'bg-gray-50 border-gray-200',      text: 'text-gray-500', label: 'Not Started' },
-  IN_PROGRESS:     { dot: 'bg-blue-500',      bg: 'bg-blue-50 border-blue-200',      text: 'text-blue-700', label: 'Pending' },
-  COMPLETED:       { dot: 'bg-purple-500',    bg: 'bg-purple-50 border-purple-200',  text: 'text-purple-700', label: 'Completed' },
-  PENDING_UPDATE:  { dot: 'bg-amber-500',     bg: 'bg-amber-50 border-amber-200',    text: 'text-amber-700', label: 'Pending Update' },
-  AGREED:          { dot: 'bg-blue-500',      bg: 'bg-blue-50 border-blue-200',      text: 'text-blue-700', label: 'Suggested' },
-  CONFLICT:        { dot: 'bg-red-500',       bg: 'bg-red-50 border-red-200',        text: 'text-red-700', label: 'Conflict' },
-  PARTIAL:         { dot: 'bg-yellow-500',    bg: 'bg-yellow-50 border-yellow-200',  text: 'text-yellow-700', label: 'Partial' },
-  OVERRIDDEN:      { dot: 'bg-orange-500',    bg: 'bg-orange-50 border-orange-200',  text: 'text-orange-700', label: 'Override' },
-  ADMIN_CONFIRMED: { dot: 'bg-green-500',     bg: 'bg-green-50 border-green-200',    text: 'text-green-700', label: 'Confirmed' },
-};
-
-const CELL_STATUS_BG: Record<string, string> = {
-  CONFLICT: 'bg-red-50/20',
-  OVERRIDDEN: 'bg-orange-50/30',
-  ADMIN_CONFIRMED: 'bg-green-50/20',
-};
-
-function fmt(v: string | undefined): string {
-  if (!v) return '';
-  try { const p = JSON.parse(v); if (Array.isArray(p)) return p.join(', '); return v; } catch { return v; }
-}
-
-function CellValue({ value, fieldType, options, maxRating }: {
-  value: string; fieldType?: string; options?: string[]; maxRating?: number;
-}) {
-  if (!value || value === '-') return <span className="text-gray-300">—</span>;
-
-  const type = fieldType || 'text';
-
-  switch (type) {
-    case 'image': {
-      const src = value.startsWith('http') || value.startsWith('/') ? value : `data:image/*;base64,${value}`;
-      return (
-        <div className="relative group w-9 h-9 shrink-0">
-          <img src={src} alt=""
-            className="w-9 h-9 object-cover rounded border border-gray-200"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-        </div>
-      );
-    }
-    case 'video':
-      return (
-        <div className="w-9 h-9 bg-gray-200 rounded flex items-center justify-center border border-gray-200">
-          <Play className="h-4 w-4 text-gray-500" />
-        </div>
-      );
-    case 'audio':
-      return (
-        <button className="flex items-center gap-1 text-[10px] text-indigo-600 hover:text-indigo-700 font-medium">
-          <FileAudio className="h-3 w-3" />
-          Play
-        </button>
-      );
-    case 'rating': {
-      const n = parseInt(value);
-      if (isNaN(n)) return <span className="text-xs text-gray-600">{value}</span>;
-      const mr = maxRating || 5;
-      return (
-        <span className="text-amber-400 text-xs whitespace-nowrap" title={`${n}/${mr}`}>
-          {'★'.repeat(Math.min(n, mr))}{'☆'.repeat(Math.max(0, mr - n))}
-        </span>
-      );
-    }
-    case 'boolean':
-    case 'checkbox': {
-      const isTrue = value === 'true' || value === 'yes' || value === '1';
-      return (
-        <span className={cn(
-          'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold border',
-          isTrue ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'
-        )}>
-          {isTrue ? 'Yes' : 'No'}
-        </span>
-      );
-    }
-    case 'select':
-    case 'radio':
-    case 'selectrange': {
-      const chipClr = options?.includes(value)
-        ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-        : 'bg-gray-50 text-gray-600 border-gray-200';
-      return (
-        <span className={cn('inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium border max-w-[100px] truncate', chipClr)}
-          title={value}>
-          {value}
-        </span>
-      );
-    }
-    case 'multiselect': {
-      let items: string[] = [];
-      try { const p = JSON.parse(value); if (Array.isArray(p)) items = p; else items = [value]; }
-      catch { items = [value]; }
-      return (
-        <div className="flex flex-wrap gap-0.5 max-w-[100px]">
-          {items.map((item, i) => (
-            <span key={i}
-              className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 truncate max-w-[50px]"
-              title={item}>{item}</span>
-          ))}
-        </div>
-      );
-    }
-    default: {
-      const isLong = value.length > 25;
-      return (
-        <span className={cn('text-xs', isLong ? 'text-gray-600' : 'text-gray-800')}
-          title={isLong ? value : undefined}>
-          {isLong ? `${value.substring(0, 23)}...` : value}
-        </span>
-      );
-    }
-  }
 const STATUS_BADGE: Record<string, { dot: string; bg: string; text: string; label: string }> = {
   NOT_STARTED:     { dot: 'bg-gray-400',      bg: 'bg-gray-50 border-gray-200',      text: 'text-gray-500', label: 'Not Started' },
   IN_PROGRESS:     { dot: 'bg-blue-500',      bg: 'bg-blue-50 border-blue-200',      text: 'text-blue-700', label: 'Pending' },

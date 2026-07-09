@@ -131,7 +131,6 @@ export function CloneAssignModal({
 
   const addUser = (user: UserResponse) => {
     // Don't allow adding beyond max or if next count would exceed max
-    // Don't allow adding beyond max or if next count would exceed max
     if (selected.length >= CLONE_MAX_ANNOTATORS) return;
     setSelected((prev) => [...prev, user]);
     setComboOpen(false);

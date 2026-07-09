@@ -56,15 +56,8 @@ const DB_DEEP = "#1E40AF"; // blue-800
 // ----------------------------------------------------------------------
 export default function Home() {
   const { isAuthenticated, isLoading } = useAuth();
-  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-
-  const pageRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: (mounted ? pageRef : undefined) as any,
-    offset: ["start start", "end end"],
-  });
 
   useEffect(() => {
     setMounted(true);
@@ -156,6 +149,20 @@ export default function Home() {
       </div>
     );
   }
+
+  return <LandingPage />;
+}
+
+// ----------------------------------------------------------------------
+// Landing Page — owns the scroll ref so useScroll only runs once its
+// target element is actually mounted (avoids Motion's unhydrated-ref error)
+// ----------------------------------------------------------------------
+function LandingPage() {
+  const pageRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: pageRef,
+    offset: ["start start", "end end"],
+  });
 
   return (
     <div
