@@ -127,7 +127,7 @@ function TaskCard({ task, onOpen, onRefresh }: TaskCardProps) {
   const typeKey = task.datasetType || task.dataset?.datasetType || 'text';
   const TypeIcon = datasetTypeIcon[typeKey] ?? Database;
 
-  const assignmentStatus = (task as any).assignmentStatus || 'PENDING';
+  const assignmentStatus = task.assignmentStatus || 'PENDING';
   const isSubmittedOrDone = ['SUBMITTED', 'APPROVED', 'COMPLETED'].includes(assignmentStatus.toUpperCase());
   const canSubmitForReview = (assignmentStatus === 'IN_PROGRESS' || assignmentStatus === 'REWORK_REQUIRED') && 
     task.progress && task.progress.completedRows === task.progress.totalRows && task.progress.totalRows > 0;
@@ -147,7 +147,7 @@ function TaskCard({ task, onOpen, onRefresh }: TaskCardProps) {
       return;
     }
     try {
-      await datasetsAPI.updateAssignmentStatus((task as any).assignmentId, 'SUBMITTED');
+      await datasetsAPI.updateAssignmentStatus(task.assignmentId!, 'SUBMITTED');
       if (onRefresh) onRefresh();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to submit assignment');
@@ -165,7 +165,7 @@ function TaskCard({ task, onOpen, onRefresh }: TaskCardProps) {
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
-                {(task as any).pendingUpdate && (
+                {task.pendingUpdate && (
                   <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 animate-pulse">
                     ⚠ Pending Update
                   </span>
@@ -205,7 +205,7 @@ function TaskCard({ task, onOpen, onRefresh }: TaskCardProps) {
           className={cn(
             'w-full text-sm font-medium',
             isSubmittedOrDone
-              ? 'bg-gray-100 text-gray-450 border border-gray-200 cursor-default hover:bg-gray-100'
+              ? 'bg-gray-100 text-gray-500 border border-gray-200 cursor-default hover:bg-gray-100'
               : 'bg-blue-600 hover:bg-blue-700 text-white',
           )}
         >
@@ -271,8 +271,8 @@ export default function MyTasksPage() {
    * task._id = clone Dataset _id → navigate to /dataset/:cloneId/annotation
    */
   const handleOpenTask = async (task: AnnotationTask) => {
-    const assignmentId = (task as any).assignmentId;
-    const currentStatus = (task as any).assignmentStatus;
+    const assignmentId = task.assignmentId;
+    const currentStatus = task.assignmentStatus;
     if (assignmentId && currentStatus === 'PENDING') {
       try {
         await datasetsAPI.updateAssignmentStatus(assignmentId, 'IN_PROGRESS');
@@ -332,11 +332,11 @@ export default function MyTasksPage() {
 
   // Stats — all computed from real progress, never from stored taskStatus
   const notStarted = tasks.filter((t) => {
-    const s = (t as any).assignmentStatus || 'PENDING';
+    const s = t.assignmentStatus || 'PENDING';
     return s === 'PENDING';
   }).length;
-  const inProgress = tasks.filter((t) => (t as any).assignmentStatus === 'IN_PROGRESS' || (t as any).assignmentStatus === 'REWORK_REQUIRED').length;
-  const completed  = tasks.filter((t) => ['SUBMITTED', 'APPROVED', 'COMPLETED'].includes((t as any).assignmentStatus)).length;
+  const inProgress = tasks.filter((t) => t.assignmentStatus === 'IN_PROGRESS' || t.assignmentStatus === 'REWORK_REQUIRED').length;
+  const completed  = tasks.filter((t) => ['SUBMITTED', 'APPROVED', 'COMPLETED'].includes(t.assignmentStatus || '')).length;
 
   return (
     <div className="flex h-screen bg-gray-50">

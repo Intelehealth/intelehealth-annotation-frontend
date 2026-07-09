@@ -277,17 +277,17 @@ export function CSVUploadComponent({
 
         // Get the first row as headers
         const headerRow = worksheet.getRow(1);
-        const columns = headerRow.values as any[];
+        const columns = headerRow.values as unknown as any[];
         // Remove the first element (ExcelJS includes undefined as first element)
         const cleanColumns = columns
           .slice(1)
-          .map((col: any) => formatExcelValue(col));
+          .map((col) => formatExcelValue(col));
 
         // Get sample rows (rows 2-6) - process once for both duplicate and normal cases
         const sampleRows: Record<string, any>[] = [];
         for (let i = 2; i <= Math.min(6, worksheet.rowCount); i++) {
           const row = worksheet.getRow(i);
-          const values = row.values as any[];
+          const values = row.values as unknown as any[];
           const cleanValues = values.slice(1); // Remove first undefined element
 
           const rowData: Record<string, any> = {};
@@ -482,11 +482,8 @@ export function CSVUploadComponent({
       
       // If this is the first CSV upload and no field config exists, redirect to field config
       if (existingImports.length === 1 && !fieldConfig.hasConfig) {
-        console.log('First CSV upload detected, redirecting to field configuration');
         router.push(`/dataset/${selectedDatasetId}?tab=field-configuration`);
       } else {
-        // For subsequent uploads or if field config already exists, redirect to overview
-        console.log('Subsequent CSV upload or field config exists, redirecting to overview');
         router.push(`/dataset/${selectedDatasetId}?tab=overview`);
       }
     } catch (error) {

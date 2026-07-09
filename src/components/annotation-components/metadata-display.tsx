@@ -155,7 +155,7 @@ export function MetadataDisplay({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {orderedMetadataFields.map((field) => {
+        {orderedMetadataFields.map((field, idx) => {
           // Use DragDropHelper to determine if field can be dragged
           const dragValidation = DragDropHelper.canDragField(field, 'metadata');
           const isDraggable = dragValidation.canDrag;
@@ -163,7 +163,7 @@ export function MetadataDisplay({
           
           return (
             <div
-            key={field.csvColumnName}
+            key={`${field.csvColumnName}-${idx}`}
             draggable={isDraggable}
             onDragStart={isDraggable ? (e) => onDragStart(e, field.csvColumnName) : undefined}
             onDragOver={onDragOver}

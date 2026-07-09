@@ -143,11 +143,12 @@ export function DatasetList({
         description: `"${datasetToDelete.name}" has been deleted successfully.`,
         type: 'success',
       });
-    } catch (err) {
-      setError('Failed to delete dataset');
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || 'Failed to delete dataset';
+      setError(message);
       showToast({
         title: 'Error',
-        description: 'Failed to delete dataset',
+        description: message,
         type: 'error',
       });
     } finally {
@@ -415,7 +416,7 @@ export function DatasetList({
                     </div>
                   )}
                   {/* Admin: View Clones button */}
-                  {isAdmin() && !(dataset as any).isClone && (
+                  {isAdmin() && !dataset.isClone && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleToggleCloneGroup(dataset._id); }}
                       className="mt-1 flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
@@ -439,8 +440,8 @@ export function DatasetList({
                       <div className="space-y-2">
                         {cloneGroupData[dataset._id].clones.map((clone) => {
                           const pct = clone.progress?.percentage ?? 0;
-                          const annotatorName = (clone as any).annotator
-                            ? `${(clone as any).annotator.firstName} ${(clone as any).annotator.lastName}`.trim()
+                          const annotatorName = clone.annotator
+                            ? `${clone.annotator.firstName} ${clone.annotator.lastName}`.trim()
                             : `Clone ${clone.cloneIndex}`;
                           return (
                             <div key={clone._id} className="bg-indigo-50 rounded-md p-2">

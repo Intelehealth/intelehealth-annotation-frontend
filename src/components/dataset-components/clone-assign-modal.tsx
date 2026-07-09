@@ -131,6 +131,7 @@ export function CloneAssignModal({
 
   const addUser = (user: UserResponse) => {
     // Don't allow adding beyond max or if next count would exceed max
+    // Don't allow adding beyond max or if next count would exceed max
     if (selected.length >= CLONE_MAX_ANNOTATORS) return;
     setSelected((prev) => [...prev, user]);
     setComboOpen(false);
@@ -372,7 +373,7 @@ export function CloneAssignModal({
                             <div className="flex items-center justify-between w-full">
                               <div className="flex items-center space-x-3 min-w-0">
                                 <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold text-blue-600">
-                                  {user.firstName[0]}{user.lastName?.[0] ?? ''}
+                                  {user.firstName?.[0] ?? ''}{user.lastName?.[0] ?? ''}
                                 </div>
                                 <div className="flex flex-col min-w-0">
                                   <span className="text-sm font-medium text-gray-800 truncate">
@@ -406,7 +407,7 @@ export function CloneAssignModal({
                     >
                       <div className="flex items-center space-x-3 min-w-0">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold text-blue-600">
-                          {annotator.firstName[0]}{annotator.lastName?.[0] ?? annotator.email[0].toUpperCase()}
+                          {annotator.firstName?.[0] ?? ''}{annotator.lastName?.[0] ?? annotator.email[0].toUpperCase()}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-gray-800 truncate">

@@ -11,12 +11,20 @@ export interface NotificationResponse {
 
 export const notificationsAPI = {
   async getAll(): Promise<NotificationResponse[]> {
-    const response = await jsonApi.get('/notifications');
-    return response.data;
+    try {
+      const response = await jsonApi.get('/notifications');
+      return response.data;
+    } catch {
+      return [];
+    }
   },
 
-  async markAsRead(id: string): Promise<NotificationResponse> {
-    const response = await jsonApi.patch(`/notifications/${id}/read`);
-    return response.data;
+  async markAsRead(id: string): Promise<NotificationResponse | null> {
+    try {
+      const response = await jsonApi.patch(`/notifications/${id}/read`);
+      return response.data;
+    } catch {
+      return null;
+    }
   },
 };

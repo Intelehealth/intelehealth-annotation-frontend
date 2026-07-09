@@ -1,5 +1,5 @@
-import { jsonApi } from '../api';
-import { FieldGroup } from '@/types/feature1';
+import { jsonApi } from "../api";
+import { FieldGroup } from "@/types/feature1";
 
 // Field Selection API endpoints
 export const fieldSelectionAPI = {
@@ -16,7 +16,7 @@ export const fieldSelectionAPI = {
       instructions?: string;
     }[];
   }) => {
-    const response = await jsonApi.post('/field-selection', data);
+    const response = await jsonApi.post("/field-selection", data);
     return response.data;
   },
 
@@ -144,7 +144,9 @@ export const fieldSelectionAPI = {
   },
 
   getExpandedFields: async (datasetId: string) => {
-    const response = await jsonApi.get(`/field-selection/dataset/${datasetId}/expanded`);
+    const response = await jsonApi.get(
+      `/field-selection/dataset/${datasetId}/expanded`,
+    );
     return response.data;
   },
 

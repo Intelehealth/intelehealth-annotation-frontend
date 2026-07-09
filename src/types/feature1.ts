@@ -3,6 +3,7 @@
 
 // -------------------- Constants --------------------
 // Only odd annotator counts are allowed: 1, 3, 5, 7, 9
+// Only odd annotator counts are allowed: 1, 3, 5, 7, 9
 export const CLONE_MIN_ANNOTATORS = 1;
 export const CLONE_MAX_ANNOTATORS = 9;
 
@@ -79,6 +80,15 @@ export interface AnnotationTask {
   datasetType: string;
   taskStatus: 'pending' | 'in_progress' | 'completed';
   taskId?: string;
+  assignmentId?: string;
+  assignmentStatus?: string;
+  pendingUpdate?: boolean;
+  annotator?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
   progress?: {
     totalRows: number;
     completedRows: number;

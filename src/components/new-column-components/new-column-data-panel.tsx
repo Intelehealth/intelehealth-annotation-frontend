@@ -4,9 +4,26 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CheckCircle, GripVertical, ChevronDown, ChevronRight, Settings, Plus, Trash2, Edit3, Wrench, Link2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { CheckCircle, GripVertical, ChevronDown, ChevronRight, Settings, Plus, Trash2, Edit3, Wrench, Link2 } from 'lucide-react';
 import { AnnotationField, AnnotationConfig } from '@/lib/api/csv-imports';
 import { cn } from '@/lib/utils';
 import { DragDropHelper } from '@/lib/drag-drop-helper';
+import { ConditionalFieldRenderer } from './conditional-field-renderer';
+import { FieldTypeConfigurator } from '@/components/field-config-components/field-type-configurator';
+import { RecursiveFieldEditor } from '@/components/field-config-components/recursive-field-editor';
+import { LivePreviewTree } from '@/components/field-config-components/live-preview-tree';
+import { FieldGroupEditor } from '@/components/field-config-components/field-group-editor';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/toast';
+import { schemaRequestsAPI } from '@/lib/api/schema-requests';
 import { ConditionalFieldRenderer } from './conditional-field-renderer';
 import { FieldTypeConfigurator } from '@/components/field-config-components/field-type-configurator';
 import { RecursiveFieldEditor } from '@/components/field-config-components/recursive-field-editor';
@@ -776,8 +793,8 @@ export function NewColumnDataPanel({
       id: `field_${Date.now()}`,
       csvColumnName: cleanedName,
       fieldName: cleanedName,
-      fieldType: type === 'image' || type === 'audio' || type === 'video' ? 'text' : type,
-      columnType: type,
+      fieldType: type === 'image' || type === 'audio' || type === 'video' ? 'text' as const : type as AnnotationField['fieldType'],
+      columnType: type as AnnotationField['columnType'],
       isRequired: required,
       isAnnotationField: true,
       isPrimaryKey: false,
@@ -921,7 +938,7 @@ export function NewColumnDataPanel({
     if (!annotationConfig || !onUpdateFieldConfig) return;
     const updatedGroups = (annotationConfig.fieldGroups || []).map((g) => {
       if (g.groupId === groupId) {
-        const nextFields = (g.fields || []).filter((_, i) => i !== childIdx);
+        const nextFields = (g.fields || []).filter((_: any, i: any) => i !== childIdx);
         return { ...g, fields: nextFields };
       }
       return g;
@@ -1397,8 +1414,8 @@ export function NewColumnDataPanel({
                       }
                       handleUpdateSingleField(field.fieldName, {
                         ...field,
-                        fieldType,
-                        columnType,
+                        fieldType: fieldType as AnnotationField['fieldType'],
+                        columnType: columnType as AnnotationField['columnType'],
                         options: (val === 'select' || val === 'radio' || val === 'multiselect' || val === 'checkbox')
                           ? (field.options && field.options.length > 0 ? field.options : ['Option 1'])
                           : []
@@ -1449,7 +1466,7 @@ export function NewColumnDataPanel({
                   field={field}
                   depth={0}
                   onChange={(updatedField) => {
-                    handleUpdateSingleField(field.fieldName, updatedField);
+                    handleUpdateSingleField(field.fieldName, updatedField as unknown as AnnotationField);
                   }}
                 />
               </div>
@@ -1528,7 +1545,6 @@ export function NewColumnDataPanel({
                 field={field}
                 formData={newColumnData}
                 onChange={(data) => {
-                  console.log('[NEW COLUMN PANEL] ConditionalFieldRenderer onChange received:', data);
                   Object.keys(data).forEach(key => {
                     if (data[key] !== newColumnData[key]) {
                       onNewColumnChange(key, data[key]);
@@ -1759,6 +1775,7 @@ export function NewColumnDataPanel({
                           )}
                         </div>
 </div>
+</div>
 
                       {/* Expanded child cards */}
                       {isOpen && (
@@ -1854,7 +1871,7 @@ export function NewColumnDataPanel({
                                     field={childField}
                                     depth={1}
                                     onChange={(updatedChild) => {
-                                      handleUpdateGroupField(group.groupId, childIdx, updatedChild);
+                                      handleUpdateGroupField(group.groupId, childIdx, updatedChild as unknown as AnnotationField);
                                     }}
                                   />
                                 </div>
@@ -2054,7 +2071,7 @@ export function NewColumnDataPanel({
                           fieldType = 'audio';
                           columnType = 'text';
                         }
-                        setRequestConfigForm(prev => {
+                        setRequestConfigForm((prev: any) => {
                           if (!prev) return null;
                           return {
                             ...prev,
@@ -2203,7 +2220,7 @@ export function NewColumnDataPanel({
                   <Input
                     placeholder="Provide context for this request..."
                     value={requestGroupConfigForm.note || ''}
-                    onChange={(e) => setRequestGroupConfigForm(prev => prev ? { ...prev, note: e.target.value } : null)}
+                    onChange={(e) => setRequestGroupConfigForm((prev: any) => prev ? { ...prev, note: e.target.value } : null)}
                     className="h-8 text-xs bg-white"
                   />
                 </div>

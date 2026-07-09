@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useCallback } from 'react';
+import { useCallback } from "react";
 
 const cleanOptionValue = (val: any): string => {
-  if (val === undefined || val === null) return '';
+  if (val === undefined || val === null) return "";
   const s = String(val).trim();
-  const colonIdx = s.indexOf(':');
+  const colonIdx = s.indexOf(":");
   return colonIdx === -1 ? s : s.slice(0, colonIdx).trim();
 };
-import { cn } from '@/lib/utils';
-import type { AnnotationField } from '@/types/feature1';
-import { DecisionCardEngine, parseOptions } from './new-column-data-panel';
+import { cn } from "@/lib/utils";
+import type { AnnotationField } from "@/types/feature1";
+import { DecisionCardEngine, parseOptions } from "./new-column-data-panel";
 
 interface ConditionalFieldRendererProps {
   field: AnnotationField;
@@ -25,67 +25,76 @@ export function ConditionalFieldRenderer({
   field,
   formData,
   onChange,
-  path = '',
+  path = "",
   isReadOnly = false,
 }: ConditionalFieldRendererProps) {
   const fieldPath = path ? `${path}.${field.fieldName}` : field.fieldName;
   const value = formData[fieldPath];
-  const hasBranching = field.branching?.enabled && field.branching.options?.length > 0;
+  const hasBranching =
+    field.branching?.enabled && field.branching.options?.length > 0;
   const type = field.columnType || field.fieldType;
 
-  const handleChange = useCallback((newValue: any) => {
-    console.log('[CONDITIONAL RENDERER] handleChange called with:', newValue, 'for fieldPath:', fieldPath);
-    const oldVal = formData[fieldPath];
-    const cleaned = { ...formData };
+  const handleChange = useCallback(
+    (newValue: any) => {
+      const oldVal = formData[fieldPath];
+      const cleaned = { ...formData };
 
-    // 1. Parse old and new values as arrays of strings
-    const parseValues = (val: any) => {
-      if (!val) return [];
-      if (Array.isArray(val)) return val.map(String);
-      if (typeof val === 'string') {
-        if (type === 'multiselect') {
-          return val.split(',').map(s => s.trim()).filter(Boolean);
+      // 1. Parse old and new values as arrays of strings
+      const parseValues = (val: any) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val.map(String);
+        if (typeof val === "string") {
+          if (type === "multiselect") {
+            return val
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean);
+          }
+          return [val];
         }
-        return [val];
-      }
-      return [String(val)];
-    };
+        return [String(val)];
+      };
 
-    const oldValues = parseValues(oldVal);
-    const newValues = parseValues(newValue);
+      const oldValues = parseValues(oldVal);
+      const newValues = parseValues(newValue);
 
-    // 2. Find which options were deselected (in old but not in new)
-    const deselected = oldValues.filter(v => !newValues.includes(v));
+      // 2. Find which options were deselected (in old but not in new)
+      const deselected = oldValues.filter((v) => !newValues.includes(v));
 
-    // 3. For each deselected option, remove its orphaned keys
-    deselected.forEach(desel => {
-      const branchPrefix = `${fieldPath}.${desel}`;
-      Object.keys(cleaned).forEach(k => {
-        if (k.startsWith(branchPrefix + '.')) {
-          delete cleaned[k];
-        }
-        if (k === `${fieldPath}.${desel}_description`) {
-          delete cleaned[k];
-        }
+      // 3. For each deselected option, remove its orphaned keys
+      deselected.forEach((desel) => {
+        const branchPrefix = `${fieldPath}.${desel}`;
+        Object.keys(cleaned).forEach((k) => {
+          if (k.startsWith(branchPrefix + ".")) {
+            delete cleaned[k];
+          }
+          if (k === `${fieldPath}.${desel}_description`) {
+            delete cleaned[k];
+          }
+        });
       });
-    });
 
-    // 4. Set the new value
-    cleaned[fieldPath] = newValue;
+      // 4. Set the new value
+      cleaned[fieldPath] = newValue;
 
-    console.log('[CONDITIONAL RENDERER] Calling onChange with cleaned:', cleaned);
-    onChange(cleaned);
-  }, [fieldPath, formData, onChange, type]);
+      onChange(cleaned);
+    },
+    [fieldPath, formData, onChange, type],
+  );
 
-  const handleDescriptionChange = useCallback((optionValue: string, text: string) => {
-    const descKey = `${fieldPath}.${optionValue}_description`;
-    onChange({ ...formData, [descKey]: text });
-  }, [fieldPath, formData, onChange]);
+  const handleDescriptionChange = useCallback(
+    (optionValue: string, text: string) => {
+      const descKey = `${fieldPath}.${optionValue}_description`;
+      onChange({ ...formData, [descKey]: text });
+    },
+    [fieldPath, formData, onChange],
+  );
 
   const renderOptionChild = (optVal: string) => {
     const cleanOptVal = cleanOptionValue(optVal);
     const option = field.branching?.options?.find(
-      o => cleanOptionValue(o.value).toLowerCase() === cleanOptVal.toLowerCase()
+      (o) =>
+        cleanOptionValue(o.value).toLowerCase() === cleanOptVal.toLowerCase(),
     );
     if (!option) return null;
 
@@ -93,8 +102,8 @@ export function ConditionalFieldRenderer({
 
     return (
       <div key={option.value} className="space-y-2 mt-2 w-full">
-        {option.requireDescription && (
-          isReadOnly ? (
+        {option.requireDescription &&
+          (isReadOnly ? (
             formData[descKey] && (
               <div className="py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 italic mt-1">
                 {formData[descKey]}
@@ -103,14 +112,17 @@ export function ConditionalFieldRenderer({
           ) : (
             <textarea
               key={descKey}
-              value={formData[descKey] || ''}
-              onChange={e => handleDescriptionChange(option.value, e.target.value)}
-              placeholder={option.descriptionPlaceholder || 'Describe your choice...'}
+              value={formData[descKey] || ""}
+              onChange={(e) =>
+                handleDescriptionChange(option.value, e.target.value)
+              }
+              placeholder={
+                option.descriptionPlaceholder || "Describe your choice..."
+              }
               rows={2}
               className="w-full text-sm border border-purple-200 rounded-lg px-3 py-2 outline-none focus:border-purple-500 bg-white resize-y mt-1"
             />
-          )
-        )}
+          ))}
 
         {option.childFields && option.childFields.length > 0 && (
           <div className="ml-4 pl-3 border-l-2 border-teal-200 space-y-3">
@@ -130,17 +142,19 @@ export function ConditionalFieldRenderer({
     );
   };
 
-  const showChildFieldsAtBottom = isReadOnly || !['radio', 'select', 'multiselect', 'rating', 'checkbox'].includes(type);
+  const showChildFieldsAtBottom =
+    isReadOnly ||
+    !["radio", "select", "multiselect", "rating", "checkbox"].includes(type);
 
   const getFriendlyTypeLabel = (t: string) => {
     const mapping: Record<string, string> = {
-      text: 'Long Text',
-      textarea: 'Long Text',
-      radio: 'Radio',
-      select: 'Dropdown',
-      multiselect: 'Multiselect',
-      rating: 'Star Rating',
-      checkbox: 'Checkbox',
+      text: "Long Text",
+      textarea: "Long Text",
+      radio: "Radio",
+      select: "Dropdown",
+      multiselect: "Multiselect",
+      rating: "Star Rating",
+      checkbox: "Checkbox",
     };
     return mapping[t] || t;
   };
@@ -157,7 +171,12 @@ export function ConditionalFieldRenderer({
             ({getFriendlyTypeLabel(type)})
           </span>
           {field.isRequired && (
-            <span className="text-red-500 text-sm font-bold" title="Required field">*</span>
+            <span
+              className="text-red-500 text-sm font-bold"
+              title="Required field"
+            >
+              *
+            </span>
           )}
         </div>
       )}
@@ -178,25 +197,43 @@ export function ConditionalFieldRenderer({
       )}
 
       {/* Render Inline descriptions and Child fields for selected option(s) at bottom ONLY if not rendered inline */}
-      {showChildFieldsAtBottom && hasBranching && field.branching!.options.map(option => {
-        const isSelected = value !== '' && value !== undefined && value !== null && (
-          type === 'multiselect'
-            ? (Array.isArray(value) && value.map(v => cleanOptionValue(v).toLowerCase()).includes(cleanOptionValue(option.value).toLowerCase()))
-              || (typeof value === 'string' && value.split(',').map(s => cleanOptionValue(s).toLowerCase()).includes(cleanOptionValue(option.value).toLowerCase()))
-            : cleanOptionValue(value).toLowerCase() === cleanOptionValue(option.value).toLowerCase()
-        );
+      {showChildFieldsAtBottom &&
+        hasBranching &&
+        field.branching!.options.map((option) => {
+          const isSelected =
+            value !== "" &&
+            value !== undefined &&
+            value !== null &&
+            (type === "multiselect"
+              ? (Array.isArray(value) &&
+                  value
+                    .map((v) => cleanOptionValue(v).toLowerCase())
+                    .includes(cleanOptionValue(option.value).toLowerCase())) ||
+                (typeof value === "string" &&
+                  value
+                    .split(",")
+                    .map((s) => cleanOptionValue(s).toLowerCase())
+                    .includes(cleanOptionValue(option.value).toLowerCase()))
+              : cleanOptionValue(value).toLowerCase() ===
+                cleanOptionValue(option.value).toLowerCase());
 
-        if (!isSelected) return null;
+          if (!isSelected) return null;
 
-        return renderOptionChild(option.value);
-      })}
+          return renderOptionChild(option.value);
+        })}
     </div>
   );
 }
 
 // ─── Field Input Components ──────────────────────────────────────────────
 
-function FieldInput({ field, value, onChange, fieldPath, renderChildFields }: {
+function FieldInput({
+  field,
+  value,
+  onChange,
+  fieldPath,
+  renderChildFields,
+}: {
   field: AnnotationField;
   value: any;
   onChange: (v: any) => void;
@@ -204,7 +241,7 @@ function FieldInput({ field, value, onChange, fieldPath, renderChildFields }: {
   renderChildFields?: (optionValue: string) => React.ReactNode;
 }) {
   const type = field.columnType || field.fieldType;
-  if (['radio', 'select', 'multiselect', 'rating', 'checkbox'].includes(type)) {
+  if (["radio", "select", "multiselect", "rating", "checkbox"].includes(type)) {
     return (
       <DecisionCardEngine
         field={field}
@@ -217,38 +254,37 @@ function FieldInput({ field, value, onChange, fieldPath, renderChildFields }: {
   }
 
   switch (type) {
-
-    case 'checkbox':
+    case "checkbox":
       return (
         <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
           <input
             type="checkbox"
-            checked={value === true || value === 'true'}
-            onChange={e => onChange(e.target.checked ? 'true' : 'false')}
+            checked={value === true || value === "true"}
+            onChange={(e) => onChange(e.target.checked ? "true" : "false")}
             className="rounded text-blue-600"
           />
           {field.fieldName}
         </label>
       );
 
-    case 'textarea':
+    case "textarea":
       return (
         <textarea
-          value={value || ''}
-          onChange={e => onChange(e.target.value)}
-          placeholder={field.placeholder || 'Enter text...'}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder || "Enter text..."}
           rows={3}
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-500 bg-white resize-y"
         />
       );
 
-    case 'number':
+    case "number":
       return (
         <input
           type="number"
-          value={value || ''}
-          onChange={e => onChange(e.target.value)}
-          placeholder={field.placeholder || '0'}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder || "0"}
           min={field.min}
           max={field.max}
           step={field.step || 1}
@@ -260,32 +296,42 @@ function FieldInput({ field, value, onChange, fieldPath, renderChildFields }: {
       return (
         <input
           type="text"
-          value={value || ''}
-          onChange={e => onChange(e.target.value)}
-          placeholder={field.placeholder || 'Enter value...'}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder || "Enter value..."}
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-500 bg-white"
         />
       );
   }
 }
 
-function RatingInput({ value, max, allowHalf, onChange }: {
-  value: any; max: number; allowHalf?: boolean; onChange: (v: string) => void;
+function RatingInput({
+  value,
+  max,
+  allowHalf,
+  onChange,
+}: {
+  value: any;
+  max: number;
+  allowHalf?: boolean;
+  onChange: (v: string) => void;
 }) {
   const nums = Array.from({ length: max }, (_, i) => i + 1);
   return (
     <div className="flex gap-1.5 flex-wrap">
-      {nums.map(n => (
+      {nums.map((n) => (
         <button
           key={n}
           onClick={() => onChange(String(n))}
           className={cn(
-            'w-9 h-9 rounded-lg text-sm font-bold border-2 transition-all',
+            "w-9 h-9 rounded-lg text-sm font-bold border-2 transition-all",
             value === String(n)
-              ? 'bg-blue-600 text-white border-blue-600 shadow-sm scale-105'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:shadow-sm'
+              ? "bg-blue-600 text-white border-blue-600 shadow-sm scale-105"
+              : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:shadow-sm",
           )}
-        >{n}</button>
+        >
+          {n}
+        </button>
       ))}
     </div>
   );

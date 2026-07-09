@@ -347,7 +347,7 @@ export default function AddDatasetPage() {
                     <button
                       key={type.value}
                       type="button"
-                      onClick={() => setValue('datasetType', type.value as any)}
+                      onClick={() => setValue('datasetType', type.value as 'text' | 'image' | 'audio')}
                       className={cn(
                         'flex flex-col items-center space-y-1 p-3 rounded-lg border-2 transition-all hover:shadow-sm',
                         isSelected
@@ -384,7 +384,7 @@ export default function AddDatasetPage() {
                     <button
                       key={type.value}
                       type="button"
-                      onClick={() => setValue('accessType', type.value as any)}
+                      onClick={() => setValue('accessType', type.value as 'private' | 'public')}
                       className={cn(
                         'flex flex-col items-start space-y-1 p-3 rounded-lg border-2 transition-all hover:shadow-sm text-left',
                         isSelected

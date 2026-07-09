@@ -23,8 +23,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { datasetsAPI } from '@/lib/api/datasets';
-import { usersAPI } from '@/lib/api/users';
+import { datasetsAPI, DatasetResponse } from '@/lib/api/datasets';
+import { usersAPI, UserResponse } from '@/lib/api/users';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -160,8 +160,8 @@ function EmptyState({ icon: Icon, title, sub }: {
 // ═════════════════════════════════════════════════════════════════════════════
 function AdminDashboard({ user }: { user: any }) {
   const { showToast } = useToast();
-  const [allDatasets, setAllDatasets] = useState<any[]>([]);
-  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allDatasets, setAllDatasets] = useState<DatasetResponse[]>([]);
+  const [allUsers, setAllUsers] = useState<UserResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -176,8 +176,8 @@ function AdminDashboard({ user }: { user: any }) {
         datasetsAPI.getAll(),
         usersAPI.getAll().catch(() => []),
       ]);
-      setAllDatasets(ds as any[]);
-      setAllUsers(us as any[]);
+      setAllDatasets(ds);
+      setAllUsers(us);
 
       // Pre-load assignments for parent datasets that have clones
       const parentIdsWithClones = ds
@@ -242,22 +242,19 @@ function AdminDashboard({ user }: { user: any }) {
   const handleRefresh = () => { setRefreshing(true); load(); };
 
   // Separate parent datasets from clones
-  const parentDatasets = allDatasets.filter((d: any) => !d.isClone);
-  const cloneDatasets  = allDatasets.filter((d: any) =>  d.isClone);
+  const parentDatasets = allDatasets.filter((d) => !d.isClone);
+  const cloneDatasets  = allDatasets.filter((d) =>  d.isClone);
 
-  // Annotators (all non-admin users)
-  const annotators = allUsers.filter((u: any) => u.role?.toUpperCase() !== 'ADMIN');
+  const annotators = allUsers.filter((u) => u.role?.toUpperCase() !== 'ADMIN');
 
-  // Active tasks: parent datasets that have clones (consensus in progress)
-  const datasetsWithClones = parentDatasets.filter((d: any) =>
-    cloneDatasets.some((c: any) => c.cloneParentId?.toString() === d._id?.toString())
+  const datasetsWithClones = parentDatasets.filter((d) =>
+    cloneDatasets.some((c) => c.cloneParentId?.toString() === d._id?.toString())
   );
 
-  // KPIs
   const totalDatasets = parentDatasets.length;
   const totalUsers = allUsers.length;
-  const activeUsers = allUsers.filter((u: any) => u.status?.toUpperCase() === 'ACTIVE').length;
-  const pendingUsers = allUsers.filter((u: any) => u.status?.toUpperCase() === 'PENDING').length;
+  const activeUsers = allUsers.filter((u) => u.status?.toUpperCase() === 'ACTIVE').length;
+  const pendingUsers = allUsers.filter((u) => u.status?.toUpperCase() === 'PENDING').length;
 
   // Recent parent datasets (sorted newest first, up to 5)
   const recentParents = [...parentDatasets]
@@ -421,7 +418,7 @@ function AdminDashboard({ user }: { user: any }) {
                             variant="ghost"
                             size="sm"
                             onClick={() => toggleParent(ds._id)}
-                            className="h-8 px-2 text-gray-500 hover:text-blue-600 hover:bg-blue-55"
+                            className="h-8 px-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
                           >
                             <TrendingUp className={cn("h-4 w-4 transition-transform duration-200", isExpanded ? "rotate-180" : "")} />
                             <span className="text-xs ml-1 font-semibold">{isExpanded ? 'Hide' : 'Progress'}</span>

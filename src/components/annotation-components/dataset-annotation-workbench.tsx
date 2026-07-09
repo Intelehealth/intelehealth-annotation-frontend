@@ -33,6 +33,7 @@ import { datasetsAPI } from '@/lib/api/datasets';
 import { RowFooter, NewColumnDataPanel } from '@/components/new-column-components';
 import { MetadataDisplay } from './metadata-display';
 import { ImageOverlay, AudioOverlay, VideoOverlay } from './media-overlays';
+import { ImageOverlay, AudioOverlay, VideoOverlay } from './media-overlays';
 import { useToast } from '@/components/ui/toast';
 import { exportSelectedColumnsToCSV, exportAllColumnsToCSV } from '@/lib/dataset-export-helper';
 import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
@@ -1586,7 +1587,7 @@ export function DatasetAnnotationWorkbench({
               onUpdateFieldConfig={handleUpdateFieldConfig}
               isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
               cloneId={datasetId}
-              currentRowId={currentTask?._id}
+              currentRowId={currentTask?.id}
             />
           }
           defaultLeftWidth={50}

@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence, useInView, useMotionValue, useTransform, useScroll } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  useInView,
+  useTransform,
+  useScroll,
+} from "framer-motion";
 import {
   Check,
   Users,
@@ -27,7 +33,7 @@ import {
   RefreshCw,
   GitBranch,
   FileText,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -37,26 +43,27 @@ import { useAuth } from "@/contexts/AuthContext";
 // Premium spring-motion transitions
 // ----------------------------------------------------------------------
 const luxurySpring = { type: "spring", stiffness: 100, damping: 14 };
-const premiumEase = [0.16, 1, 0.3, 1];
+const premiumEase = [0.16, 1, 0.3, 1] as const;
 
 // Dark Blue Theme Constants
-const DB_PRIMARY = "#1E3A8A";    // blue-900
-const DB_ACCENT = "#3B82F6";     // blue-500
-const DB_LIGHT = "#60A5FA";      // blue-400
-const DB_DEEP = "#1E40AF";       // blue-800
+const DB_PRIMARY = "#1E3A8A"; // blue-900
+const DB_ACCENT = "#3B82F6"; // blue-500
+const DB_LIGHT = "#60A5FA"; // blue-400
+const DB_DEEP = "#1E40AF"; // blue-800
 
 // ----------------------------------------------------------------------
 // Main Exported Component
 // ----------------------------------------------------------------------
 export default function Home() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
   const pageRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
-    target: mounted ? pageRef : null,
-    offset: ["start start", "end end"]
+    target: (mounted ? pageRef : undefined) as any,
+    offset: ["start start", "end end"],
   });
 
   useEffect(() => {
@@ -82,7 +89,9 @@ export default function Home() {
             className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-800 to-blue-500 flex items-center justify-center p-[1.5px] shadow-[0_0_40px_rgba(30,58,138,0.2)]"
           >
             <div className="w-full h-full bg-white rounded-[15px] flex items-center justify-center">
-              <span className="text-blue-800 font-black text-xl tracking-tighter">DA</span>
+              <span className="text-blue-800 font-black text-xl tracking-tighter">
+                DA
+              </span>
             </div>
           </motion.div>
 
@@ -95,14 +104,23 @@ export default function Home() {
             />
             <motion.div
               animate={{ scale: [1, 1.8], opacity: [0.2, 0] }}
-              transition={{ repeat: Infinity, duration: 2, ease: "easeOut", delay: 0.5 }}
+              transition={{
+                repeat: Infinity,
+                duration: 2,
+                ease: "easeOut",
+                delay: 0.5,
+              }}
               className="absolute inset-0 border border-blue-400/20 rounded-full"
             />
             {/* Center dot */}
             <div className="absolute inset-0 flex items-center justify-center">
               <motion.div
                 animate={{ scale: [1, 1.3, 1] }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                transition={{
+                  repeat: Infinity,
+                  duration: 1.5,
+                  ease: "easeInOut",
+                }}
                 className="w-3 h-3 bg-blue-600 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]"
               />
             </div>
@@ -123,7 +141,12 @@ export default function Home() {
                 <motion.div
                   key={i}
                   animate={{ opacity: [0.2, 1, 0.2] }}
-                  transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut", delay: i * 0.2 }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 1.2,
+                    ease: "easeInOut",
+                    delay: i * 0.2,
+                  }}
                   className="w-1.5 h-1.5 rounded-full bg-blue-500"
                 />
               ))}
@@ -216,14 +239,17 @@ function ParticleWaveCanvas() {
       ctx.clearRect(0, 0, width, height);
       phase += 0.012;
 
-      mouseRef.current.x += (mouseRef.current.targetX - mouseRef.current.x) * 0.04;
-      mouseRef.current.y += (mouseRef.current.targetY - mouseRef.current.y) * 0.04;
+      mouseRef.current.x +=
+        (mouseRef.current.targetX - mouseRef.current.x) * 0.04;
+      mouseRef.current.y +=
+        (mouseRef.current.targetY - mouseRef.current.y) * 0.04;
 
       for (let r = 0; rows > r; r++) {
         for (let c = cols - 1; c >= 0; c--) {
-          const waveHeight = Math.sin(c * 0.12 + phase) * Math.cos(r * 0.1 + phase) * 18;
-          const x = c * spacingX + mouseRef.current.x + (r * 2.5);
-          const y = r * spacingY + waveHeight + mouseRef.current.y + (c * 1.5);
+          const waveHeight =
+            Math.sin(c * 0.12 + phase) * Math.cos(r * 0.1 + phase) * 18;
+          const x = c * spacingX + mouseRef.current.x + r * 2.5;
+          const y = r * spacingY + waveHeight + mouseRef.current.y + c * 1.5;
 
           const opacityX = Math.sin((c / cols) * Math.PI);
           const opacityY = Math.sin((r / rows) * Math.PI);
@@ -236,8 +262,15 @@ function ParticleWaveCanvas() {
             ctx.fill();
 
             if (r < rows - 1) {
-              const nextWaveHeight = Math.sin(c * 0.12 + phase) * Math.cos((r + 1) * 0.1 + phase) * 18;
-              const nextY = (r + 1) * spacingY + nextWaveHeight + mouseRef.current.y + (c * 1.5);
+              const nextWaveHeight =
+                Math.sin(c * 0.12 + phase) *
+                Math.cos((r + 1) * 0.1 + phase) *
+                18;
+              const nextY =
+                (r + 1) * spacingY +
+                nextWaveHeight +
+                mouseRef.current.y +
+                c * 1.5;
               ctx.strokeStyle = `rgba(59, 130, 246, ${alpha * 0.35})`;
               ctx.lineWidth = 0.5;
               ctx.beginPath();
@@ -314,7 +347,7 @@ function Navbar() {
     { label: "Features", href: "#features" },
     { label: "Consensus", href: "#consensus" },
     { label: "Docs", href: "/documentation" },
-    { label: "Paradigm", href: "#comparison" }
+    { label: "Paradigm", href: "#comparison" },
   ];
 
   return (
@@ -332,10 +365,14 @@ function Navbar() {
         <Link href="/" className="flex items-center space-x-2.5 group">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-800 to-blue-500 flex items-center justify-center p-[1px] shadow-[0_0_20px_rgba(30,58,138,0.2)] group-hover:shadow-[0_0_25px_rgba(30,58,138,0.35)] transition-shadow duration-300">
             <div className="w-full h-full bg-white rounded-[7px] flex items-center justify-center">
-              <span className="text-blue-800 font-black text-sm tracking-tighter">DA</span>
+              <span className="text-blue-800 font-black text-sm tracking-tighter">
+                DA
+              </span>
             </div>
           </div>
-          <span className="font-extrabold text-lg tracking-wider text-[#111115]">DATAANNOTATE</span>
+          <span className="font-extrabold text-lg tracking-wider text-[#111115]">
+            DATAANNOTATE
+          </span>
           <span className="text-[9px] font-mono font-black text-blue-700 bg-blue-50 border border-blue-200/60 px-1.5 py-0.5 rounded uppercase tracking-widest hidden sm:inline-block">
             v2.0
           </span>
@@ -400,11 +437,18 @@ function Hero({ scrollYProgress }: { scrollYProgress: any }) {
 
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.15 } },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1, delayChildren: 0.15 },
+    },
   };
   const itemVariants = {
     hidden: { y: 35, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { duration: 1.0, ease: premiumEase } },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { duration: 1.0, ease: premiumEase },
+    },
   };
 
   return (
@@ -433,7 +477,10 @@ function Hero({ scrollYProgress }: { scrollYProgress: any }) {
             className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[0.95] text-[#111115]"
           >
             {titleWords.map((word, idx) => (
-              <span key={idx} className="inline-block overflow-hidden mr-3 py-1.5">
+              <span
+                key={idx}
+                className="inline-block overflow-hidden mr-3 py-1.5"
+              >
                 <motion.span variants={itemVariants} className="inline-block">
                   {word}
                 </motion.span>
@@ -442,13 +489,19 @@ function Hero({ scrollYProgress }: { scrollYProgress: any }) {
           </motion.h1>
 
           <p className="text-gray-500 font-medium text-base md:text-lg max-w-lg leading-relaxed">
-            Eliminating bias through secure, multi-workspace isolation. Dynamically synchronize evolving schemas, resolve conflicts instantly, and build bulletproof ground-truth datasets—even while annotators are still working.
+            Eliminating bias through secure, multi-workspace isolation.
+            Dynamically synchronize evolving schemas, resolve conflicts
+            instantly, and build bulletproof ground-truth datasets—even while
+            annotators are still working.
           </p>
 
           <div className="flex flex-wrap gap-4 pt-6">
             <Link href="/login">
               <motion.button
-                whileHover={{ scale: 1.03, boxShadow: "0_8px_30px_rgba(30,58,138,0.4)" }}
+                whileHover={{
+                  scale: 1.03,
+                  boxShadow: "0_8px_30px_rgba(30,58,138,0.4)",
+                }}
                 whileTap={{ scale: 0.97 }}
                 className="bg-gradient-to-r from-blue-800 to-blue-900 hover:from-blue-700 hover:to-blue-800 text-white px-9 py-4 rounded-full text-[11px] font-bold tracking-[0.2em] uppercase shadow-[0_4px_24px_rgba(30,58,138,0.3)] transition-all duration-300 border border-blue-700/30"
               >
@@ -457,7 +510,10 @@ function Hero({ scrollYProgress }: { scrollYProgress: any }) {
             </Link>
             <Link href="/documentation">
               <motion.button
-                whileHover={{ scale: 1.03, backgroundColor: "rgba(59,130,246,0.04)" }}
+                whileHover={{
+                  scale: 1.03,
+                  backgroundColor: "rgba(59,130,246,0.04)",
+                }}
                 whileTap={{ scale: 0.97 }}
                 className="border border-gray-200 hover:border-blue-300 bg-white/60 backdrop-blur-sm text-gray-600 hover:text-blue-800 px-9 py-4 rounded-full text-[11px] font-bold tracking-[0.2em] uppercase transition-all duration-300 shadow-sm"
               >
@@ -472,7 +528,15 @@ function Hero({ scrollYProgress }: { scrollYProgress: any }) {
           <div className="absolute w-[85%] h-[85%] bg-blue-500/[0.06] rounded-full blur-[100px] pointer-events-none" />
           <div className="relative w-[88%] h-[88%]">
             <div className="absolute inset-0 rounded-3xl border border-gray-200/40 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] bg-gray-900" />
-            <video src="/assets/VID_20260702_145338.mp4" autoPlay muted loop playsInline preload="auto" className="w-full h-full object-cover rounded-3xl shadow-[0_12px_50px_rgba(0,0,0,0.1)] ring-1 ring-gray-100/50 relative z-[1]" />
+            <video
+              src="/assets/VID_20260702_145338.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              className="w-full h-full object-cover rounded-3xl shadow-[0_12px_50px_rgba(0,0,0,0.1)] ring-1 ring-gray-100/50 relative z-[1]"
+            />
           </div>
         </div>
       </div>
@@ -525,7 +589,13 @@ function AnimatedPlatformDemo() {
       // Sidebar
       ctx.fillStyle = "#1E293B";
       ctx.fillRect(0, 36, 100, H - 36);
-      const sideItems = ["Dashboard", "Datasets", "Tasks", "Review", "Settings"];
+      const sideItems = [
+        "Dashboard",
+        "Datasets",
+        "Tasks",
+        "Review",
+        "Settings",
+      ];
       sideItems.forEach((item, i) => {
         const y = 60 + i * 32;
         const active = i === Math.floor((t * 0.5) % 5);
@@ -540,7 +610,10 @@ function AnimatedPlatformDemo() {
       });
 
       // Main content area
-      const mx = 112, my = 48, mw = W - 124, mh = H - 60;
+      const mx = 112,
+        my = 48,
+        mw = W - 124,
+        mh = H - 60;
 
       // Header row
       ctx.fillStyle = "rgba(255,255,255,0.06)";
@@ -603,13 +676,55 @@ function AnimatedPlatformDemo() {
 
       // Animated rows
       const rows = [
-        { id: "TSK-0847", schema: "sentiment_v3", annotators: "3 / 3", status: "AGREED", score: "98.2%" },
-        { id: "TSK-0848", schema: "ner_v2", annotators: "2 / 3", status: "PENDING", score: "—" },
-        { id: "TSK-0849", schema: "classification_v1", annotators: "3 / 3", status: "ADMIN_CONFIRMED", score: "99.1%" },
-        { id: "TSK-0850", schema: "sentiment_v3", annotators: "1 / 3", status: "NOT_STARTED", score: "—" },
-        { id: "TSK-0851", schema: "ner_v2", annotators: "3 / 3", status: "CONFLICT", score: "72.4%" },
-        { id: "TSK-0852", schema: "audio_trans_v1", annotators: "3 / 3", status: "AGREED", score: "95.8%" },
-        { id: "TSK-0853", schema: "image_tags_v2", annotators: "2 / 3", status: "PENDING_UPDATE", score: "—" },
+        {
+          id: "TSK-0847",
+          schema: "sentiment_v3",
+          annotators: "3 / 3",
+          status: "AGREED",
+          score: "98.2%",
+        },
+        {
+          id: "TSK-0848",
+          schema: "ner_v2",
+          annotators: "2 / 3",
+          status: "PENDING",
+          score: "—",
+        },
+        {
+          id: "TSK-0849",
+          schema: "classification_v1",
+          annotators: "3 / 3",
+          status: "ADMIN_CONFIRMED",
+          score: "99.1%",
+        },
+        {
+          id: "TSK-0850",
+          schema: "sentiment_v3",
+          annotators: "1 / 3",
+          status: "NOT_STARTED",
+          score: "—",
+        },
+        {
+          id: "TSK-0851",
+          schema: "ner_v2",
+          annotators: "3 / 3",
+          status: "CONFLICT",
+          score: "72.4%",
+        },
+        {
+          id: "TSK-0852",
+          schema: "audio_trans_v1",
+          annotators: "3 / 3",
+          status: "AGREED",
+          score: "95.8%",
+        },
+        {
+          id: "TSK-0853",
+          schema: "image_tags_v2",
+          annotators: "2 / 3",
+          status: "PENDING_UPDATE",
+          score: "—",
+        },
       ];
 
       const statusColors: Record<string, string> = {
@@ -621,11 +736,14 @@ function AnimatedPlatformDemo() {
         PENDING_UPDATE: "#F97316",
       };
 
-      const visibleRows = Math.min(rows.length, Math.floor(t * 1.2) % (rows.length + 1));
+      const visibleRows = Math.min(
+        rows.length,
+        Math.floor(t * 1.2) % (rows.length + 1),
+      );
       rows.forEach((r, ri) => {
         if (ri > visibleRows) return;
         const ry = tableY + 30 + ri * 26;
-        const rowAlpha = ri === visibleRows ? Math.min(1, ((t * 1.2) % 1)) : 1;
+        const rowAlpha = ri === visibleRows ? Math.min(1, (t * 1.2) % 1) : 1;
 
         // Row hover highlight on active row
         const activeRow = Math.floor((t * 0.4) % rows.length);
@@ -653,8 +771,12 @@ function AnimatedPlatformDemo() {
             ctx.textAlign = "left";
             ctx.fillText(cell, rx, ry + 3);
           } else {
-            ctx.fillStyle = ci === 0 ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)";
-            ctx.font = ci === 0 ? "bold 9px Inter, system-ui, sans-serif" : "9px Inter, system-ui, sans-serif";
+            ctx.fillStyle =
+              ci === 0 ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)";
+            ctx.font =
+              ci === 0
+                ? "bold 9px Inter, system-ui, sans-serif"
+                : "9px Inter, system-ui, sans-serif";
             ctx.textAlign = "left";
             ctx.fillText(cell, rx, ry + 3);
           }
@@ -679,7 +801,12 @@ function AnimatedPlatformDemo() {
       const visiblePts = Math.ceil(chartPts.length * chartProgress);
 
       if (visiblePts > 1) {
-        const grad = ctx.createLinearGradient(chartX, chartY, chartX, chartY + chartH);
+        const grad = ctx.createLinearGradient(
+          chartX,
+          chartY,
+          chartX,
+          chartY + chartH,
+        );
         grad.addColorStop(0, "rgba(59,130,246,0.15)");
         grad.addColorStop(1, "rgba(59,130,246,0)");
         ctx.beginPath();
@@ -689,7 +816,10 @@ function AnimatedPlatformDemo() {
           const py = chartY + chartH - (chartPts[i] / 90) * chartH;
           ctx.lineTo(px, py);
         }
-        ctx.lineTo(chartX + ((visiblePts - 1) / (chartPts.length - 1)) * chartW, chartY + chartH);
+        ctx.lineTo(
+          chartX + ((visiblePts - 1) / (chartPts.length - 1)) * chartW,
+          chartY + chartH,
+        );
         ctx.closePath();
         ctx.fillStyle = grad;
         ctx.fill();
@@ -733,7 +863,12 @@ function AnimatedPlatformDemo() {
   return (
     <div className="relative w-[88%] h-[88%]">
       <div className="relative w-full h-full rounded-3xl overflow-hidden border border-white/10 shadow-[0_8px_40px_rgba(0,0,0,0.15)]">
-        <canvas ref={canvasRef} width={560} height={420} className="w-full h-full" />
+        <canvas
+          ref={canvasRef}
+          width={560}
+          height={420}
+          className="w-full h-full"
+        />
       </div>
     </div>
   );
@@ -805,12 +940,30 @@ function HeroSplitPreview({ isInView }: { isInView: boolean }) {
           </span>
           <div className="space-y-2 w-full">
             {[
-              { label: "NOT_STARTED", color: "bg-gray-100 text-gray-500 border-gray-200" },
-              { label: "PENDING", color: "bg-amber-50 text-amber-600 border-amber-200" },
-              { label: "PENDING_UPDATE", color: "bg-orange-50 text-orange-600 border-orange-200" },
-              { label: "AGREED", color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
-              { label: "CONFLICT", color: "bg-red-50 text-red-600 border-red-200" },
-              { label: "ADMIN_CONFIRMED", color: "bg-blue-50 text-blue-700 border-blue-200" },
+              {
+                label: "NOT_STARTED",
+                color: "bg-gray-100 text-gray-500 border-gray-200",
+              },
+              {
+                label: "PENDING",
+                color: "bg-amber-50 text-amber-600 border-amber-200",
+              },
+              {
+                label: "PENDING_UPDATE",
+                color: "bg-orange-50 text-orange-600 border-orange-200",
+              },
+              {
+                label: "AGREED",
+                color: "bg-emerald-50 text-emerald-600 border-emerald-200",
+              },
+              {
+                label: "CONFLICT",
+                color: "bg-red-50 text-red-600 border-red-200",
+              },
+              {
+                label: "ADMIN_CONFIRMED",
+                color: "bg-blue-50 text-blue-700 border-blue-200",
+              },
             ].map((status, i) => (
               <motion.div
                 key={i}
@@ -855,7 +1008,10 @@ function EfficiencyDashboard() {
   ];
 
   return (
-    <section ref={containerRef} className="py-28 px-6 md:px-12 bg-[#0F172A] relative overflow-hidden">
+    <section
+      ref={containerRef}
+      className="py-28 px-6 md:px-12 bg-[#0F172A] relative overflow-hidden"
+    >
       {/* Ambient blurs */}
       <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-blue-500/[0.06] rounded-full blur-[200px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-400/[0.04] rounded-full blur-[180px] pointer-events-none" />
@@ -905,7 +1061,12 @@ function EfficiencyDashboard() {
               className="text-center p-6 rounded-2xl bg-white/[0.04] border border-white/[0.08] hover:border-blue-500/30 hover:bg-white/[0.07] transition-all duration-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.06)]"
             >
               <div className="text-3xl md:text-4xl font-black text-white tracking-tight">
-                <AnimatedCounter value={m.value} suffix={m.suffix} decimals={m.decimals} isInView={isInView} />
+                <AnimatedCounter
+                  value={m.value}
+                  suffix={m.suffix}
+                  decimals={m.decimals}
+                  isInView={isInView}
+                />
               </div>
               <div className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.15em] mt-2">
                 {m.label}
@@ -923,7 +1084,9 @@ function EfficiencyDashboard() {
             transition={{ duration: 1, ease: premiumEase, delay: 0.5 }}
             className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-8 hover:border-blue-500/20 transition-all duration-500 hover:bg-white/[0.06]"
           >
-            <span className="text-[10px] font-mono text-blue-400 uppercase tracking-[0.2em] block mb-2">[Efficiency Rating]</span>
+            <span className="text-[10px] font-mono text-blue-400 uppercase tracking-[0.2em] block mb-2">
+              [Efficiency Rating]
+            </span>
             <h3 className="text-lg font-bold text-white mb-5">Overall Score</h3>
             <GaugeChart isInView={isInView} />
           </motion.div>
@@ -935,8 +1098,12 @@ function EfficiencyDashboard() {
             transition={{ duration: 1, ease: premiumEase, delay: 0.6 }}
             className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-8 hover:border-blue-500/20 transition-all duration-500 hover:bg-white/[0.06]"
           >
-            <span className="text-[10px] font-mono text-blue-400 uppercase tracking-[0.2em] block mb-2">[Task Distribution]</span>
-            <h3 className="text-lg font-bold text-white mb-5">Pipeline Breakdown</h3>
+            <span className="text-[10px] font-mono text-blue-400 uppercase tracking-[0.2em] block mb-2">
+              [Task Distribution]
+            </span>
+            <h3 className="text-lg font-bold text-white mb-5">
+              Pipeline Breakdown
+            </h3>
             <BarChart isInView={isInView} />
           </motion.div>
 
@@ -947,8 +1114,12 @@ function EfficiencyDashboard() {
             transition={{ duration: 1, ease: premiumEase, delay: 0.7 }}
             className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-8 hover:border-blue-500/20 transition-all duration-500 hover:bg-white/[0.06]"
           >
-            <span className="text-[10px] font-mono text-blue-400 uppercase tracking-[0.2em] block mb-2">[Quality Radar]</span>
-            <h3 className="text-lg font-bold text-white mb-5">Multi-Axis Assessment</h3>
+            <span className="text-[10px] font-mono text-blue-400 uppercase tracking-[0.2em] block mb-2">
+              [Quality Radar]
+            </span>
+            <h3 className="text-lg font-bold text-white mb-5">
+              Multi-Axis Assessment
+            </h3>
             <RadarChart isInView={isInView} />
           </motion.div>
         </div>
@@ -962,8 +1133,12 @@ function EfficiencyDashboard() {
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <span className="text-[10px] font-mono text-blue-400 uppercase tracking-[0.2em] block mb-1">[Performance Trend]</span>
-              <h3 className="text-lg font-bold text-white">Consensus Accuracy Over Time</h3>
+              <span className="text-[10px] font-mono text-blue-400 uppercase tracking-[0.2em] block mb-1">
+                [Performance Trend]
+              </span>
+              <h3 className="text-lg font-bold text-white">
+                Consensus Accuracy Over Time
+              </h3>
             </div>
             <span className="text-xs font-mono text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-3 py-1 rounded-full font-bold">
               +12.4% QoQ
@@ -979,7 +1154,17 @@ function EfficiencyDashboard() {
 // ----------------------------------------------------------------------
 // Animated Counter Component
 // ----------------------------------------------------------------------
-function AnimatedCounter({ value, suffix, decimals, isInView }: { value: number; suffix: string; decimals: number; isInView: boolean }) {
+function AnimatedCounter({
+  value,
+  suffix,
+  decimals,
+  isInView,
+}: {
+  value: number;
+  suffix: string;
+  decimals: number;
+  isInView: boolean;
+}) {
   const [display, setDisplay] = useState("0");
 
   useEffect(() => {
@@ -995,7 +1180,12 @@ function AnimatedCounter({ value, suffix, decimals, isInView }: { value: number;
     requestAnimationFrame(step);
   }, [isInView, value, decimals]);
 
-  return <>{display}{suffix}</>;
+  return (
+    <>
+      {display}
+      {suffix}
+    </>
+  );
 }
 
 // ----------------------------------------------------------------------
@@ -1011,14 +1201,18 @@ function GaugeChart({ isInView }: { isInView: boolean }) {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const W = canvas.width, H = canvas.height;
-    const cx = W / 2, cy = H * 0.82, r = Math.min(W, H) * 0.38;
+    const W = canvas.width,
+      H = canvas.height;
+    const cx = W / 2,
+      cy = H * 0.82,
+      r = Math.min(W, H) * 0.38;
     const targetValue = 96;
 
     let currentValue = 0;
     const animate = () => {
       currentValue += (targetValue - currentValue) * 0.04;
-      if (Math.abs(targetValue - currentValue) < 0.1) currentValue = targetValue;
+      if (Math.abs(targetValue - currentValue) < 0.1)
+        currentValue = targetValue;
       ctx.clearRect(0, 0, W, H);
 
       // Background arc
@@ -1044,7 +1238,8 @@ function GaugeChart({ isInView }: { isInView: boolean }) {
       // Tick marks
       for (let i = 0; i <= 10; i++) {
         const a = Math.PI + (i / 10) * Math.PI;
-        const inner = r - 10, outer = r - 4;
+        const inner = r - 10,
+          outer = r - 4;
         ctx.beginPath();
         ctx.moveTo(cx + inner * Math.cos(a), cy + inner * Math.sin(a));
         ctx.lineTo(cx + outer * Math.cos(a), cy + outer * Math.sin(a));
@@ -1093,7 +1288,14 @@ function GaugeChart({ isInView }: { isInView: boolean }) {
     return () => cancelAnimationFrame(animRef.current);
   }, [isInView]);
 
-  return <canvas ref={canvasRef} width={220} height={110} className="w-full max-w-[220px] mx-auto" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      width={220}
+      height={110}
+      className="w-full max-w-[220px] mx-auto"
+    />
+  );
 }
 
 // ----------------------------------------------------------------------
@@ -1109,15 +1311,17 @@ function BarChart({ isInView }: { isInView: boolean }) {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const W = canvas.width, H = canvas.height;
+    const W = canvas.width,
+      H = canvas.height;
     const data = [
       { label: "Text Classification", pct: 0.35 },
       { label: "NER Labeling", pct: 0.25 },
-      { label: "Sentiment", pct: 0.20 },
+      { label: "Sentiment", pct: 0.2 },
       { label: "Image Tags", pct: 0.12 },
       { label: "Audio Trans.", pct: 0.08 },
     ];
-    const barH = 14, gap = 10;
+    const barH = 14,
+      gap = 10;
     const startY = 8;
     const maxW = W - 120;
     const colors = ["#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE", "#DBEAFE"];
@@ -1158,7 +1362,11 @@ function BarChart({ isInView }: { isInView: boolean }) {
         ctx.fillStyle = "#F3F4F6";
         ctx.font = "bold 9px Inter, system-ui, sans-serif";
         ctx.textAlign = "left";
-        ctx.fillText(Math.round(d.pct * 100 * progress) + "%", 124 + bw, y + barH / 2);
+        ctx.fillText(
+          Math.round(d.pct * 100 * progress) + "%",
+          124 + bw,
+          y + barH / 2,
+        );
       });
 
       if (progress < 1) {
@@ -1185,9 +1393,19 @@ function RadarChart({ isInView }: { isInView: boolean }) {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const W = canvas.width, H = canvas.height;
-    const cx = W / 2, cy = H / 2, r = Math.min(W, H) / 2 - 20;
-    const labels = ["Accuracy", "Speed", "Consistency", "Coverage", "Scalability", "Quality"];
+    const W = canvas.width,
+      H = canvas.height;
+    const cx = W / 2,
+      cy = H / 2,
+      r = Math.min(W, H) / 2 - 20;
+    const labels = [
+      "Accuracy",
+      "Speed",
+      "Consistency",
+      "Coverage",
+      "Scalability",
+      "Quality",
+    ];
     const scores = [0.96, 0.82, 0.91, 0.88, 0.78, 0.94];
 
     let progress = 0;
@@ -1201,8 +1419,10 @@ function RadarChart({ isInView }: { isInView: boolean }) {
         ctx.beginPath();
         const lr = (lv / 4) * r;
         for (let i = 0; i <= labels.length; i++) {
-          const a = (i % labels.length) / labels.length * Math.PI * 2 - Math.PI / 2;
-          const x = cx + lr * Math.cos(a), y = cy + lr * Math.sin(a);
+          const a =
+            ((i % labels.length) / labels.length) * Math.PI * 2 - Math.PI / 2;
+          const x = cx + lr * Math.cos(a),
+            y = cy + lr * Math.sin(a);
           i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         }
         ctx.closePath();
@@ -1213,7 +1433,7 @@ function RadarChart({ isInView }: { isInView: boolean }) {
 
       // Axes
       labels.forEach((_, i) => {
-        const a = i / labels.length * Math.PI * 2 - Math.PI / 2;
+        const a = (i / labels.length) * Math.PI * 2 - Math.PI / 2;
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
@@ -1225,9 +1445,10 @@ function RadarChart({ isInView }: { isInView: boolean }) {
       ctx.beginPath();
       for (let i = 0; i <= scores.length; i++) {
         const idx = i % scores.length;
-        const a = idx / labels.length * Math.PI * 2 - Math.PI / 2;
+        const a = (idx / labels.length) * Math.PI * 2 - Math.PI / 2;
         const lr = scores[idx] * r * progress;
-        const x = cx + lr * Math.cos(a), y = cy + lr * Math.sin(a);
+        const x = cx + lr * Math.cos(a),
+          y = cy + lr * Math.sin(a);
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
       ctx.closePath();
@@ -1242,9 +1463,10 @@ function RadarChart({ isInView }: { isInView: boolean }) {
 
       // Nodes
       scores.forEach((s, i) => {
-        const a = i / labels.length * Math.PI * 2 - Math.PI / 2;
+        const a = (i / labels.length) * Math.PI * 2 - Math.PI / 2;
         const lr = s * r * progress;
-        const x = cx + lr * Math.cos(a), y = cy + lr * Math.sin(a);
+        const x = cx + lr * Math.cos(a),
+          y = cy + lr * Math.sin(a);
         ctx.beginPath();
         ctx.arc(x, y, 3, 0, 2 * Math.PI);
         ctx.fillStyle = "#3B82F6";
@@ -1258,7 +1480,7 @@ function RadarChart({ isInView }: { isInView: boolean }) {
 
       // Labels
       labels.forEach((lb, i) => {
-        const a = i / labels.length * Math.PI * 2 - Math.PI / 2;
+        const a = (i / labels.length) * Math.PI * 2 - Math.PI / 2;
         const lr = r + 14;
         ctx.fillStyle = "rgba(255,255,255,0.4)";
         ctx.font = "8px Inter, system-ui, sans-serif";
@@ -1275,7 +1497,14 @@ function RadarChart({ isInView }: { isInView: boolean }) {
     return () => cancelAnimationFrame(animRef.current);
   }, [isInView]);
 
-  return <canvas ref={canvasRef} width={200} height={200} className="w-full max-w-[200px] mx-auto" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      width={200}
+      height={200}
+      className="w-full max-w-[200px] mx-auto"
+    />
+  );
 }
 
 // ----------------------------------------------------------------------
@@ -1291,8 +1520,11 @@ function LineChart({ isInView }: { isInView: boolean }) {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const W = canvas.width, H = canvas.height;
-    const pts = [62, 68, 65, 74, 71, 82, 78, 88, 85, 92, 89, 94, 91, 96, 93, 98];
+    const W = canvas.width,
+      H = canvas.height;
+    const pts = [
+      62, 68, 65, 74, 71, 82, 78, 88, 85, 92, 89, 94, 91, 96, 93, 98,
+    ];
     const mapped = pts.map((v, i) => ({
       x: (i / (pts.length - 1)) * (W - 40) + 20,
       y: H - 20 - ((v - 50) / 55) * (H - 40),
@@ -1356,7 +1588,24 @@ function LineChart({ isInView }: { isInView: boolean }) {
       ctx.setLineDash([]);
 
       // Month labels
-      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"];
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+      ];
       ctx.fillStyle = "rgba(255,255,255,0.25)";
       ctx.font = "8px Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
@@ -1387,16 +1636,16 @@ function ProblemSolution() {
   const comparisonRows = [
     {
       traditional: "Lock the administration panel until all annotators finish.",
-      ours: "Always-On Panels: Generate and review structural skeletons instantly at 0% or 99% completion."
+      ours: "Always-On Panels: Generate and review structural skeletons instantly at 0% or 99% completion.",
     },
     {
       traditional: "Invalidate or delete existing work when questions change.",
-      ours: "Hot-Schema Syncing: Auto-versioning preserves compatible data and flags changes as PENDING_UPDATE."
+      ours: "Hot-Schema Syncing: Auto-versioning preserves compatible data and flags changes as PENDING_UPDATE.",
     },
     {
       traditional: "Flatten data, destroying nested arrays and loops.",
-      ours: "Strict Structural Mirroring: Keeps CSV structures, nested groups, and repeat loops perfectly intact."
-    }
+      ours: "Strict Structural Mirroring: Keeps CSV structures, nested groups, and repeat loops perfectly intact.",
+    },
   ];
 
   return (
@@ -1430,7 +1679,10 @@ function ProblemSolution() {
             transition={{ duration: 1, ease: premiumEase, delay: 0.2 }}
             className="text-gray-500 leading-relaxed text-sm md:text-base font-medium mt-4 max-w-2xl"
           >
-            Traditional data labeling tools break down the moment an admin updates a schema mid-project, or they completely lock admins out of the consensus dashboard until every single annotator hits 100% completion.
+            Traditional data labeling tools break down the moment an admin
+            updates a schema mid-project, or they completely lock admins out of
+            the consensus dashboard until every single annotator hits 100%
+            completion.
           </motion.p>
         </div>
 
@@ -1451,20 +1703,28 @@ function ProblemSolution() {
                 key={idx}
                 initial={{ opacity: 0, y: 15 }}
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.8, ease: premiumEase, delay: 0.4 + idx * 0.12 }}
+                transition={{
+                  duration: 0.8,
+                  ease: premiumEase,
+                  delay: 0.4 + idx * 0.12,
+                }}
                 className="grid grid-cols-2 gap-6 p-6 items-start hover:bg-blue-50/20 transition-all duration-300 group"
               >
                 <div className="flex items-start gap-3">
                   <div className="w-7 h-7 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-red-100/60 transition-colors">
                     <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
                   </div>
-                  <span className="text-[13px] text-gray-400 font-medium leading-relaxed">{row.traditional}</span>
+                  <span className="text-[13px] text-gray-400 font-medium leading-relaxed">
+                    {row.traditional}
+                  </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-blue-100/60 transition-colors">
                     <CheckCircle className="w-3.5 h-3.5 text-blue-700" />
                   </div>
-                  <span className="text-[13px] text-gray-700 font-semibold leading-relaxed">{row.ours}</span>
+                  <span className="text-[13px] text-gray-700 font-semibold leading-relaxed">
+                    {row.ours}
+                  </span>
                 </div>
               </motion.div>
             ))}
@@ -1487,27 +1747,27 @@ function CoreFeatures() {
       num: "[01]",
       icon: <GitBranch className="w-6 h-6" />,
       title: "Multi-Annotator Isolation & Workspace Cloning",
-      desc: "To eradicate human labeler bias, workflows are fully separated. Admins upload raw datasets once and spin up independent, sandboxed workspace clones for individual annotators."
+      desc: "To eradicate human labeler bias, workflows are fully separated. Admins upload raw datasets once and spin up independent, sandboxed workspace clones for individual annotators.",
     },
     {
       num: "[02]",
       icon: <Layers className="w-6 h-6" />,
       title: "Zero-Flatten Hierarchy Engine",
-      desc: "Your schema data structure remains pure from ingestion to export. Our interface natively mirrors and displays complex data formats without crushing your data models."
+      desc: "Your schema data structure remains pure from ingestion to export. Our interface natively mirrors and displays complex data formats without crushing your data models.",
     },
     {
       num: "[03]",
       icon: <Zap className="w-6 h-6" />,
       title: "Schema Hot-Swapping & Micro-Versioning",
-      desc: "Modified a question, added an option, or deleted a group midway? The platform auto-increments the dataset schema version, updates live annotator workspaces in real time, and tags affected fields with a clean PENDING_UPDATE badge."
-    }
+      desc: "Modified a question, added an option, or deleted a group midway? The platform auto-increments the dataset schema version, updates live annotator workspaces in real time, and tags affected fields with a clean PENDING_UPDATE badge.",
+    },
   ];
 
   const hierarchyTypes = [
     "Standard CSV Data Rows",
     "Conditional Branching & Logic Trees",
     "Infinite Nested Form Groups",
-    "Dynamic Repeat Groups & Loop Instances"
+    "Dynamic Repeat Groups & Loop Instances",
   ];
 
   return (
@@ -1544,17 +1804,27 @@ function CoreFeatures() {
               key={idx}
               initial={{ opacity: 0, y: 35 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 1.2, ease: premiumEase, delay: idx * 0.15 }}
+              transition={{
+                duration: 1.2,
+                ease: premiumEase,
+                delay: idx * 0.15,
+              }}
               className="space-y-5 border border-gray-200/60 rounded-2xl p-7 bg-white/60 backdrop-blur-sm hover:border-blue-200 hover:shadow-[0_12px_40px_-12px_rgba(30,58,138,0.1)] hover:bg-white/80 transition-all duration-500 group"
             >
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/80 border border-blue-200/60 flex items-center justify-center text-blue-700 group-hover:from-blue-100 group-hover:to-blue-200/60 transition-all duration-300">
                   {feat.icon}
                 </div>
-                <span className="text-[10px] font-mono text-blue-700 font-bold tracking-wider">{feat.num}</span>
+                <span className="text-[10px] font-mono text-blue-700 font-bold tracking-wider">
+                  {feat.num}
+                </span>
               </div>
-              <h3 className="text-[15px] font-bold tracking-tight text-[#111115] leading-snug">{feat.title}</h3>
-              <p className="text-[13px] text-gray-400 leading-relaxed font-medium">{feat.desc}</p>
+              <h3 className="text-[15px] font-bold tracking-tight text-[#111115] leading-snug">
+                {feat.title}
+              </h3>
+              <p className="text-[13px] text-gray-400 leading-relaxed font-medium">
+                {feat.desc}
+              </p>
             </motion.div>
           ))}
         </div>
@@ -1567,10 +1837,16 @@ function CoreFeatures() {
           className="bg-white border border-gray-200/60 rounded-2xl p-8 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_60px_-12px_rgba(30,58,138,0.1)] hover:border-blue-200/60 transition-all duration-500"
         >
           <div className="flex items-center justify-between mb-6">
-            <span className="text-[10px] font-mono tracking-widest text-blue-700 uppercase font-bold">[Zero-Flatten Hierarchy]</span>
-            <span className="text-xs font-mono text-gray-400">Supported Structure Types</span>
+            <span className="text-[10px] font-mono tracking-widest text-blue-700 uppercase font-bold">
+              [Zero-Flatten Hierarchy]
+            </span>
+            <span className="text-xs font-mono text-gray-400">
+              Supported Structure Types
+            </span>
           </div>
-          <h4 className="text-lg font-bold tracking-tight text-[#111115] mb-6">Native structural data formats preserved end-to-end</h4>
+          <h4 className="text-lg font-bold tracking-tight text-[#111115] mb-6">
+            Native structural data formats preserved end-to-end
+          </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {hierarchyTypes.map((htype, i) => (
               <motion.div
@@ -1583,7 +1859,9 @@ function CoreFeatures() {
                 <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 border border-blue-200/60">
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                 </div>
-                <span className="text-[13px] font-mono font-semibold text-gray-600">{htype}</span>
+                <span className="text-[13px] font-mono font-semibold text-gray-600">
+                  {htype}
+                </span>
               </motion.div>
             ))}
           </div>
@@ -1602,17 +1880,41 @@ function ConsensusCenter() {
   const [sliderValue, setSliderValue] = useState(30);
 
   const lifecycleStates = [
-    { label: "NOT_STARTED", color: "bg-gray-100 text-gray-500 border-gray-200" },
+    {
+      label: "NOT_STARTED",
+      color: "bg-gray-100 text-gray-500 border-gray-200",
+    },
     { label: "PENDING", color: "bg-amber-50 text-amber-600 border-amber-200" },
     { label: "PARTIAL", color: "bg-blue-50 text-blue-700 border-blue-200" },
-    { label: "AGREED / CONFLICT", color: "bg-violet-50 text-violet-600 border-violet-200" },
-    { label: "ADMIN_CONFIRMED", color: "bg-emerald-50 text-emerald-600 border-emerald-200" }
+    {
+      label: "AGREED / CONFLICT",
+      color: "bg-violet-50 text-violet-600 border-violet-200",
+    },
+    {
+      label: "ADMIN_CONFIRMED",
+      color: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    },
   ];
 
   const annotatorData = [
-    { name: "Annotator Alpha", color: "text-red-500", bg: "bg-red-500", label: "Positive Sentiment" },
-    { name: "Annotator Beta", color: "text-amber-500", bg: "bg-amber-500", label: "Neutral Sentiment" },
-    { name: "Annotator Gamma", color: "text-blue-500", bg: "bg-blue-500", label: "Positive Sentiment" }
+    {
+      name: "Annotator Alpha",
+      color: "text-red-500",
+      bg: "bg-red-500",
+      label: "Positive Sentiment",
+    },
+    {
+      name: "Annotator Beta",
+      color: "text-amber-500",
+      bg: "bg-amber-500",
+      label: "Neutral Sentiment",
+    },
+    {
+      name: "Annotator Gamma",
+      color: "text-blue-500",
+      bg: "bg-blue-500",
+      label: "Positive Sentiment",
+    },
   ];
 
   return (
@@ -1631,7 +1933,8 @@ function ConsensusCenter() {
             Take absolute control of your data pipelines
           </h2>
           <p className="text-gray-500 leading-relaxed text-sm md:text-base font-medium mt-4 max-w-xl mx-auto">
-            A state-of-the-art dual-interface tracking system with deterministic lifecycle states and instant conflict resolution.
+            A state-of-the-art dual-interface tracking system with deterministic
+            lifecycle states and instant conflict resolution.
           </p>
         </div>
 
@@ -1644,7 +1947,9 @@ function ConsensusCenter() {
         >
           {lifecycleStates.map((state, idx) => (
             <div key={idx} className="flex items-center gap-3">
-              <span className={`text-[10px] font-mono py-2 px-4 rounded-full border font-bold ${state.color}`}>
+              <span
+                className={`text-[10px] font-mono py-2 px-4 rounded-full border font-bold ${state.color}`}
+              >
                 {state.label}
               </span>
               {idx < lifecycleStates.length - 1 && (
@@ -1665,7 +1970,9 @@ function ConsensusCenter() {
               Resolve divergent values instantly
             </h3>
             <p className="text-gray-500 leading-relaxed text-sm md:text-base font-medium">
-              Use single-click annotator selection buttons, or deploy field-specific fallback inputs (Star ratings, ranges, chip sets, text areas) to override data on the fly.
+              Use single-click annotator selection buttons, or deploy
+              field-specific fallback inputs (Star ratings, ranges, chip sets,
+              text areas) to override data on the fly.
             </p>
 
             <div className="pt-6 space-y-4">
@@ -1693,7 +2000,9 @@ function ConsensusCenter() {
                 ▸ The Review Module
               </span>
               <p className="text-sm text-gray-500 leading-relaxed font-medium">
-                Access a deep historical audit log containing side-by-side matrices matching raw data, individual responses, and administrative overrides.
+                Access a deep historical audit log containing side-by-side
+                matrices matching raw data, individual responses, and
+                administrative overrides.
               </p>
             </div>
           </div>
@@ -1702,7 +2011,9 @@ function ConsensusCenter() {
           <div className="lg:col-span-7 bg-white border border-gray-200/60 rounded-2xl p-8 relative shadow-[0_12px_50px_-12px_rgba(0,0,0,0.08)] backdrop-blur-md hover:shadow-[0_20px_60px_-12px_rgba(30,58,138,0.1)] hover:border-blue-200/50 transition-all duration-500">
             <div className="absolute top-4 left-6 flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-              <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider">CONFLICT STATE ENGINE</span>
+              <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider">
+                CONFLICT STATE ENGINE
+              </span>
             </div>
 
             <div className="space-y-6 pt-6">
@@ -1719,17 +2030,25 @@ function ConsensusCenter() {
                       x: xOffset,
                       y: yOffset,
                       opacity: opacity,
-                      borderColor: sliderValue > 85 ? "rgba(59, 130, 246, 0.2)" : "rgba(229, 231, 235, 1)"
+                      borderColor:
+                        sliderValue > 85
+                          ? "rgba(59, 130, 246, 0.2)"
+                          : "rgba(229, 231, 235, 1)",
                     }}
                     transition={{ type: "spring", stiffness: 150, damping: 20 }}
                     className="bg-gray-50/80 border border-gray-200/60 p-4 rounded-xl flex items-center justify-between hover:border-gray-300 transition-colors duration-300"
                   >
                     <div className="flex items-center space-x-3">
                       <span className={`w-2.5 h-2.5 rounded-full ${ann.bg}`} />
-                      <span className="text-xs font-mono font-bold text-gray-600">{ann.name}</span>
+                      <span className="text-xs font-mono font-bold text-gray-600">
+                        {ann.name}
+                      </span>
                     </div>
                     <div className="text-xs font-mono text-gray-500 bg-gray-100 px-3 py-1 rounded">
-                      Label: <span className={`${ann.color} font-bold`}>"{ann.label}"</span>
+                      Label:{" "}
+                      <span className={`${ann.color} font-bold`}>
+                        "{ann.label}"
+                      </span>
                     </div>
                   </motion.div>
                 );
@@ -1751,8 +2070,12 @@ function ConsensusCenter() {
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                       </div>
                       <div>
-                        <span className="text-xs font-mono text-blue-700 font-bold block uppercase tracking-wider">ADMIN_CONFIRMED</span>
-                        <span className="text-[10px] text-gray-500">All submissions merged to "Positive Sentiment"</span>
+                        <span className="text-xs font-mono text-blue-700 font-bold block uppercase tracking-wider">
+                          ADMIN_CONFIRMED
+                        </span>
+                        <span className="text-[10px] text-gray-500">
+                          All submissions merged to "Positive Sentiment"
+                        </span>
                       </div>
                     </div>
                     <div className="text-xs font-mono text-blue-700 font-bold bg-blue-100 border border-blue-300 px-3 py-1 rounded z-10">
@@ -1796,17 +2119,22 @@ function FinalCTA() {
         </span>
 
         <h2 className="text-4xl md:text-6xl font-black tracking-tight text-[#111115] leading-tight mb-6">
-          Stop letting rigid pipelines and incomplete annotations block your validation cycles.
+          Stop letting rigid pipelines and incomplete annotations block your
+          validation cycles.
         </h2>
 
         <p className="text-gray-500 leading-relaxed text-base md:text-lg max-w-2xl mx-auto font-medium mb-10">
-          Experience continuous data engineering with always-on consensus panels, hot-schema syncing, and strict structural mirroring.
+          Experience continuous data engineering with always-on consensus
+          panels, hot-schema syncing, and strict structural mirroring.
         </p>
 
         <div className="flex flex-wrap gap-4 justify-center pt-4">
           <Link href="/signup">
             <motion.button
-              whileHover={{ scale: 1.03, boxShadow: "0_8px_30px_rgba(30,58,138,0.4)" }}
+              whileHover={{
+                scale: 1.03,
+                boxShadow: "0_8px_30px_rgba(30,58,138,0.4)",
+              }}
               whileTap={{ scale: 0.97 }}
               className="bg-gradient-to-r from-blue-800 to-blue-900 hover:from-blue-700 hover:to-blue-800 text-white px-10 py-4 rounded-full text-[11px] font-bold tracking-[0.2em] uppercase shadow-[0_4px_24px_rgba(30,58,138,0.3)] transition-all duration-300 border border-blue-700/30"
             >
@@ -1815,7 +2143,10 @@ function FinalCTA() {
           </Link>
           <Link href="/login">
             <motion.button
-              whileHover={{ scale: 1.03, backgroundColor: "rgba(59,130,246,0.04)" }}
+              whileHover={{
+                scale: 1.03,
+                backgroundColor: "rgba(59,130,246,0.04)",
+              }}
               whileTap={{ scale: 0.97 }}
               className="border border-gray-200 hover:border-blue-300 bg-white/60 backdrop-blur-sm text-gray-600 hover:text-blue-800 px-10 py-4 rounded-full text-[11px] font-bold tracking-[0.2em] uppercase transition-all duration-300 shadow-sm"
             >
@@ -1839,7 +2170,7 @@ function Footer() {
     "STRUCTURAL MIRRORING: ENFORCED",
     "PENDING_UPDATE BADGES: LIVE",
     "ADMIN PANELS: ALWAYS-ON",
-    "ZERO-FLATTEN HIERARCHY: GUARANTEED"
+    "ZERO-FLATTEN HIERARCHY: GUARANTEED",
   ];
 
   return (
@@ -1849,36 +2180,82 @@ function Footer() {
         <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#0F172A] to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0F172A] to-transparent z-10 pointer-events-none" />
         <div className="flex whitespace-nowrap animate-[marquee_25s_linear_infinite] hover:[animation-play-state:paused] cursor-pointer">
-          {Array(3).fill(tickerWords).flat().map((item, idx) => (
-            <span key={idx} className="inline-flex items-center mx-8 text-xs font-mono uppercase tracking-[0.25em] text-gray-400">
-              <span className="w-2 h-2 rounded-full bg-blue-500 mr-3 inline-block animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
-              {item}
-            </span>
-          ))}
+          {Array(3)
+            .fill(tickerWords)
+            .flat()
+            .map((item, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center mx-8 text-xs font-mono uppercase tracking-[0.25em] text-gray-400"
+              >
+                <span className="w-2 h-2 rounded-full bg-blue-500 mr-3 inline-block animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                {item}
+              </span>
+            ))}
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 md:grid-cols-4 gap-12 pt-8">
         <div className="space-y-4">
-          <span className="font-extrabold text-2xl tracking-wider text-white">DATAANNOTATE</span>
+          <span className="font-extrabold text-2xl tracking-wider text-white">
+            DATAANNOTATE
+          </span>
           <p className="text-xs text-gray-400 font-medium leading-relaxed">
-            Enterprise-grade data annotation engine built around complete administrative control, dynamic multi-layer schema synchronization, and deterministic consensus.
+            Enterprise-grade data annotation engine built around complete
+            administrative control, dynamic multi-layer schema synchronization,
+            and deterministic consensus.
           </p>
         </div>
 
         <div className="space-y-4">
-          <h4 className="text-xs font-mono uppercase text-gray-500 tracking-wider">[Navigation]</h4>
+          <h4 className="text-xs font-mono uppercase text-gray-500 tracking-wider">
+            [Navigation]
+          </h4>
           <ul className="space-y-2 text-xs font-semibold tracking-wide text-gray-300">
-            <li><a href="#problem" className="hover:text-white transition-colors">Problem & Solution</a></li>
-            <li><a href="#features" className="hover:text-white transition-colors">Core Features</a></li>
-            <li><a href="#consensus" className="hover:text-white transition-colors">Consensus Center</a></li>
-            <li><Link href="/documentation" className="hover:text-white transition-colors">Documentation</Link></li>
-            <li><a href="#comparison" className="hover:text-white transition-colors">Deploy Now</a></li>
+            <li>
+              <a href="#problem" className="hover:text-white transition-colors">
+                Problem & Solution
+              </a>
+            </li>
+            <li>
+              <a
+                href="#features"
+                className="hover:text-white transition-colors"
+              >
+                Core Features
+              </a>
+            </li>
+            <li>
+              <a
+                href="#consensus"
+                className="hover:text-white transition-colors"
+              >
+                Consensus Center
+              </a>
+            </li>
+            <li>
+              <Link
+                href="/documentation"
+                className="hover:text-white transition-colors"
+              >
+                Documentation
+              </Link>
+            </li>
+            <li>
+              <a
+                href="#comparison"
+                className="hover:text-white transition-colors"
+              >
+                Deploy Now
+              </a>
+            </li>
           </ul>
         </div>
 
         <div className="space-y-4">
-          <h4 className="text-xs font-mono uppercase text-gray-500 tracking-wider">[Architecture Contract]</h4>
+          <h4 className="text-xs font-mono uppercase text-gray-500 tracking-wider">
+            [Architecture Contract]
+          </h4>
           <div className="space-y-2 text-xs text-gray-400 font-medium">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
@@ -1900,9 +2277,15 @@ function Footer() {
         </div>
 
         <div className="space-y-4 md:text-right">
-          <span className="text-[10px] font-mono text-gray-500 block">© 2026 DATAANNOTATE.</span>
-          <span className="text-[10px] font-mono text-gray-500 block">ALL RIGHTS RESERVED STRICTLY.</span>
-          <span className="text-[10px] font-mono text-blue-400 block font-bold">[CONTINUOUS CONSENSUS ARCHITECTURE]</span>
+          <span className="text-[10px] font-mono text-gray-500 block">
+            © 2026 DATAANNOTATE.
+          </span>
+          <span className="text-[10px] font-mono text-gray-500 block">
+            ALL RIGHTS RESERVED STRICTLY.
+          </span>
+          <span className="text-[10px] font-mono text-blue-400 block font-bold">
+            [CONTINUOUS CONSENSUS ARCHITECTURE]
+          </span>
         </div>
       </div>
     </footer>

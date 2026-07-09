@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { CSVColumnsDisplay } from './csv-columns-display';
 import { useToast } from '@/components/ui/toast';
 import { FieldGroup, VisibilityRule, BranchOption } from '@/types/feature1';
+import { FieldGroup, VisibilityRule, BranchOption } from '@/types/feature1';
 import { FieldGroupEditor } from './field-group-editor';
 import { RecursiveFieldEditor } from './recursive-field-editor';
 import { LivePreviewTree } from './live-preview-tree';
@@ -234,9 +235,6 @@ export function FieldConfig({
 
   // Load dataset columns and existing field configuration
   useEffect(() => {
-    console.log('FieldConfig useEffect triggered');
-    console.log('datasetId:', datasetId);
-
     // Load dataset available columns and existing field configuration
     loadDatasetColumns();
     loadExistingFieldConfig();
@@ -247,28 +245,23 @@ export function FieldConfig({
     try {
       setLoading(true);
       setDatasetLoadingError(null);
-      console.log('Loading dataset columns for dataset:', datasetId);
 
       const dataset = await datasetsAPI.getById(datasetId);
-      console.log('Dataset response:', dataset);
 
       if (dataset) {
-        if (typeof (dataset as any).totalCSVFiles === 'number') {
-          setTotalCSVFiles((dataset as any).totalCSVFiles);
+        if (typeof dataset.totalCSVFiles === 'number') {
+          setTotalCSVFiles(dataset.totalCSVFiles);
         }
       }
 
-      if (dataset && (dataset as any).availableColumns) {
-        const availableColumns = (dataset as any).availableColumns;
+      if (dataset && dataset.availableColumns) {
+        const availableColumns = dataset.availableColumns;
         const csvColumns = availableColumns.filter(
-          (col: any) => col.source === 'CSV',
+          (col) => col.source === 'CSV',
         );
         const manualColumns = availableColumns.filter(
-          (col: any) => col.source === 'MANUAL',
+          (col) => col.source === 'MANUAL',
         );
-
-        console.log('CSV columns:', csvColumns);
-        console.log('Manual columns:', manualColumns);
 
         setAvailableColumns({
           csvColumns: csvColumns.map((col: any) => ({
@@ -282,7 +275,6 @@ export function FieldConfig({
           })),
         });
       } else {
-        console.log('No available columns found in dataset');
         setAvailableColumns({ csvColumns: [], manualColumns: [] });
       }
     } catch (error: any) {
@@ -380,12 +372,10 @@ export function FieldConfig({
 
   const loadDatasetInfo = async () => {
     try {
-      console.log('Loading dataset info for header...');
       const dataset = await datasetsAPI.getById(datasetId);
-      console.log('Dataset info loaded:', dataset);
       if (dataset) {
-        if (typeof (dataset as any).totalCSVFiles === 'number') {
-          setTotalCSVFiles((dataset as any).totalCSVFiles);
+        if (typeof dataset.totalCSVFiles === 'number') {
+          setTotalCSVFiles(dataset.totalCSVFiles);
         }
       }
       setDatasetInfo({
@@ -515,7 +505,7 @@ export function FieldConfig({
     } else {
       updates.fieldType = 'text';
       updates.isAnnotationField = true;
-      updates.columnType = type as any;
+      updates.columnType = type as 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
     }
     handleFieldChange(field.id, updates);
   };
@@ -604,18 +594,9 @@ export function FieldConfig({
     }
 
     const trimmedName = columnName.trim();
-    
-    // Debug logging
-    console.log('Validating column name:', trimmedName);
-    console.log('Available CSV columns (first 10):', availableColumns.csvColumns.slice(0, 10).map(col => col.name));
-    console.log('New columns:', newColumns.map(col => col.columnName));
-    console.log('Annotation fields:', annotationFields.map(field => field.csvColumnName));
-    
+
     // Check if the exact name exists
     const exactMatch = availableColumns.csvColumns.find(col => col.name.toLowerCase() === trimmedName.toLowerCase());
-    if (exactMatch) {
-      console.log('EXACT MATCH FOUND:', exactMatch.name);
-    }
     
     // Check for duplicates in new columns
     const duplicateNewColumn = newColumns.find(col => 
@@ -761,8 +742,6 @@ export function FieldConfig({
 
     setLoading(true);
     try {
-      console.log('Saving field configuration for dataset:', datasetId);
-
       // Build payload with full deep-cloned recursive structures
       const payload = {
         datasetId,
@@ -869,35 +848,6 @@ export function FieldConfig({
         });
       };
 
-      const afBranching = payload.annotationFields.filter((f: any) => f.branching);
-      const ncBranching = payload.newColumns.filter((c: any) => c.branching);
-      
-      console.log('--- SAVE DEBUG START ---');
-      afBranching.forEach((f: any) => {
-        console.log(`[SAVE DEBUG] Field: ${f.fieldName}`);
-        console.log(`SAVE DEBUG: branching tree depth: ${getBranchingDepth(f.branching)}`);
-        console.log(`SAVE DEBUG: option-wise child count:`, JSON.stringify(getOptionWiseChildCount(f.branching), null, 2));
-      });
-      ncBranching.forEach((c: any) => {
-        console.log(`[SAVE DEBUG] New Column: ${c.columnName}`);
-        console.log(`SAVE DEBUG: branching tree depth: ${getBranchingDepth(c.branching)}`);
-        console.log(`SAVE DEBUG: option-wise child count:`, JSON.stringify(getOptionWiseChildCount(c.branching), null, 2));
-      });
-
-      const fgBranching = (payload.fieldGroups || []).filter((g: any) => g.fields?.some((f: any) => f.branching));
-      console.log('[SAVE DEBUG] fieldGroups with branching:', fgBranching.length);
-      fgBranching.forEach((g: any) => {
-        g.fields.forEach((f: any) => {
-          if (f.branching) {
-            console.log(`[SAVE DEBUG] FieldGroup field: ${f.fieldName}`);
-            console.log(`SAVE DEBUG: branching tree depth: ${getBranchingDepth(f.branching)}`);
-            console.log(`SAVE DEBUG: option-wise child count:`, JSON.stringify(getOptionWiseChildCount(f.branching), null, 2));
-          }
-        });
-      });
-      console.log('[SAVE DEBUG] Full payload:', JSON.stringify(payload, null, 2));
-      console.log('--- SAVE DEBUG END ---');
-
       await fieldSelectionAPI.saveDatasetFieldConfig(payload);
 
       setHasChanges(false);
@@ -906,7 +856,6 @@ export function FieldConfig({
         description: 'Field configuration saved successfully!',
         type: 'success',
       });
-      console.log('Field configuration saved successfully');
 
       // Dispatch event to notify other components that field config was saved
       window.dispatchEvent(

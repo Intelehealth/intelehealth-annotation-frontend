@@ -4,10 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FieldGroup, FieldGroupChildField } from '@/types/feature1';
+import { FieldGroup, FieldGroupChildField, AnnotationField } from '@/types/feature1';
 import { Plus, Trash2, HelpCircle, Eye, RefreshCw, X, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FieldTypeConfigurator } from './field-type-configurator';
+import { RecursiveFieldEditor } from './recursive-field-editor';
 import { RecursiveFieldEditor } from './recursive-field-editor';
 
 interface FieldGroupEditorProps {
@@ -348,7 +349,7 @@ export function FieldGroupEditor({
                             <select
                               value={field.fieldType}
                               onChange={(e) => {
-                                const newType = e.target.value as any;
+                                const newType = e.target.value as 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
                                 updateField(index, {
                                   fieldType: newType,
                                   options: [],
@@ -453,9 +454,9 @@ export function FieldGroupEditor({
                           {['radio', 'multiselect', 'select', 'rating', 'checkbox'].includes(field.fieldType) && !isLocked && (
                             <div className="pt-3 border-t border-gray-200">
                               <RecursiveFieldEditor
-                                field={field as any}
+                                field={field as unknown as AnnotationField}
                                 depth={0}
-                                onChange={(updated) => updateField(index, updated as any)}
+                                onChange={(updated) => updateField(index, updated as unknown as FieldGroupChildField)}
                               />
                             </div>
                           )}

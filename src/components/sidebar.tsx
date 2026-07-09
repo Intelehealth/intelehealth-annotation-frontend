@@ -78,11 +78,12 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
           list = [
             {
               _id: 'pending-approval-virtual',
+              userId: user._id || '',
               title: 'Waiting for admin approval',
               message: 'Your account has not yet been approved.',
               isRead: false,
               createdAt: new Date().toISOString(),
-            } as any,
+            },
             ...list,
           ];
         }

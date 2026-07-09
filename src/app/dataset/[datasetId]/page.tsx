@@ -154,11 +154,6 @@ export default function DatasetDetailPage() {
                 <DatasetUploadComponent
                   datasetId={datasetId}
                   onCSVUploaded={(csvImportId, fileName, totalRows) => {
-                    console.log('CSV uploaded:', {
-                      csvImportId,
-                      fileName,
-                      totalRows,
-                    });
                     // Refresh the data overview to show new CSV
                     setRefreshTrigger((prev) => prev + 1);
                     // Let CSVUploadComponent handle the redirection logic

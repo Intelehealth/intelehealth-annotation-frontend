@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ExportDropdown, ExportOption } from '@/components/ui/export-dropdown';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CloneGroup } from '@/types/feature1';
 import {
   Upload,
   Database,
@@ -64,7 +65,7 @@ export function DataOverview({
   const { showToast } = useToast();
 
   // ── Consensus clone panel state ────────────────────────────────────────────
-  const [cloneGroup, setCloneGroup] = useState<any | null>(null);
+  const [cloneGroup, setCloneGroup] = useState<CloneGroup | null>(null);
   const [loadingCloneGroup, setLoadingCloneGroup] = useState(false);
   const [isGeneratingConsensus, setIsGeneratingConsensus] = useState(false);
 
@@ -106,9 +107,12 @@ export function DataOverview({
         type: 'success',
       });
       router.push(`/dataset/${datasetId}/generate-consensus`);
+      router.push(`/dataset/${datasetId}/generate-consensus`);
     } catch (err: any) {
       const msg: string = err?.response?.data?.message || err?.message || 'Failed to generate consensus.';
+      const msg: string = err?.response?.data?.message || err?.message || 'Failed to generate consensus.';
       showToast({
+        title: 'Consensus generation failed',
         title: 'Consensus generation failed',
         description: msg,
         type: 'error',
@@ -778,7 +782,7 @@ export function DataOverview({
               <div className="space-y-4">
                 {/* Per-annotator progress rows */}
                 <div className="space-y-3">
-                  {(cloneGroup.clones as any[]).map((clone: any) => {
+                  {(cloneGroup.clones).map((clone) => {
                     const total: number = clone.progress?.totalRows ?? 0;
                     const completed: number = clone.progress?.completedRows ?? 0;
                     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -849,7 +853,7 @@ export function DataOverview({
 
                 {/* Status summary + action buttons — always visible when clones exist */}
                 {(() => {
-                  const clones = cloneGroup.clones as any[];
+                  const clones = cloneGroup.clones;
                   return (
                     <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-gray-100">
                       <Button

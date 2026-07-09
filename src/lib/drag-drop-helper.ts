@@ -70,8 +70,6 @@ export class DragDropHelper {
       // Determine operation type
       const operationType = this.determineOperationType(draggedFieldData, targetPanel, targetFieldName);
 
-      console.log('DragDropHelper - Operation type:', operationType);
-
       // Execute the appropriate operation
       switch (operationType) {
         case 'LINK_DATA_FIELD_TO_ANNOTATION':
@@ -390,15 +388,6 @@ export class DragDropHelper {
     const updatedFields = [...allFields];
     const [draggedItem] = updatedFields.splice(draggedFieldIndex, 1);
     updatedFields.splice(targetFieldIndex, 0, draggedItem);
-
-    console.log('Reordering annotation fields:', {
-      draggedField: draggedFieldData.fieldName,
-      targetField: targetFieldData.fieldName,
-      draggedIsPrimary: draggedFieldData.isPrimaryKey,
-      draggedIsNewColumn: draggedFieldData.isNewColumn,
-      targetIsPrimary: targetFieldData.isPrimaryKey,
-      targetIsNewColumn: targetFieldData.isNewColumn
-    });
 
     return {
       success: true,

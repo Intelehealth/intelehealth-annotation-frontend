@@ -103,11 +103,9 @@ export class DatasetMergedRowsAPI {
   ): Promise<DatasetMergedRowsData> {
     try {
       const qs = taskId ? `?taskId=${taskId}` : '';
-      console.log(`Getting dataset data for ${datasetId}${taskId ? ` (taskId: ${taskId})` : ''}`);
       const response = await jsonApi.get(
         `/dataset-merged-rows/dataset/${datasetId}/debug${qs}`,
       );
-      console.log('Dataset data response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error getting dataset data:', error);
@@ -165,15 +163,11 @@ export class DatasetMergedRowsAPI {
     taskId?: string,
   ): Promise<void> {
     try {
-      console.log(
-        `Marking row ${rowIndex} as completed for dataset ${datasetId}${taskId ? ` (taskId: ${taskId})` : ''}`,
-      );
       await jsonApi.patch('/dataset-merged-rows/mark-completed', {
         datasetId,
         rowIndex,
         ...(taskId ? { taskId } : {}),
       });
-      console.log('Row marked as completed successfully');
     } catch (error) {
       console.error('Error marking row as completed:', error);
       throw error;
@@ -194,10 +188,6 @@ export class DatasetMergedRowsAPI {
     taskId?: string,
   ): Promise<PatchRowDataResponse> {
     try {
-      console.log(
-        `Patching row data for dataset ${datasetId}, row ${rowIndex}${taskId ? ` (taskId: ${taskId})` : ''}:`,
-        data,
-      );
       const response = await jsonApi.patch(
         `/dataset-merged-rows/dataset/${datasetId}/row/${rowIndex}`,
         {
@@ -205,7 +195,6 @@ export class DatasetMergedRowsAPI {
           ...(taskId ? { taskId } : {}),
         },
       );
-      console.log('Patch response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error patching row data:', error);
@@ -220,7 +209,6 @@ export class DatasetMergedRowsAPI {
     data: Record<string, any>,
   ): Promise<PatchRowDataResponse> {
     try {
-      console.log(`Patching clone row data for clone ${cloneId}, row ${rowIndex}:`, data);
       const response = await jsonApi.patch(
         `/dataset-merged-rows/clone/${cloneId}/row/${rowIndex}`,
         { data },
@@ -354,7 +342,6 @@ export class DatasetMergedRowsAPI {
           ...(taskId ? { taskId } : {}),
         },
       );
-      console.log('Dataset annotation progress updated:', response.data);
     } catch (error) {
       console.error('Error updating dataset annotation progress:', error);
       throw error;

@@ -111,14 +111,6 @@ export function generateCsvContent(
   const { cleanHtml = true } = options;
   const { headers, rows } = data;
   
-  console.log('🔍 [CSV Export] generateCsvContent called with:', {
-    headersCount: headers.length,
-    rowsCount: rows.length,
-    headers: headers.slice(0, 5), // First 5 headers
-    firstRow: rows[0] ? Object.keys(rows[0]).slice(0, 5) : 'No rows',
-    lastRow: rows[rows.length - 1] ? Object.keys(rows[rows.length - 1]).slice(0, 5) : 'No rows'
-  });
-  
   if (rows.length === 0) {
     return headers.join(',');
   }
@@ -131,13 +123,6 @@ export function generateCsvContent(
         .join(',')
     ),
   ].join('\n');
-
-  console.log('📊 [CSV Export] Generated CSV content:', {
-    csvLength: csvContent.length,
-    lineCount: csvContent.split('\n').length,
-    firstLine: csvContent.split('\n')[0],
-    lastLine: csvContent.split('\n')[csvContent.split('\n').length - 1]
-  });
 
   return csvContent;
 }
@@ -184,17 +169,6 @@ export function downloadCsv(
       // Use actualRowCount if provided, otherwise fall back to line counting
       const rowCount = actualRowCount !== undefined ? actualRowCount : lines.filter(line => line.trim() !== '').length - 1;
       
-      console.log('CSV Export Debug:', {
-        csvContentLength: csvContent.length,
-        totalLines: lines.length,
-        actualRowCount,
-        calculatedRowCount: lines.filter(line => line.trim() !== '').length - 1,
-        finalRowCount: rowCount,
-        columnCount,
-        firstLine: lines[0],
-        lastLine: lines[lines.length - 1]
-      });
-      
       onSuccess(`Exported ${columnCount} columns with ${rowCount} rows successfully`);
     }
   } catch (error) {
@@ -219,14 +193,6 @@ export function exportToCsv(
     actualRowCount?: number; // Add parameter to pass actual row count
   } = {}
 ): void {
-  console.log('🚀 [CSV Export] exportToCsv called with:', {
-    filename,
-    dataRowsCount: data.rows.length,
-    dataHeadersCount: data.headers.length,
-    actualRowCount: options.actualRowCount,
-    options
-  });
-  
   const csvContent = generateCsvContent(data, { cleanHtml: options.cleanHtml });
   downloadCsv(csvContent, filename, {
     showSuccess: options.showSuccess,

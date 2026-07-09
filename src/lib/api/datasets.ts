@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from "axios";
 import type {
   CloneAssignRequest,
   CloneAssignResponse,
@@ -6,9 +6,9 @@ import type {
   ConsensusReview,
   ResolveConsensusRequest,
   CloneGroup,
-} from '@/types/feature1';
+} from "@/types/feature1";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 // ─── Existing types (unchanged) ────────────────────────────────────────────────
 
@@ -20,9 +20,20 @@ export interface DatasetResponse {
   name: string;
   description: string;
   datasetType: string;
-  accessType: 'private' | 'public' | 'shared';
+  accessType: "private" | "public" | "shared";
   sharedWith: { userId: string; email: string }[];
   isActive: boolean;
+  isClone?: boolean;
+  cloneParentId?: string;
+  cloneIndex?: number;
+  assignedAnnotatorId?: string;
+  availableColumns?: Array<{
+    name: string;
+    source: "CSV" | "MANUAL";
+    csvImportId?: string;
+  }>;
+  totalCSVFiles?: number;
+  annotatorCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,26 +42,26 @@ export interface CreateDatasetRequest {
   name: string;
   description: string;
   datasetType: string;
-  accessType?: 'private' | 'public' | 'shared';
+  accessType?: "private" | "public" | "shared";
 }
 
 export interface UpdateDatasetRequest {
   name?: string;
   description?: string;
   datasetType?: string;
-  accessType?: 'private' | 'public' | 'shared';
+  accessType?: "private" | "public" | "shared";
   sharedWith?: { userId: string; email: string }[];
 }
 
 // ─── Shared header helpers ─────────────────────────────────────────────────────
 
 function authHeaders() {
-  const token = localStorage.getItem('accessToken');
+  const token = localStorage.getItem("accessToken");
   return { Authorization: `Bearer ${token}` };
 }
 
 function jsonHeaders() {
-  return { ...authHeaders(), 'Content-Type': 'application/json' };
+  return { ...authHeaders(), "Content-Type": "application/json" };
 }
 
 // ─── datasetsAPI ───────────────────────────────────────────────────────────────
@@ -87,7 +98,10 @@ export const datasetsAPI = {
     return response.data;
   },
 
-  async update(id: string, data: UpdateDatasetRequest): Promise<DatasetResponse> {
+  async update(
+    id: string,
+    data: UpdateDatasetRequest,
+  ): Promise<DatasetResponse> {
     const response = await axios.patch(`${API_BASE_URL}/datasets/${id}`, data, {
       headers: jsonHeaders(),
     });
@@ -102,16 +116,19 @@ export const datasetsAPI = {
 
   async uploadAssets(datasetId: string, files: File[]): Promise<any[]> {
     const formData = new FormData();
-    files.forEach((file) => formData.append('files', file));
+    files.forEach((file) => formData.append("files", file));
     const response = await axios.post(
       `${API_BASE_URL}/datasets/${datasetId}/assets`,
       formData,
-      { headers: { ...authHeaders(), 'Content-Type': 'multipart/form-data' } },
+      { headers: { ...authHeaders(), "Content-Type": "multipart/form-data" } },
     );
     return response.data;
   },
 
-  async shareWithUsers(datasetId: string, userIds: string[]): Promise<DatasetResponse> {
+  async shareWithUsers(
+    datasetId: string,
+    userIds: string[],
+  ): Promise<DatasetResponse> {
     const response = await axios.post(
       `${API_BASE_URL}/datasets/${datasetId}/share`,
       { userIds },
@@ -187,7 +204,7 @@ export const datasetsAPI = {
     datasetId: string,
     onlyDisagreements = false,
   ): Promise<ConsensusReview[]> {
-    const qs = onlyDisagreements ? '?isAgreement=false' : '';
+    const qs = onlyDisagreements ? "?isAgreement=false" : "";
     const response = await axios.get(
       `${API_BASE_URL}/datasets/${datasetId}/consensus-reviews${qs}`,
       { headers: authHeaders() },
@@ -237,23 +254,27 @@ export const datasetsAPI = {
    * Downloads the merged consensus CSV for a dataset.
    * Triggers a browser file-save dialog automatically.
    */
-  async exportConsensusCsv(datasetId: string, exportType?: 'audit' | 'dataset'): Promise<void> {
-    const token = localStorage.getItem('accessToken');
-    const query = exportType ? `?exportType=${exportType}` : '';
+  async exportConsensusCsv(
+    datasetId: string,
+    exportType?: "audit" | "dataset",
+  ): Promise<void> {
+    const token = localStorage.getItem("accessToken");
+    const query = exportType ? `?exportType=${exportType}` : "";
     const response = await fetch(
       `${API_BASE_URL}/datasets/${datasetId}/export-consensus-csv${query}`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error(err?.message || 'Failed to export CSV');
+      throw new Error(err?.message || "Failed to export CSV");
     }
-    const contentDisposition = response.headers.get('Content-Disposition') || '';
+    const contentDisposition =
+      response.headers.get("Content-Disposition") || "";
     const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-    const filename = filenameMatch ? filenameMatch[1] : 'consensus.csv';
+    const filename = filenameMatch ? filenameMatch[1] : "consensus.csv";
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
@@ -277,7 +298,7 @@ export const datasetsAPI = {
 
   /**
    * Admin fetches all assignments for a parent dataset.
-   * 
+   *
    * GET /datasets/:id/assignments
    */
   async getAssignments(datasetId: string): Promise<any[]> {
@@ -290,12 +311,18 @@ export const datasetsAPI = {
 
   /**
    * Transition assignment status.
-   * 
+   *
    * PATCH /assignments/:id/status
    */
   async updateAssignmentStatus(
     assignmentId: string,
-    status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'REWORK_REQUIRED' | 'APPROVED' | 'COMPLETED',
+    status:
+      | "PENDING"
+      | "IN_PROGRESS"
+      | "SUBMITTED"
+      | "REWORK_REQUIRED"
+      | "APPROVED"
+      | "COMPLETED",
     reviewNote?: string,
     rejectionReason?: string,
   ): Promise<any> {
@@ -309,12 +336,12 @@ export const datasetsAPI = {
 
   /**
    * Admin fetches review queue.
-   * 
+   *
    * GET /assignments/review-queue
    */
   async getReviewQueue(status?: string): Promise<any[]> {
     const response = await axios.get(
-      `${API_BASE_URL}/assignments/review-queue${status ? `?status=${status}` : ''}`,
+      `${API_BASE_URL}/assignments/review-queue${status ? `?status=${status}` : ""}`,
       { headers: authHeaders() },
     );
     return response.data;
@@ -322,7 +349,7 @@ export const datasetsAPI = {
 
   /**
    * Admin fetches pending change requests.
-   * 
+   *
    * GET /change-requests/pending
    */
   async getPendingChangeRequests(): Promise<any[]> {
@@ -335,7 +362,7 @@ export const datasetsAPI = {
 
   /**
    * Admin approves a change request.
-   * 
+   *
    * PATCH /change-requests/:id/approve
    */
   async approveChangeRequest(id: string): Promise<any> {
@@ -349,7 +376,7 @@ export const datasetsAPI = {
 
   /**
    * Admin rejects a change request.
-   * 
+   *
    * PATCH /change-requests/:id/reject
    */
   async rejectChangeRequest(id: string, reason: string): Promise<any> {
@@ -363,12 +390,12 @@ export const datasetsAPI = {
 
   /**
    * Annotator submits a change request.
-   * 
+   *
    * POST /change-requests
    */
   async submitChangeRequest(payload: {
     cloneDatasetId: string;
-    type: 'ROW_ADD' | 'ROW_DELETE' | 'COLUMN_ADD' | 'CELL_UPDATE';
+    type: "ROW_ADD" | "ROW_DELETE" | "COLUMN_ADD" | "CELL_UPDATE";
     payload: any;
   }): Promise<any> {
     const response = await axios.post(

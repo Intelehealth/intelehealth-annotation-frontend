@@ -32,8 +32,10 @@ import { csvProcessingAPI } from '@/lib/api/csv-processing';
 import { RowFooter, NewColumnDataPanel } from '@/components/new-column-components';
 import { MetadataDisplay } from './metadata-display';
 import { ImageOverlay, AudioOverlay, VideoOverlay } from './media-overlays';
+import { ImageOverlay, AudioOverlay, VideoOverlay } from './media-overlays';
 import { useToast } from '@/components/ui/toast';
 import { exportToCsv, ExportData } from '@/lib/csv-export-helper';
+import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
 import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
 
 interface Task {
@@ -1544,7 +1546,7 @@ export function AnnotationWorkbench({
           onUpdateFieldConfig={handleUpdateFieldConfig}
           isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
           cloneId={datasetId}
-          currentRowId={currentTask?._id}
+          currentRowId={currentTask?.id}
         />
               </div>
 
