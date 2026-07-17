@@ -32,12 +32,15 @@ import { fieldSelectionAPI } from '@/lib/api/field-config';
 import { datasetsAPI } from '@/lib/api/datasets';
 import { RowFooter, NewColumnDataPanel } from '@/components/new-column-components';
 import { MetadataDisplay } from './metadata-display';
-import { ImageOverlay, AudioOverlay, VideoOverlay } from './media-overlays';
+import { ImageOverlay, VideoOverlay } from './media-overlays';
 import { useToast } from '@/components/ui/toast';
 import { exportSelectedColumnsToCSV, exportAllColumnsToCSV } from '@/lib/dataset-export-helper';
 import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
 import { CompletionModal } from '@/components/ui/completion-modal';
 import { ResizablePanels } from '@/components/ui/resizable-panels';
+import { logger } from '@/lib/logger';
+import { TopNav } from '@/components/top-nav';
+import { motion } from 'framer-motion';
 
 interface Task {
   id: string;
@@ -61,21 +64,14 @@ interface NewColumnData {
   [fieldName: string]: string;
 }
 
-interface ImageOverlay {
+interface ImageOverlayState {
   isOpen: boolean;
   imageUrl: string;
   imageUrls: string[];
   currentIndex: number;
 }
 
-interface AudioOverlay {
-  isOpen: boolean;
-  audioUrl: string;
-  audioUrls: string[];
-  currentIndex: number;
-}
-
-interface VideoOverlay {
+interface VideoOverlayState {
   isOpen: boolean;
   videoUrl: string;
   videoUrls: string[];
@@ -123,19 +119,13 @@ export function DatasetAnnotationWorkbench({
   const isInspectMode = mode === 'inspect';
   const [editingField, setEditingField] = useState<string | null>(null);
   const [expandedTextFields, setExpandedTextFields] = useState<Set<string>>(new Set());
-  const [imageOverlay, setImageOverlay] = useState<ImageOverlay>({
+  const [imageOverlay, setImageOverlay] = useState<ImageOverlayState>({
     isOpen: false,
     imageUrl: '',
     imageUrls: [],
     currentIndex: 0,
   });
-  const [audioOverlay, setAudioOverlay] = useState<AudioOverlay>({
-    isOpen: false,
-    audioUrl: '',
-    audioUrls: [],
-    currentIndex: 0,
-  });
-  const [videoOverlay, setVideoOverlay] = useState<VideoOverlay>({
+  const [videoOverlay, setVideoOverlay] = useState<VideoOverlayState>({
     isOpen: false,
     videoUrl: '',
     videoUrls: [],
@@ -156,11 +146,11 @@ export function DatasetAnnotationWorkbench({
   // Initialize ordered metadata fields when annotation config changes
   useEffect(() => {
     if (annotationConfig) {
-      // Metadata fields are existing CSV columns that are NOT new columns
+      // Metadata fields are existing CSV columns that are NOT new columns and NOT already mapped
       const metadataFields = annotationConfig.annotationFields.filter(
-        (field) => !field.isNewColumn
+        (field) => !field.isNewColumn && !field.isAnnotationField
       );
-      console.log('Metadata fields (existing CSV columns only):', metadataFields.map(f => ({
+      logger.log('Metadata fields (existing CSV columns only):', metadataFields.map(f => ({
         csvColumnName: f.csvColumnName,
         fieldName: f.fieldName,
         isAnnotationField: f.isAnnotationField,
@@ -173,42 +163,42 @@ export function DatasetAnnotationWorkbench({
 
   // Load dataset data and annotation config
   useEffect(() => {
-    console.log('DatasetAnnotationWorkbench useEffect triggered');
-    console.log('datasetId:', datasetId);
+    logger.log('DatasetAnnotationWorkbench useEffect triggered');
+    logger.log('datasetId:', datasetId);
     const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        console.log('Loading dataset data for datasetId:', datasetId);
+        logger.log('Loading dataset data for datasetId:', datasetId);
 
         // Load dataset info for name
-        console.log('Loading dataset info...');
+        logger.log('Loading dataset info...');
         const datasetInfo = await datasetsAPI.getById(datasetId);
-        console.log('Dataset info loaded:', datasetInfo);
+        logger.log('Dataset info loaded:', datasetInfo);
         setDatasetName(datasetInfo.name);
 
         // Load dataset merged rows data
-        console.log('Loading dataset merged rows data...');
+        logger.log('Loading dataset merged rows data...');
         const mergedData = await DatasetMergedRowsAPI.getDatasetData(datasetId, taskId);  // Feature 1
-        console.log('Dataset merged rows data loaded:', mergedData);
+        logger.log('Dataset merged rows data loaded:', mergedData);
         setDatasetData(mergedData);
 
         // Load annotation config using datasetId
-        console.log('Loading annotation config for dataset:', datasetId);
+        logger.log('Loading annotation config for dataset:', datasetId);
         try {
-          console.log(
+          logger.log(
             'Making API call to fieldSelectionAPI.getDatasetFieldConfig...',
           );
           const config = await fieldSelectionAPI.getDatasetFieldConfig(
             datasetId,
           );
-          console.log('API call completed successfully');
-          console.log('Dataset field config loaded:', config);
-          console.log('FRONTEND AFTER FETCH - loaded configuration fields with branching:', JSON.stringify(config?.annotationFields?.filter((f: any) => f.branching), null, 2));
-          console.log('FRONTEND AFTER FETCH - loaded custom columns with branching:', JSON.stringify(config?.newColumns?.filter((c: any) => c.branching), null, 2));
-          console.log('Config annotationFields:', config?.annotationFields);
-          console.log('Config annotationLabels:', config?.annotationLabels);
+          logger.log('API call completed successfully');
+          logger.log('Dataset field config loaded:', config);
+          logger.log('FRONTEND AFTER FETCH - loaded configuration fields with branching:', JSON.stringify(config?.annotationFields?.filter((f: any) => f.branching), null, 2));
+          logger.log('FRONTEND AFTER FETCH - loaded custom columns with branching:', JSON.stringify(config?.newColumns?.filter((c: any) => c.branching), null, 2));
+          logger.log('Config annotationFields:', config?.annotationFields);
+          logger.log('Config annotationLabels:', config?.annotationLabels);
            if (config) {
             // Use expanded fields (which include repeatable groups) if available, otherwise fallback
             const rawFields = (config.expandedFields && config.expandedFields.length > 0)
@@ -224,14 +214,6 @@ export function DatasetAnnotationWorkbench({
               columnType: f.columnType,
             }));
 
-            // Migrate existing duplicated data fields to linked references
-            const migration = DragDropHelper.migrateExistingDataFields(normalizedFields);
-            if (migration.migrated) {
-              console.log('Migrated existing data fields to linked references:', migration.migrationLog);
-              // Use the migrated fields for rendering
-              normalizedFields.length = 0;
-              normalizedFields.push(...migration.migratedFields);
-            }
 
             // Transform the dataset config to match the expected AnnotationConfig format
             const annotationConfig: AnnotationConfig = {
@@ -248,16 +230,16 @@ export function DatasetAnnotationWorkbench({
               createdAt: config.createdAt || new Date().toISOString(),
               updatedAt: config.updatedAt || new Date().toISOString(),
             };
-            console.log('Transformed annotation config:', annotationConfig);
-            console.log(
+            logger.log('Transformed annotation config:', annotationConfig);
+            logger.log(
               'Annotation fields count:',
               annotationConfig.annotationFields.length,
             );
-            console.log(
+            logger.log(
               'Annotation labels count:',
               annotationConfig.annotationLabels?.length || 0,
             );
-            console.log('All fields:', annotationConfig.annotationFields.map((f) => ({
+            logger.log('All fields:', annotationConfig.annotationFields.map((f) => ({
               csvColumnName: f.csvColumnName,
               fieldName: f.fieldName,
               isAnnotationField: f.isAnnotationField,
@@ -269,14 +251,14 @@ export function DatasetAnnotationWorkbench({
             throw new Error('No field configuration found');
           }
         } catch (configError) {
-          console.log('Error loading annotation config:', configError);
-          console.log(
+          logger.log('Error loading annotation config:', configError);
+          logger.log(
             'Config error details:',
             configError instanceof Error
               ? configError.message
               : String(configError),
           );
-          console.log('No annotation config found, creating default config...');
+          logger.log('No annotation config found, creating default config...');
           // If no annotation config exists, create a default one
           const defaultConfig: AnnotationConfig = {
             _id: '',
@@ -295,7 +277,7 @@ export function DatasetAnnotationWorkbench({
         }
 
         // Convert merged rows to tasks
-        console.log('Dataset merged rows structure:', {
+        logger.log('Dataset merged rows structure:', {
           hasMergedRows: !!mergedData.mergedRows,
           mergedRowsLength: mergedData.mergedRows?.length,
           totalRows: mergedData.totalRows,
@@ -318,7 +300,7 @@ export function DatasetAnnotationWorkbench({
           }));
         } else {
           // If no mergedRows, create tasks based on totalRows
-          console.log(
+          logger.log(
             'No mergedRows found, creating tasks based on totalRows:',
             mergedData.totalRows,
           );
@@ -343,18 +325,18 @@ export function DatasetAnnotationWorkbench({
           mergedData.mergedRows.length > 0
         ) {
           const firstRowData = mergedData.mergedRows[0].data || {};
-          console.log('Initializing metadata with merged row data:', firstRowData);
+          logger.log('Initializing metadata with merged row data:', firstRowData);
           setMetadata(firstRowData);
         }
 
-        console.log('Tasks created:', taskData.length, 'tasks');
+        logger.log('Tasks created:', taskData.length, 'tasks');
         setTasks(taskData);
 
         // Load progress and apply completion status
         try {
-          console.log('Loading annotation progress...');
+          logger.log('Loading annotation progress...');
           const progress = await DatasetMergedRowsAPI.getDetailedProgress(datasetId, taskId);  // Feature 1
-          console.log('Progress loaded:', progress);
+          logger.log('Progress loaded:', progress);
 
           // Apply completion status to tasks
           const updatedTasks = taskData.map(task => {
@@ -369,13 +351,13 @@ export function DatasetAnnotationWorkbench({
           // Set current task index to resume position
           if (progress.lastViewedRow > 0 && progress.lastViewedRow < taskData.length) {
             setCurrentTaskIndex(progress.lastViewedRow);
-            console.log(`Resuming from row ${progress.lastViewedRow + 1}`);
+            logger.log(`Resuming from row ${progress.lastViewedRow + 1}`);
           } else {
             // Find first incomplete row
             const firstIncompleteIndex = updatedTasks.findIndex(task => task.status !== 'completed');
             if (firstIncompleteIndex >= 0) {
               setCurrentTaskIndex(firstIncompleteIndex);
-              console.log(`Starting from first incomplete row ${firstIncompleteIndex + 1}`);
+              logger.log(`Starting from first incomplete row ${firstIncompleteIndex + 1}`);
             }
           }
         } catch (progressError) {
@@ -388,7 +370,7 @@ export function DatasetAnnotationWorkbench({
           const annotationFields = annotationConfig.annotationFields.filter(
             (field) => field.isNewColumn || field.isAnnotationField
           );
-          console.log('Annotation fields (new columns):', annotationFields.map(f => ({
+          logger.log('Annotation fields (new columns):', annotationFields.map(f => ({
             csvColumnName: f.csvColumnName,
             fieldName: f.fieldName,
             isAnnotationField: f.isAnnotationField,
@@ -428,10 +410,65 @@ export function DatasetAnnotationWorkbench({
 
   const currentTask = tasks[currentTaskIndex];
 
+  // Silently persist any unsaved right-panel field values (including newly
+  // duplicated fields) for the CURRENT row — no toasts, no "mark completed"
+  // side effects. Used before row navigation and before CSV export so data
+  // entered/duplicated but not yet explicitly "Saved" isn't lost or missing
+  // from the exported file.
+  const flushPendingRowData = useCallback(async () => {
+    if (!datasetId || !currentTask || isInspectMode) return;
+
+    const annotationFields = annotationConfig?.annotationFields.filter(
+      (field) => field.isNewColumn || field.isAnnotationField
+    ) || [];
+
+    const dataToSave: Record<string, any> = {};
+    const newColumnKeys = Object.keys(newColumnData);
+    for (const field of annotationFields) {
+      const fieldValue = newColumnData[field.fieldName];
+      if (fieldValue !== undefined && fieldValue !== null && String(fieldValue).trim() !== '') {
+        dataToSave[field.fieldName] = fieldValue;
+      }
+      newColumnKeys.forEach((key) => {
+        if (key.startsWith(`${field.fieldName}.`) || key.includes(`${field.fieldName}.`) || key.endsWith('_description')) {
+          const val = newColumnData[key];
+          if (val !== undefined && val !== null && String(val).trim() !== '') {
+            dataToSave[key] = val;
+          }
+        }
+      });
+    }
+
+    if (Object.keys(dataToSave).length === 0) return;
+
+    try {
+      const response = await DatasetMergedRowsAPI.patchRowData(
+        datasetId,
+        currentTask.rowIndex,
+        dataToSave,
+        taskId
+      );
+
+      if (response.success && response.data && datasetData && datasetData.mergedRows) {
+        const updatedRow = datasetData.mergedRows.find(row => row.rowIndex === currentTask.rowIndex);
+        if (updatedRow) {
+          Object.entries(dataToSave).forEach(([fieldName, value]) => {
+            updatedRow.data[fieldName] = value;
+          });
+          updatedRow.processed = true;
+          setDatasetData({ ...datasetData });
+        }
+      }
+      setPendingChanges({});
+    } catch (error) {
+      console.error('Failed to auto-flush pending row data:', error);
+    }
+  }, [datasetId, currentTask, isInspectMode, annotationConfig, newColumnData, datasetData, taskId]);
+
   // Update metadata when current task changes
   useEffect(() => {
     if (currentTask && currentTask.metadata) {
-      console.log('Updating metadata for task:', currentTask.rowIndex, currentTask.metadata);
+      logger.log('Updating metadata for task:', currentTask.rowIndex, currentTask.metadata);
       setMetadata(currentTask.metadata);
       loadedRowIndexRef.current = currentTask.rowIndex;
     }
@@ -478,14 +515,19 @@ export function DatasetAnnotationWorkbench({
   // Export annotations to CSV - Selected Columns Only
   const handleExportSelectedColumns = useCallback(async () => {
     if (!annotationConfig) {
-      console.log('Cannot export: missing annotation config');
+      logger.log('Cannot export: missing annotation config');
       return;
     }
+
+    // Persist any unsaved right-panel data on the current row (e.g. a
+    // duplicated field that hasn't been explicitly "Saved" yet) BEFORE
+    // fetching fresh data, so the export doesn't miss it.
+    await flushPendingRowData();
 
     // Always fetch fresh data from backend so is_completed reflects the true DB state
     let freshData = datasetData;
     try {
-      console.log('🔄 [Workbench] Fetching fresh dataset data for export...');
+      logger.log('🔄 [Workbench] Fetching fresh dataset data for export...');
       freshData = await DatasetMergedRowsAPI.getDatasetData(datasetId, taskId);
       // Also update the local state so UI is in sync
       if (freshData) setDatasetData(freshData);
@@ -494,11 +536,11 @@ export function DatasetAnnotationWorkbench({
     }
 
     if (!freshData) {
-      console.log('Cannot export: missing dataset data');
+      logger.log('Cannot export: missing dataset data');
       return;
     }
 
-    console.log('🔍 [Workbench] Export Selected Columns - Fresh Dataset Data:', {
+    logger.log('🔍 [Workbench] Export Selected Columns - Fresh Dataset Data:', {
       totalRows: freshData.totalRows,
       mergedRowsLength: freshData.mergedRows?.length,
       completedRows: freshData.mergedRows?.filter(r => r.completed).length,
@@ -529,19 +571,24 @@ export function DatasetAnnotationWorkbench({
         },
       }
     );
-  }, [datasetData, annotationConfig, showToast, datasetId, taskId]);
+  }, [datasetData, annotationConfig, showToast, datasetId, taskId, flushPendingRowData]);
 
   // Export annotations to CSV - All Columns
   const handleExportAllColumns = useCallback(async () => {
     if (!annotationConfig) {
-      console.log('Cannot export: missing annotation config');
+      logger.log('Cannot export: missing annotation config');
       return;
     }
+
+    // Persist any unsaved right-panel data on the current row (e.g. a
+    // duplicated field that hasn't been explicitly "Saved" yet) BEFORE
+    // fetching fresh data, so the export doesn't miss it.
+    await flushPendingRowData();
 
     // Always fetch fresh data from backend so is_completed reflects the true DB state
     let freshData = datasetData;
     try {
-      console.log('🔄 [Workbench] Fetching fresh dataset data for export...');
+      logger.log('🔄 [Workbench] Fetching fresh dataset data for export...');
       freshData = await DatasetMergedRowsAPI.getDatasetData(datasetId, taskId);
       if (freshData) setDatasetData(freshData);
     } catch (fetchErr) {
@@ -549,11 +596,11 @@ export function DatasetAnnotationWorkbench({
     }
 
     if (!freshData) {
-      console.log('Cannot export: missing dataset data');
+      logger.log('Cannot export: missing dataset data');
       return;
     }
 
-    console.log('🔍 [Workbench] Export All Columns - Fresh Dataset Data:', {
+    logger.log('🔍 [Workbench] Export All Columns - Fresh Dataset Data:', {
       totalRows: freshData.totalRows,
       mergedRowsLength: freshData.mergedRows?.length,
       completedRows: freshData.mergedRows?.filter(r => r.completed).length,
@@ -584,7 +631,7 @@ export function DatasetAnnotationWorkbench({
         },
       }
     );
-  }, [datasetData, annotationConfig, showToast, datasetId, taskId]);
+  }, [datasetData, annotationConfig, showToast, datasetId, taskId, flushPendingRowData]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -620,9 +667,29 @@ export function DatasetAnnotationWorkbench({
     
     saveTimeoutRef.current = setTimeout(async () => {
       try {
+        const VALID_FIELD_TYPES = ['text','image','audio','video','number','select','selectrange','textarea','rating','multiselect','checkbox','radio','date'];
+        const normalized = updatedFields.map((f: any) => ({
+          ...f,
+          fieldType: VALID_FIELD_TYPES.includes(f.fieldType) ? f.fieldType : (f.columnType && VALID_FIELD_TYPES.includes(f.columnType) ? f.columnType : 'text'),
+          isRequired: Boolean(f.isRequired),
+          isAnnotationField: Boolean(f.isAnnotationField),
+        }));
+
+        // Detect duplicate fieldNames before sending
+        const annotationFieldNames = normalized.filter((f: any) => f.isAnnotationField).map((f: any) => f.fieldName?.toLowerCase());
+        const dupAnnotationFieldNames = annotationFieldNames.filter((n: string, i: number) => annotationFieldNames.indexOf(n) !== i);
+        if (dupAnnotationFieldNames.length > 0) {
+          showToast({
+            type: 'error',
+            title: 'Field Mapping Error',
+            description: `Duplicate field names found: ${[...new Set(dupAnnotationFieldNames)].join(', ')}. Please assign unique field names.`
+          });
+          return;
+        }
+
         await fieldSelectionAPI.saveDatasetFieldConfig({
           datasetId,
-          annotationFields: updatedFields,
+          annotationFields: normalized,
           annotationLabels: annotationConfig.annotationLabels || [],
           newColumns: datasetNewColumns || [],
           fieldGroups: updatedGroups !== undefined ? updatedGroups : (annotationConfig.fieldGroups || []),
@@ -633,15 +700,16 @@ export function DatasetAnnotationWorkbench({
           description: 'Field configuration updated successfully.'
         });
       } catch (error: any) {
+      } catch (error: any) {
         console.error('Failed to save updated field configuration:', error);
-        const backendMsg = error?.response?.data?.message;
-        const description = Array.isArray(backendMsg)
-          ? backendMsg.join('\n')
-          : backendMsg || 'Failed to auto-save field configuration changes.';
+        const isNetworkError = !error.response && error.message === 'Network Error';
+        const serverMsg = error?.response?.data?.message || '';
         showToast({
           type: 'error',
-          title: 'Save Failed',
-          description,
+          title: isNetworkError ? 'Connection Error' : 'Validation Failed',
+          description: isNetworkError
+            ? 'Cannot reach the server. Please check your connection and try again.'
+            : serverMsg || 'Failed to auto-save field configuration changes.'
         });
       }
     }, 800);
@@ -678,7 +746,7 @@ export function DatasetAnnotationWorkbench({
     }
   }, [history, historyIndex]);
 
-  const navigateTask = (direction: 'prev' | 'next') => {
+  const navigateTask = async (direction: 'prev' | 'next') => {
     let newIndex = currentTaskIndex;
     
     if (direction === 'prev' && currentTaskIndex > 0) {
@@ -688,6 +756,10 @@ export function DatasetAnnotationWorkbench({
     }
     
     if (newIndex !== currentTaskIndex) {
+      // Persist any unsaved right-panel data (including newly duplicated
+      // fields) on the row we're leaving, so it isn't silently lost.
+      await flushPendingRowData();
+
       setCurrentTaskIndex(newIndex);
       
       // Update last viewed row in backend
@@ -812,6 +884,16 @@ export function DatasetAnnotationWorkbench({
 
   // Drag and drop handlers for metadata field reordering
   const handleDragStart = (e: React.DragEvent, fieldName: string) => {
+    const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+    if (!isAdmin) {
+      e.preventDefault();
+      showToast({
+        type: 'info',
+        title: 'Read Only',
+        description: 'Only admins can modify the annotation layout. Use "Request Change" to suggest changes.'
+      });
+      return;
+    }
     setDraggedField(fieldName);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -829,7 +911,18 @@ export function DatasetAnnotationWorkbench({
     
     if (!draggedField || !annotationConfig) return;
 
-    console.log('handleUnifiedDrop called with:', { draggedField, targetFieldName, targetPanel });
+    const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+    if (!isAdmin) {
+      showToast({
+        type: 'info',
+        title: 'Read Only',
+        description: 'Only admins can modify field configuration. Use the "Request Change" button instead.'
+      });
+      setDraggedField(null);
+      return;
+    }
+
+    logger.log('handleUnifiedDrop called with:', { draggedField, targetFieldName, targetPanel });
 
     // Use the DragDropHelper to handle the operation
     const params: DragDropParams = {
@@ -867,11 +960,62 @@ export function DatasetAnnotationWorkbench({
       // Persist changes to backend
       if (result.updatedFields) {
         try {
+          const VALID_FIELD_TYPES = ['text','image','audio','video','number','select','selectrange','textarea','rating','multiselect','checkbox','radio','date'];
+          const normalizedFields = result.updatedFields.map((f: any) => ({
+            ...f,
+            fieldType: VALID_FIELD_TYPES.includes(f.fieldType) ? f.fieldType : (f.columnType && VALID_FIELD_TYPES.includes(f.columnType) ? f.columnType : 'text'),
+            isRequired: Boolean(f.isRequired),
+            isAnnotationField: Boolean(f.isAnnotationField),
+          }));
+          // Strip expanded group-generated fields from annotationFields before saving
+          const groupFieldNames = new Set<string>();
+          for (const group of (annotationConfig.fieldGroups || [])) {
+            const rc = group.repeatCount || 0;
+            for (let i = 1; i <= rc; i++) {
+              for (const child of (group.fields || [])) {
+                const crc = child.repeatCount || 1;
+                for (let j = 1; j <= crc; j++) {
+                  groupFieldNames.add(
+                    (crc > 1
+                      ? `${group.groupName}_${child.fieldName}_${j}_${i}`
+                      : `${group.groupName}_${child.fieldName}_${i}`
+                    ).toLowerCase()
+                  );
+                }
+              }
+            }
+          }
+          const filteredFields = normalizedFields.filter(
+            (f: any) => !groupFieldNames.has((f.fieldName || '').toLowerCase())
+          );
+
+          // DEBUG: log payload before save to find duplicate fieldName issues
+          const fieldSummary = filteredFields.map((f: any) => ({
+            id: f.id, csvColumnName: f.csvColumnName, fieldName: f.fieldName,
+            isNewColumn: f.isNewColumn, isAnnotationField: f.isAnnotationField,
+            isDataFieldLink: f.isDataFieldLink
+          }));
+          logger.log('SAVE PAYLOAD annotationFields:', JSON.stringify(fieldSummary, null, 2));
+
+          // Detect duplicate fieldNames before sending
+          const fieldNames = filteredFields.filter((f: any) => f.isAnnotationField).map((f: any) => f.fieldName?.toLowerCase());
+          const dupFieldNames = fieldNames.filter((n: string, i: number) => fieldNames.indexOf(n) !== i);
+          if (dupFieldNames.length > 0) {
+            showToast({
+              type: 'error',
+              title: 'Field Mapping Error',
+              description: `Duplicate field names found: ${[...new Set(dupFieldNames)].join(', ')}. Please assign unique field names.`
+            });
+            setDraggedField(null);
+            return;
+          }
+
           await fieldSelectionAPI.saveDatasetFieldConfig({
             datasetId,
-            annotationFields: result.updatedFields,
+            annotationFields: filteredFields,
             annotationLabels: annotationConfig.annotationLabels || [],
-            newColumns: datasetNewColumns,
+            newColumns: datasetNewColumns || [],
+            fieldGroups: annotationConfig.fieldGroups || [],
           });
 
           showToast({
@@ -879,12 +1023,16 @@ export function DatasetAnnotationWorkbench({
             title: 'Operation Successful',
             description: result.message
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to persist changes:', error);
+          const isNetworkError = !error.response && error.message === 'Network Error';
+          const serverMsg = error?.response?.data?.message || '';
           showToast({
             type: 'error',
-            title: 'Save Failed',
-            description: 'Failed to save field configuration'
+            title: isNetworkError ? 'Connection Error' : 'Validation Failed',
+            description: isNetworkError
+              ? 'Cannot reach the server. Please check your connection and try again.'
+              : serverMsg || 'Could not save field configuration.',
           });
         }
       } else {
@@ -895,13 +1043,33 @@ export function DatasetAnnotationWorkbench({
           description: result.message
         });
       }
-    } else {
-      // Show error message
-      showToast({
-        type: 'error',
-        title: 'Operation Failed',
-        description: result.message
-      });
+} else {
+      // Handle specific error types
+      if (result.error === 'ALREADY_MAPPED') {
+        showToast({
+          type: 'info',
+          title: 'Already Mapped',
+          description: result.message
+        });
+      } else if (result.error === 'PRIMARY_KEY_RESTRICTION') {
+        showToast({
+          type: 'info',
+          title: 'Cannot Move Primary Key',
+          description: result.message
+        });
+      } else if (result.error === 'NEW_COLUMN_RESTRICTION') {
+        showToast({
+          type: 'info',
+          title: 'Cannot Move',
+          description: result.message
+        });
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Operation Failed',
+          description: result.message || 'An unexpected error occurred during the drag operation'
+        });
+      }
     }
 
     setDraggedField(null);
@@ -969,7 +1137,7 @@ export function DatasetAnnotationWorkbench({
 
         // Don't update newColumnData during individual saves
         // This preserves any unsaved changes in the right panel
-        console.log('Individual save - preserving newColumnData unchanged:', {
+        logger.log('Individual save - preserving newColumnData unchanged:', {
           fieldName,
           fieldValue,
           pendingChanges,
@@ -1046,40 +1214,6 @@ export function DatasetAnnotationWorkbench({
       ...prev,
       currentIndex: newIndex,
       imageUrl: imageUrls[newIndex] || '',
-    }));
-  };
-
-  // Audio overlay handlers
-  const openAudioOverlay = (audioUrls: string[], startIndex: number = 0) => {
-    setAudioOverlay({
-      isOpen: true,
-      audioUrl: audioUrls[startIndex] || '',
-      audioUrls,
-      currentIndex: startIndex,
-    });
-  };
-
-  const closeAudioOverlay = () => {
-    setAudioOverlay({
-      isOpen: false,
-      audioUrl: '',
-      audioUrls: [],
-      currentIndex: 0,
-    });
-  };
-
-  const navigateAudio = (direction: 'prev' | 'next') => {
-    const { audioUrls, currentIndex } = audioOverlay;
-    let newIndex = currentIndex;
-    if (direction === 'prev' && currentIndex > 0) {
-      newIndex = currentIndex - 1;
-    } else if (direction === 'next' && currentIndex < audioUrls.length - 1) {
-      newIndex = currentIndex + 1;
-    }
-    setAudioOverlay(prev => ({
-      ...prev,
-      currentIndex: newIndex,
-      audioUrl: audioUrls[newIndex] || '',
     }));
   };
 
@@ -1227,7 +1361,7 @@ export function DatasetAnnotationWorkbench({
         const completedCount = tasks.filter(t => t.status === 'completed' || t.rowIndex === currentTask.rowIndex).length;
         await DatasetMergedRowsAPI.updateAnnotationProgress(datasetId, currentTask.rowIndex, completedCount, taskId);  // Feature 1
 
-        console.log(`Row ${currentTask.rowIndex} marked as completed and saved to backend`);
+        logger.log(`Row ${currentTask.rowIndex} marked as completed and saved to backend`);
       } catch (completionError) {
         console.error('Error marking row as completed in backend:', completionError);
         // Don't show error toast for completion failure, as the main action (save data) succeeded
@@ -1384,7 +1518,7 @@ export function DatasetAnnotationWorkbench({
       const completedCount = tasks.filter(t => t.status === 'completed' || t.rowIndex === rowIndex).length;
       await DatasetMergedRowsAPI.updateAnnotationProgress(datasetId, rowIndex, completedCount, taskId);  // Feature 1
 
-      console.log(`Marked row ${rowIndex} as completed and saved to backend`);
+      logger.log(`Marked row ${rowIndex} as completed and saved to backend`);
       
     } catch (error) {
       console.error('Error marking row as completed:', error);
@@ -1452,46 +1586,67 @@ export function DatasetAnnotationWorkbench({
     
     if (isNewTask || fieldsChanged) {
       if (isNewTask) {
-        console.log('Navigating to new task:', currentTask.rowIndex);
+        logger.log('Navigating to new task:', currentTask.rowIndex);
       }
       
       const annotationFields = annotationConfig.annotationFields;
-
-      // Load fresh data for the new task
-      const newColumnData: NewColumnData = {};
       const metadataKeys = currentTask.metadata ? Object.keys(currentTask.metadata) : [];
 
-      annotationFields.forEach((field) => {
-        // First check if the field data exists in the current task's metadata (saved annotation data)
-        let fieldValue = currentTask.metadata?.[field.fieldName];
-        
-        // If no saved annotation data, get the original CSV column data
-        if (!fieldValue && field.csvColumnName && currentTask.metadata) {
-          fieldValue = currentTask.metadata[field.csvColumnName];
-        }
-        
-        newColumnData[field.fieldName] = fieldValue || '';
-
-        // Load any nested child fields for this field (e.g. notes.yes.hii)
-        metadataKeys.forEach((key) => {
-          if (key.startsWith(`${field.fieldName}.`) || key.includes(`${field.fieldName}.`) || key.endsWith(`_description`)) {
-            newColumnData[key] = currentTask.metadata?.[key] || '';
-          }
-        });
-      });
-
-      setNewColumnData(newColumnData);
-      prevConfigFieldsRef.current = currentFieldNames;
-
       if (isNewTask) {
+        // Real row navigation — a full reset from CSV row data is correct.
+        const newColumnData: NewColumnData = {};
+
+        annotationFields.forEach((field) => {
+          let fieldValue = currentTask.metadata?.[field.fieldName];
+          if (!fieldValue && field.csvColumnName && currentTask.metadata) {
+            fieldValue = currentTask.metadata[field.csvColumnName];
+          }
+          newColumnData[field.fieldName] = fieldValue || '';
+
+          metadataKeys.forEach((key) => {
+            if (key.startsWith(`${field.fieldName}.`) || key.includes(`${field.fieldName}.`) || key.endsWith(`_description`)) {
+              newColumnData[key] = currentTask.metadata?.[key] || '';
+            }
+          });
+        });
+
+        setNewColumnData(newColumnData);
         setPendingChanges({}); // Clear pending changes for new task
-        
-        console.log('Loaded fresh data for new task:', {
+
+        logger.log('Loaded fresh data for new task:', {
           taskRowIndex: currentTask.rowIndex,
           newColumnData,
           annotationFields: annotationFields.map(f => f.fieldName)
         });
+      } else {
+        // Same task — only the field configuration changed (add/duplicate/delete
+        // question, edit type, etc). Merge in defaults for NEW field keys only;
+        // never overwrite a value already held in memory (e.g. a value just copied
+        // into a duplicated field via onNewColumnChange, or unsaved edits).
+        setNewColumnData((prev) => {
+          const merged: NewColumnData = { ...prev };
+          annotationFields.forEach((field) => {
+            if (merged[field.fieldName] === undefined || merged[field.fieldName] === '') {
+              let fieldValue = currentTask.metadata?.[field.fieldName];
+              if (!fieldValue && field.csvColumnName && currentTask.metadata) {
+                fieldValue = currentTask.metadata[field.csvColumnName];
+              }
+              merged[field.fieldName] = fieldValue || merged[field.fieldName] || '';
+            }
+            metadataKeys.forEach((key) => {
+              if (
+                (key.startsWith(`${field.fieldName}.`) || key.includes(`${field.fieldName}.`) || key.endsWith('_description')) &&
+                (merged[key] === undefined || merged[key] === '')
+              ) {
+                merged[key] = currentTask.metadata?.[key] || merged[key] || '';
+              }
+            });
+          });
+          return merged;
+        });
       }
+
+      prevConfigFieldsRef.current = currentFieldNames;
     }
 
     // Update the previous task reference
@@ -1544,14 +1699,13 @@ export function DatasetAnnotationWorkbench({
             <MetadataDisplay
               metadata={metadata}
               orderedMetadataFields={orderedMetadataFields}
-              linkedFieldNames={new Set(annotationConfig?.annotationFields.filter(f => f.isDataFieldLink).map(f => f.sourceCsvColumnName || f.csvColumnName) ?? [])}
               draggedField={draggedField}
               editingField={editingField}
               expandedTextFields={expandedTextFields}
               imageOverlay={imageOverlay}
-              audioOverlay={audioOverlay}
               videoOverlay={videoOverlay}
               datasetName={datasetName}
+              isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
               onMetadataChange={setMetadata}
               onDragStart={handleDragStart}
               onDragOver={handleUnifiedDragOver}
@@ -1562,7 +1716,6 @@ export function DatasetAnnotationWorkbench({
               onCancelEdit={handleCancelEdit}
               onToggleTextExpansion={toggleTextExpansion}
               onOpenImageOverlay={openImageOverlay}
-              onOpenAudioOverlay={openAudioOverlay}
               onOpenVideoOverlay={openVideoOverlay}
               onNavigateBack={handleNavigateBack}
               onPanelDragOver={handleUnifiedDragOver}
@@ -1591,6 +1744,8 @@ export function DatasetAnnotationWorkbench({
               isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
               cloneId={datasetId}
               currentRowId={currentTask?.id}
+              onImageClick={openImageOverlay}
+              onVideoClick={openVideoOverlay}
             />
           }
           defaultLeftWidth={50}
@@ -1618,16 +1773,6 @@ export function DatasetAnnotationWorkbench({
         currentIndex={imageOverlay.currentIndex}
         onClose={closeImageOverlay}
         onNavigate={navigateImage}
-      />
-
-      {/* Audio Overlay */}
-      <AudioOverlay
-        isOpen={audioOverlay.isOpen}
-        audioUrl={audioOverlay.audioUrl}
-        audioUrls={audioOverlay.audioUrls}
-        currentIndex={audioOverlay.currentIndex}
-        onClose={closeAudioOverlay}
-        onNavigate={navigateAudio}
       />
 
       {/* Video Overlay */}

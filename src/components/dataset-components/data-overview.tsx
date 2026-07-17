@@ -20,7 +20,6 @@ import {
   Download,
   ChevronDown,
   Users,
-  Wand2,
   Scale,
   CheckCircle,
   Clock,
@@ -67,7 +66,6 @@ export function DataOverview({
   // ── Consensus clone panel state ────────────────────────────────────────────
   const [cloneGroup, setCloneGroup] = useState<CloneGroup | null>(null);
   const [loadingCloneGroup, setLoadingCloneGroup] = useState(false);
-  const [isGeneratingConsensus, setIsGeneratingConsensus] = useState(false);
 
   useEffect(() => {
     loadCSVImports();
@@ -825,7 +823,8 @@ export function DataOverview({
                                   window.URL.revokeObjectURL(url);
                                 } catch {
                                   // Fallback: direct download
-                                  window.open(`http://localhost:5000/clones/${clone._id}/export?token=${localStorage.getItem('accessToken')}`, '_blank');
+                                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                                  window.open(`${apiUrl}/clones/${clone._id}/export?token=${localStorage.getItem('accessToken')}`, '_blank');
                                 }
                               }}
                               className="text-xs text-gray-500 hover:text-gray-700 font-medium hover:underline"
@@ -852,22 +851,11 @@ export function DataOverview({
                 {(() => {
                   const clones = cloneGroup.clones;
                   return (
-                    <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-gray-100">
-                      <Button
-                        onClick={handleGenerateConsensus}
-                        disabled={isGeneratingConsensus}
-                        className="flex-1 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white"
-                      >
-                        {isGeneratingConsensus ? (
-                          <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Generating…</>
-                        ) : (
-                          <><Wand2 className="h-4 w-4 mr-1.5" />Generate Consensus</>
-                        )}
-                      </Button>
+                    <div className="flex pt-2 border-t border-gray-100">
                       <Button
                         variant="outline"
                         onClick={() => router.push(`/dataset/${datasetId}/consensus`)}
-                        className="flex-1 text-sm border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                        className="text-sm border-indigo-200 text-indigo-700 hover:bg-indigo-50"
                       >
                         <Scale className="h-4 w-4 mr-1.5" />
                         Review Consensus

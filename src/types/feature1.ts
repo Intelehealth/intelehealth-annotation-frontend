@@ -2,13 +2,17 @@
 // Mirrors the definitions from the backend schema but without any NestJS/Mongoose dependencies.
 
 // -------------------- Constants --------------------
-// Only odd annotator counts are allowed: 1, 3, 5, 7, 9
+// Any reviewer count from 1-9 is allowed. Odd counts (esp. 3) are recommended
+// because they minimize ties, but even counts are fully supported — the
+// consensus engine detects ties explicitly and routes them to collaborative
+// review instead of blocking assignment. See consensus-workflow.md.
 export const CLONE_MIN_ANNOTATORS = 1;
 export const CLONE_MAX_ANNOTATORS = 9;
+export const RECOMMENDED_ANNOTATOR_COUNT = 3;
 
-/** Returns true if n is a valid odd annotator count (1, 3, 5, 7, 9) */
-export function isOddCount(n: number): boolean {
-  return n >= CLONE_MIN_ANNOTATORS && n <= CLONE_MAX_ANNOTATORS && n % 2 !== 0;
+/** Returns true if n is within the allowed reviewer count range (1-9). */
+export function isValidReviewerCount(n: number): boolean {
+  return n >= CLONE_MIN_ANNOTATORS && n <= CLONE_MAX_ANNOTATORS;
 }
 
 // -------------------- Task Status Types --------------------

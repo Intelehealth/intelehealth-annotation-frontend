@@ -5,6 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Sidebar } from '@/components/sidebar';
 import { DatasetManagement } from '@/components/dataset-components/dataset-management';
+import { TopNav } from '@/components/top-nav';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.1 } },
+};
 
 export default function DatasetPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -39,15 +46,13 @@ export default function DatasetPage() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex overflow-hidden">
-      {/* Sidebar */}
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       <Sidebar />
-
-      {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="p-4">
+        <TopNav />
+        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="p-4 md:p-6">
           <DatasetManagement />
-        </div>
+        </motion.div>
       </main>
     </div>
   );

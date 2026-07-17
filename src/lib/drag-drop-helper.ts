@@ -1,7 +1,5 @@
 import { AnnotationField, AnnotationConfig } from '@/lib/api/csv-imports';
 
-const DATA_FIELD_TYPES = ['image', 'audio', 'video'];
-
 export interface DragDropResult {
   success: boolean;
   message: string;
@@ -20,27 +18,10 @@ export interface DragDropParams {
 }
 
 /**
- * Comprehensive drag-and-drop handler for field reordering and cross-panel links
- * Data fields (image/audio/video/text metadata) are LINKED to the annotation panel,
- * never duplicated. Only annotation questions (radio, text, rating, dropdown, etc.)
- * create new annotation fields.
+ * Drag-and-drop handler for field reordering and cross-panel moves.
+ * CSV fields are MOVED (not linked) — one field, one location at a time.
  */
 export class DragDropHelper {
-  /**
-   * Checks if a field is a data/source field (not an annotation question)
-   */
-  static isDataField(field: AnnotationField): boolean {
-    return DATA_FIELD_TYPES.includes(field.fieldType) ||
-      (field.fieldType === 'text' && !field.isAnnotationField && !field.columnType);
-  }
-
-  /**
-   * Checks if a data field is already linked to the annotation panel
-   */
-  static findDataFieldLink(fields: AnnotationField[], sourceCsvColumnName: string): AnnotationField | undefined {
-    return fields.find(f => f.isDataFieldLink && f.sourceCsvColumnName === sourceCsvColumnName);
-  }
-
   /**
    * Main entry point for all drag-and-drop operations
    */
@@ -48,51 +29,47 @@ export class DragDropHelper {
     const { draggedField, targetFieldName, targetPanel, annotationConfig, orderedMetadataFields } = params;
 
     try {
-      // Validate basic requirements
       if (!draggedField || !annotationConfig) {
-        return {
-          success: false,
-          message: 'Missing required parameters for drag operation',
-          error: 'INVALID_PARAMS'
-        };
+        return { success: false, message: 'Missing required parameters for drag operation', error: 'INVALID_PARAMS' };
       }
 
-      // Find the dragged field data
       const draggedFieldData = annotationConfig.annotationFields.find(f => f.csvColumnName === draggedField);
       if (!draggedFieldData) {
-        return {
-          success: false,
-          message: 'Dragged field not found in configuration',
-          error: 'FIELD_NOT_FOUND'
-        };
+        return { success: false, message: 'Dragged field not found in configuration', error: 'FIELD_NOT_FOUND' };
       }
 
-      // Determine operation type
-      const operationType = this.determineOperationType(draggedFieldData, targetPanel, targetFieldName);
+      // Prevent self-drop
+      if (draggedFieldData.csvColumnName === targetFieldName && targetPanel === 'metadata') {
+        return { success: false, message: 'Cannot drop field on itself', error: 'SELF_DROP' };
+      }
 
-      // Execute the appropriate operation
-      switch (operationType) {
-        case 'LINK_DATA_FIELD_TO_ANNOTATION':
-          return this.handleLinkDataField(draggedFieldData, annotationConfig, orderedMetadataFields);
-
-        case 'CROSS_PANEL_METADATA_TO_ANNOTATION':
-          return this.handleCrossPanelMove(draggedFieldData, 'metadata-to-annotation', annotationConfig, orderedMetadataFields);
-
-        case 'CROSS_PANEL_ANNOTATION_TO_METADATA':
-          return this.handleCrossPanelMove(draggedFieldData, 'annotation-to-metadata', annotationConfig, orderedMetadataFields);
-
-        case 'INTERNAL_METADATA_REORDER':
-          return this.handleInternalReorder(draggedFieldData, targetFieldName, 'metadata', annotationConfig, orderedMetadataFields);
-
-        case 'INTERNAL_ANNOTATION_REORDER':
-          return this.handleInternalReorder(draggedFieldData, targetFieldName, 'annotation', annotationConfig, orderedMetadataFields);
-
-        default:
+      // Check if field is already mapped to annotation panel
+      if (targetPanel === 'annotation' && !draggedFieldData.isAnnotationField) {
+        const alreadyMapped = annotationConfig.annotationFields.some(
+          f => f.csvColumnName === draggedFieldData.csvColumnName && f.isAnnotationField
+        );
+        if (alreadyMapped) {
           return {
             success: false,
-            message: 'Unknown drag operation type',
-            error: 'UNKNOWN_OPERATION'
+            message: `"${draggedFieldData.fieldName}" is already in the Annotation Workbench.`,
+            error: 'ALREADY_MAPPED'
           };
+        }
+      }
+
+      const operationType = this.determineOperationType(draggedFieldData, targetPanel, targetFieldName);
+
+      switch (operationType) {
+        case 'CROSS_PANEL_METADATA_TO_ANNOTATION':
+          return this.handleCrossPanelMove(draggedFieldData, 'metadata-to-annotation', annotationConfig, orderedMetadataFields);
+        case 'CROSS_PANEL_ANNOTATION_TO_METADATA':
+          return this.handleCrossPanelMove(draggedFieldData, 'annotation-to-metadata', annotationConfig, orderedMetadataFields);
+        case 'INTERNAL_METADATA_REORDER':
+          return this.handleInternalReorder(draggedFieldData, targetFieldName, 'metadata', annotationConfig, orderedMetadataFields);
+        case 'INTERNAL_ANNOTATION_REORDER':
+          return this.handleInternalReorder(draggedFieldData, targetFieldName, 'annotation', annotationConfig, orderedMetadataFields);
+        default:
+          return { success: false, message: 'Unknown drag operation type', error: 'UNKNOWN_OPERATION' };
       }
     } catch (error) {
       console.error('DragDropHelper error:', error);
@@ -112,89 +89,22 @@ export class DragDropHelper {
     targetPanel: 'metadata' | 'annotation',
     targetFieldName: string
   ): string {
-    const isCrossPanelMove = 
+    const isCrossPanelMove =
       (targetPanel === 'annotation' && !draggedField.isAnnotationField) ||
       (targetPanel === 'metadata' && draggedField.isAnnotationField);
 
     if (isCrossPanelMove) {
-      if (targetPanel === 'annotation') {
-        // Check if this is a data field being linked (not a question being moved)
-        if (this.isDataField(draggedField)) {
-          return 'LINK_DATA_FIELD_TO_ANNOTATION';
-        }
-        return 'CROSS_PANEL_METADATA_TO_ANNOTATION';
-      } else {
-        return 'CROSS_PANEL_ANNOTATION_TO_METADATA';
-      }
-    } else {
-      if (targetPanel === 'metadata') {
-        return 'INTERNAL_METADATA_REORDER';
-      } else {
-        return 'INTERNAL_ANNOTATION_REORDER';
-      }
-    }
-  }
-
-  /**
-   * Handles linking a data field to the annotation panel
-   * The original data field stays in the metadata panel; a read-only reference is added to annotation
-   */
-  private static handleLinkDataField(
-    draggedField: AnnotationField,
-    annotationConfig: AnnotationConfig,
-    orderedMetadataFields: AnnotationField[]
-  ): DragDropResult {
-    // Prevent linking primary keys
-    if (draggedField.isPrimaryKey) {
-      return {
-        success: false,
-        message: 'Primary key fields cannot be linked to annotation panel',
-        error: 'PRIMARY_KEY_RESTRICTION'
-      };
+      return targetPanel === 'annotation'
+        ? 'CROSS_PANEL_METADATA_TO_ANNOTATION'
+        : 'CROSS_PANEL_ANNOTATION_TO_METADATA';
     }
 
-    // Check if this data field is already linked
-    const existingLink = this.findDataFieldLink(annotationConfig.annotationFields, draggedField.csvColumnName);
-    if (existingLink) {
-      return {
-        success: false,
-        message: `"${draggedField.fieldName}" is already linked to the annotation panel`,
-        error: 'DUPLICATE_LINK'
-      };
-    }
-
-    // Create a link field — a lightweight reference to the source data field
-    const linkField: AnnotationField = {
-      csvColumnName: draggedField.csvColumnName,
-      fieldName: draggedField.fieldName,
-      fieldType: draggedField.fieldType,
-      isRequired: false,
-      isAnnotationField: true,
-      isPrimaryKey: false,
-      isNewColumn: false,
-      isDataFieldLink: true,
-      sourceCsvColumnName: draggedField.csvColumnName,
-    };
-
-    // Add the link field to the annotation fields array
-    const updatedFields = [...annotationConfig.annotationFields, linkField];
-
-    // Metadata display stays the same (data fields remain visible)
-    const updatedMetadataFields = orderedMetadataFields;
-
-    return {
-      success: true,
-      message: `"${draggedField.fieldName}" linked to annotation panel`,
-      updatedFields,
-      updatedMetadataFields,
-      changedPanels: true
-    };
+    return targetPanel === 'metadata' ? 'INTERNAL_METADATA_REORDER' : 'INTERNAL_ANNOTATION_REORDER';
   }
 
   /**
    * Handles cross-panel moves (metadata ↔ annotation)
-   * For data fields: metadata-to-annotation creates a link, annotation-to-metadata removes the link
-   * For annotation questions: metadata-to-annotation moves the field, annotation-to-metadata moves it back
+   * All fields use the same toggle mechanism — no special "link" behavior.
    */
   private static handleCrossPanelMove(
     draggedField: AnnotationField,
@@ -202,31 +112,18 @@ export class DragDropHelper {
     annotationConfig: AnnotationConfig,
     orderedMetadataFields: AnnotationField[]
   ): DragDropResult {
-    // Validation based on direction
     if (direction === 'metadata-to-annotation') {
-      // This path only handles annotation questions (data fields go via handleLinkDataField)
-      // Prevent moving primary keys to annotation panel
       if (draggedField.isPrimaryKey) {
-        return {
-          success: false,
-          message: 'Primary key fields cannot be moved to annotation panel',
-          error: 'PRIMARY_KEY_RESTRICTION'
-        };
+        return { success: false, message: 'Primary key fields cannot be moved to annotation panel', error: 'PRIMARY_KEY_RESTRICTION' };
       }
 
-      // Update field to become annotation field
       const updatedFields = annotationConfig.annotationFields.map((field) => {
         if (field.csvColumnName === draggedField.csvColumnName) {
-          return {
-            ...field,
-            isAnnotationField: true,
-            isPrimaryKey: false,
-          };
+          return { ...field, isAnnotationField: true, isPrimaryKey: false };
         }
         return field;
       });
 
-      // Filter metadata fields (exclude new columns and annotation fields from metadata display)
       const updatedMetadataFields = updatedFields.filter((field) => !field.isNewColumn && !field.isAnnotationField);
 
       return {
@@ -237,45 +134,18 @@ export class DragDropHelper {
         changedPanels: true
       };
 
-    } else { // annotation-to-metadata
-      // Check if this is a data field link being removed
-      if (draggedField.isDataFieldLink) {
-        // Remove the link entry entirely — the original data field stays in metadata
-        const updatedFields = annotationConfig.annotationFields.filter(
-          (f) => !(f.isDataFieldLink && f.sourceCsvColumnName === draggedField.sourceCsvColumnName)
-        );
-        const updatedMetadataFields = updatedFields.filter((field) => !field.isNewColumn && !field.isAnnotationField);
-
-        return {
-          success: true,
-          message: `"${draggedField.fieldName}" unlinked from annotation panel`,
-          updatedFields,
-          updatedMetadataFields,
-          changedPanels: true
-        };
-      }
-
-      // Prevent moving new columns back to metadata panel
+    } else {
       if (draggedField.isNewColumn) {
-        return {
-          success: false,
-          message: 'New columns cannot be moved back to metadata panel',
-          error: 'NEW_COLUMN_RESTRICTION'
-        };
+        return { success: false, message: 'New columns cannot be moved back to metadata panel', error: 'NEW_COLUMN_RESTRICTION' };
       }
 
-      // Update field to become metadata field
       const updatedFields = annotationConfig.annotationFields.map((field) => {
         if (field.csvColumnName === draggedField.csvColumnName) {
-          return {
-            ...field,
-            isAnnotationField: false,
-          };
+          return { ...field, isAnnotationField: false };
         }
         return field;
       });
 
-      // Filter metadata fields (exclude new columns and annotation fields from metadata display)
       const updatedMetadataFields = updatedFields.filter((field) => !field.isNewColumn && !field.isAnnotationField);
 
       return {
@@ -298,20 +168,14 @@ export class DragDropHelper {
     annotationConfig: AnnotationConfig,
     orderedMetadataFields: AnnotationField[]
   ): DragDropResult {
-    // Prevent self-drop
     if (draggedField.csvColumnName === targetFieldName) {
-      return {
-        success: false,
-        message: 'Cannot drop field on itself',
-        error: 'SELF_DROP'
-      };
+      return { success: false, message: 'Cannot drop field on itself', error: 'SELF_DROP' };
     }
 
     if (panel === 'metadata') {
       return this.reorderMetadataFields(draggedField, targetFieldName, orderedMetadataFields);
-    } else {
-      return this.reorderAnnotationFields(draggedField, targetFieldName, annotationConfig);
     }
+    return this.reorderAnnotationFields(draggedField, targetFieldName, annotationConfig);
   }
 
   /**
@@ -322,28 +186,18 @@ export class DragDropHelper {
     targetFieldName: string,
     orderedMetadataFields: AnnotationField[]
   ): DragDropResult {
-    // Find indices
     const draggedIndex = orderedMetadataFields.findIndex(field => field.csvColumnName === draggedField.csvColumnName);
     const targetIndex = orderedMetadataFields.findIndex(field => field.csvColumnName === targetFieldName);
 
     if (draggedIndex === -1 || targetIndex === -1) {
-      return {
-        success: false,
-        message: 'Could not find dragged or target field in metadata list',
-        error: 'FIELD_NOT_IN_METADATA'
-      };
+      return { success: false, message: 'Could not find dragged or target field in metadata list', error: 'FIELD_NOT_IN_METADATA' };
     }
 
-    // Create new ordered array
     const newOrder = [...orderedMetadataFields];
     const [draggedItem] = newOrder.splice(draggedIndex, 1);
     newOrder.splice(targetIndex, 0, draggedItem);
 
-    return {
-      success: true,
-      message: 'Metadata fields reordered successfully',
-      updatedMetadataFields: newOrder
-    };
+    return { success: true, message: 'Metadata fields reordered successfully', updatedMetadataFields: newOrder };
   }
 
   /**
@@ -354,81 +208,47 @@ export class DragDropHelper {
     targetFieldName: string,
     annotationConfig: AnnotationConfig
   ): DragDropResult {
-    // Get all annotation fields
     const allFields = [...annotationConfig.annotationFields];
-    
-    // Find indices in the full array
     const draggedFieldIndex = allFields.findIndex((field) => field.csvColumnName === draggedField.csvColumnName);
     const targetFieldIndex = allFields.findIndex((field) => field.csvColumnName === targetFieldName);
 
     if (draggedFieldIndex === -1 || targetFieldIndex === -1) {
-      return {
-        success: false,
-        message: 'Could not find dragged or target field in annotation configuration',
-        error: 'FIELD_NOT_IN_ANNOTATION'
-      };
+      return { success: false, message: 'Could not find dragged or target field in annotation configuration', error: 'FIELD_NOT_IN_ANNOTATION' };
     }
 
-    // Ensure both fields are annotation fields
     const draggedFieldData = allFields[draggedFieldIndex];
     const targetFieldData = allFields[targetFieldIndex];
 
     if (!draggedFieldData.isAnnotationField || !targetFieldData.isAnnotationField) {
-      return {
-        success: false,
-        message: 'Both fields must be annotation fields to reorder',
-        error: 'INVALID_FIELD_TYPE'
-      };
+      return { success: false, message: 'Both fields must be annotation fields to reorder', error: 'INVALID_FIELD_TYPE' };
     }
 
-    // IMPORTANT: Allow reordering of ALL annotation fields, including primary keys and new columns
-    // This enables users to reorder any field within the annotation panel
-    
-    // Perform the reorder
     const updatedFields = [...allFields];
     const [draggedItem] = updatedFields.splice(draggedFieldIndex, 1);
     updatedFields.splice(targetFieldIndex, 0, draggedItem);
 
-    return {
-      success: true,
-      message: 'Annotation fields reordered successfully',
-      updatedFields
-    };
+    return { success: true, message: 'Annotation fields reordered successfully', updatedFields };
   }
 
   /**
-   * Validates if a field can be dragged
+   * Validates if a field can be dragged from a source panel
    */
   static canDragField(field: AnnotationField, sourcePanel: 'metadata' | 'annotation'): { canDrag: boolean; reason?: string } {
     if (sourcePanel === 'metadata') {
-      // In metadata panel, all fields can be dragged for reordering
-      // Primary keys can be reordered within metadata panel, just can't link to annotation panel
-      return { canDrag: true };
-    } else {
-      // In annotation panel, data field links can be dragged back to metadata to unlink
-      // New columns can be reordered within annotation panel, just can't move to metadata panel
-      if (field.isNewColumn && !field.isDataFieldLink) {
-        return { canDrag: true };
-      }
-      // Data field links can be dragged to metadata panel to unlink
-      if (field.isDataFieldLink) {
-        return { canDrag: true };
-      }
-      // Regular annotation questions can be reordered
+      if (field.isPrimaryKey) return { canDrag: false, reason: 'Primary key cannot be moved' };
       return { canDrag: true };
     }
+    if (field.isNewColumn) return { canDrag: false, reason: 'New columns stay in annotation' };
+    return { canDrag: true };
   }
 
   /**
-   * Validates if a field can be dropped on
+   * Validates if a field can be dropped on a target field
    */
   static canDropOnField(targetField: AnnotationField, draggedField: AnnotationField): { canDrop: boolean; reason?: string } {
-    // Cannot drop on itself
     if (targetField.csvColumnName === draggedField.csvColumnName) {
       return { canDrop: false, reason: 'Cannot drop field on itself' };
     }
-
-    // Can always drop for reordering within the same panel
     return { canDrop: true };
   }
 
@@ -436,70 +256,9 @@ export class DragDropHelper {
    * Gets user-friendly drag restrictions message
    */
   static getDragRestrictionMessage(field: AnnotationField, sourcePanel: 'metadata' | 'annotation'): string | null {
-    if (sourcePanel === 'metadata' && this.isDataField(field)) {
-      // Check if already linked
-      return 'Drag to annotation panel to link this data field';
+    if (sourcePanel === 'metadata' && !field.isPrimaryKey) {
+      return 'Drag to annotation panel to add this field';
     }
     return null;
-  }
-
-  /**
-   * Migrates existing duplicated data fields to linked references.
-   * Finds data fields (image/audio/video/text metadata) that were previously "moved" to the
-   * annotation panel (isAnnotationField: true) and converts them to proper linked references.
-   * The original field stays in metadata; a new isDataFieldLink entry is added to annotation.
-   */
-  static migrateExistingDataFields(fields: AnnotationField[]): {
-    migrated: boolean;
-    migratedFields: AnnotationField[];
-    migrationLog: string[];
-  } {
-    const log: string[] = [];
-    const migratedFields = [...fields];
-
-    // Find data fields that were incorrectly moved to annotation (not linked, not questions)
-    const movedDataFields = migratedFields.filter(f =>
-      f.isAnnotationField &&
-      !f.isNewColumn &&
-      !f.isDataFieldLink &&
-      this.isDataField(f)
-    );
-
-    if (movedDataFields.length === 0) {
-      return { migrated: false, migratedFields, migrationLog: log };
-    }
-
-    for (const dataField of movedDataFields) {
-      log.push(`Migrating "${dataField.fieldName}" from moved annotation to linked reference`);
-
-      // Restore the original data field to metadata panel
-      const originalIndex = migratedFields.findIndex(f =>
-        f.csvColumnName === dataField.csvColumnName &&
-        !f.isDataFieldLink
-      );
-      if (originalIndex !== -1) {
-        const original = { ...migratedFields[originalIndex] };
-        original.isAnnotationField = false;
-        migratedFields[originalIndex] = original;
-      }
-
-      // Remove the old "moved" entry and replace with a proper link entry
-      const oldEntryIndex = migratedFields.findIndex(f =>
-        f.csvColumnName === dataField.csvColumnName &&
-        f.isAnnotationField &&
-        !f.isDataFieldLink &&
-        !f.isNewColumn
-      );
-      if (oldEntryIndex !== -1) {
-        // Convert to a proper data field link
-        migratedFields[oldEntryIndex] = {
-          ...dataField,
-          isDataFieldLink: true,
-          sourceCsvColumnName: dataField.csvColumnName,
-        };
-      }
-    }
-
-    return { migrated: true, migratedFields, migrationLog: log };
   }
 }

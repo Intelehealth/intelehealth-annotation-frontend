@@ -189,8 +189,6 @@ export default function AddDatasetPage() {
         router.push(`/dataset/${newDataset._id}?tab=upload`);
       }, 500);
     } catch (error: any) {
-      console.error('Error creating dataset:', error);
-
       // Handle specific error cases
       if (error.response?.status === 409) {
         showToast({

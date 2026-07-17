@@ -8,7 +8,7 @@ import type {
   CloneGroup,
 } from "@/types/feature1";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // ─── Existing types (unchanged) ────────────────────────────────────────────────
 
@@ -232,23 +232,13 @@ export const datasetsAPI = {
   },
 
   /**
-   * Admin manually triggers consensus generation.
-   * Backend reads all completed DatasetAnnotationTasks for this dataset,
-   * compares answers row by row, and writes ConsensusReview documents.
-   * Backend owns all comparison logic — frontend never computes consensus itself.
-   *
-   * POST /datasets/:id/generate-consensus
+   * NOTE: the legacy `generateConsensus()` client method (POST
+   * /datasets/:id/generate-consensus) was removed — Phase 6 release audit
+   * confirmed it had zero callers anywhere in the app, and its backend HTTP
+   * route was removed for the same reason (see datasets.controller.ts).
+   * Live consensus generation is `consensusAPI.generate()` in
+   * `lib/api/consensus.ts` (POST /consensus/:datasetId/generate).
    */
-  async generateConsensus(
-    datasetId: string,
-  ): Promise<{ message: string; reviewsCreated: number }> {
-    const response = await axios.post(
-      `${API_BASE_URL}/datasets/${datasetId}/generate-consensus`,
-      {},
-      { headers: jsonHeaders() },
-    );
-    return response.data;
-  },
 
   /**
    * Downloads the merged consensus CSV for a dataset.

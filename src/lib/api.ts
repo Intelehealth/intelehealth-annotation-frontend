@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -45,22 +45,79 @@ jsonApi.interceptors.request.use(
   },
 );
 
+// ─── Silent refresh-on-401 ───────────────────────────────────────────────────
+// Both axios instances share one in-flight refresh promise so concurrent 401s
+// (e.g. several parallel requests failing at once) only trigger a single
+// POST /auth/refresh call instead of a stampede of refresh attempts.
+let refreshPromise: Promise<string | null> | null = null;
+
+function forceLogout() {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  window.location.href = '/login';
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const storedRefreshToken = localStorage.getItem('refreshToken');
+      if (!storedRefreshToken) return null;
+      try {
+        const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          refreshToken: storedRefreshToken,
+        });
+        localStorage.setItem('accessToken', res.data.accessToken);
+        if (res.data.refreshToken) {
+          localStorage.setItem('refreshToken', res.data.refreshToken);
+        }
+        return res.data.accessToken as string;
+      } catch {
+        return null;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+  return refreshPromise;
+}
+
+async function handleUnauthorized(error: any, instance: typeof api) {
+  const originalRequest = error.config;
+
+  // Bypass refresh/redirect for login, refresh itself, and pending-activation checks
+  if (
+    error.response?.data?.message === 'PENDING_ACTIVATION' ||
+    originalRequest?.url?.includes('/auth/login') ||
+    originalRequest?.url?.includes('/auth/refresh')
+  ) {
+    return Promise.reject(error);
+  }
+
+  // Only attempt a silent refresh once per request to avoid infinite loops
+  if (!originalRequest || originalRequest._retriedAfterRefresh) {
+    forceLogout();
+    return Promise.reject(error);
+  }
+
+  const newAccessToken = await refreshAccessToken();
+  if (!newAccessToken) {
+    forceLogout();
+    return Promise.reject(error);
+  }
+
+  originalRequest._retriedAfterRefresh = true;
+  originalRequest.headers = originalRequest.headers || {};
+  originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+  return instance(originalRequest);
+}
+
 // Response interceptor to handle token expiration
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
+  (error) => {
     if (error.response?.status === 401) {
-      // Bypass redirect if this is a login request or a pending activation check
-      if (
-        error.response?.data?.message === 'PENDING_ACTIVATION' ||
-        error.config?.url?.includes('/auth/login')
-      ) {
-        return Promise.reject(error);
-      }
-      // Token expired or invalid, redirect to login
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      return handleUnauthorized(error, api);
     }
     return Promise.reject(error);
   },
@@ -69,19 +126,9 @@ api.interceptors.response.use(
 // Response interceptor for JSON API to handle token expiration
 jsonApi.interceptors.response.use(
   (response) => response,
-  async (error) => {
+  (error) => {
     if (error.response?.status === 401) {
-      // Bypass redirect if this is a login request or a pending activation check
-      if (
-        error.response?.data?.message === 'PENDING_ACTIVATION' ||
-        error.config?.url?.includes('/auth/login')
-      ) {
-        return Promise.reject(error);
-      }
-      // Token expired or invalid, redirect to login
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      return handleUnauthorized(error, jsonApi as unknown as typeof api);
     }
     return Promise.reject(error);
   },
@@ -160,9 +207,20 @@ export const authAPI = {
     }
   },
 
-  // Refresh token
+  // Refresh token — exchanges the stored rotating refresh token for a new
+  // access token + rotated refresh token. Normally you don't need to call
+  // this directly; the response interceptors above do it automatically on
+  // any 401. Exposed for manual/explicit refresh (e.g. app resume).
   refreshToken: async () => {
-    const response = await jsonApi.post('/auth/refresh');
+    const storedRefreshToken = localStorage.getItem('refreshToken');
+    if (!storedRefreshToken) {
+      throw new Error('No refresh token available');
+    }
+    const response = await jsonApi.post('/auth/refresh', { refreshToken: storedRefreshToken });
+    localStorage.setItem('accessToken', response.data.accessToken);
+    if (response.data.refreshToken) {
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+    }
     return response.data;
   },
 

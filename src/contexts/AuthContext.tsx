@@ -113,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           console.error('Error parsing user data:', error);
           localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
           localStorage.removeItem('user');
           setUser(null);
         }
@@ -147,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Store token and user data
       localStorage.setItem('accessToken', response.accessToken);
+      if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
       localStorage.setItem('user', JSON.stringify(response.user));
 
       // Fetch complete profile with authProvider info
@@ -193,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Store token and user data
       localStorage.setItem('accessToken', response.accessToken);
+      if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
       localStorage.setItem('user', JSON.stringify(response.user));
 
       // Fetch complete profile with authProvider info
@@ -238,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Store token and user data
       localStorage.setItem('accessToken', response.accessToken);
+      if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
       localStorage.setItem('user', JSON.stringify(response.user));
 
       // Fetch complete profile with authProvider info
@@ -309,6 +313,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: response.message };
       }
       localStorage.setItem('accessToken', response.accessToken);
+      if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
       localStorage.setItem('user', JSON.stringify(response.user));
       setUser(response.user);
       startHeartbeat();
@@ -324,6 +329,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     stopHeartbeat();
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     setUser(null);
     router.push('/login');

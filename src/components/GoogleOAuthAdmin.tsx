@@ -16,7 +16,7 @@ export default function GoogleOAuthAdmin({
     try {
       // Redirect to backend Google Admin OAuth endpoint
       const backendUrl =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       window.location.href = `${backendUrl}/auth/google/admin`;
     } catch (error) {
       console.error('Google Admin OAuth error:', error);

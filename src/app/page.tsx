@@ -59,6 +59,11 @@ export default function Home() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
+  const pageRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    offset: ["start start", "end end"],
+  });
+
   useEffect(() => {
     setMounted(true);
     if (!isLoading && isAuthenticated) {

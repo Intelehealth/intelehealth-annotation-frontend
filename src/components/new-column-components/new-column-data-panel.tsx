@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, GripVertical, ChevronDown, ChevronRight, Settings, Plus, Trash2, Edit3, Wrench, Link2 } from 'lucide-react';
+import { CheckCircle, GripVertical, ChevronDown, ChevronRight, Settings, Plus, Trash2, Edit3, Wrench, Lock } from 'lucide-react';
 import { AnnotationField, AnnotationConfig } from '@/lib/api/csv-imports';
 import { cn } from '@/lib/utils';
 import { DragDropHelper } from '@/lib/drag-drop-helper';
@@ -12,6 +12,7 @@ import { FieldTypeConfigurator } from '@/components/field-config-components/fiel
 import { RecursiveFieldEditor } from '@/components/field-config-components/recursive-field-editor';
 import { LivePreviewTree } from '@/components/field-config-components/live-preview-tree';
 import { FieldGroupEditor } from '@/components/field-config-components/field-group-editor';
+import { AudioPreview, VideoPreview } from '@/components/annotation-components/media-preview';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { schemaRequestsAPI } from '@/lib/api/schema-requests';
+import { permissionsAPI } from '@/lib/api/permissions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +52,8 @@ interface NewColumnDataPanelProps {
   isAdmin?: boolean;
   cloneId?: string;
   currentRowId?: string;
+  onImageClick?: (imageUrls: string[], index: number) => void;
+  onVideoClick?: (videoUrls: string[], index: number) => void;
 }
 
 /** Structured option — UI-only. value is always the original raw string for storage. */
@@ -663,6 +667,8 @@ export function NewColumnDataPanel({
   isAdmin = false,
   cloneId,
   currentRowId,
+  onImageClick,
+  onVideoClick,
 }: NewColumnDataPanelProps) {
 
   // ── UIState ──────────────────────────────────────────────────────────────────
@@ -699,6 +705,15 @@ export function NewColumnDataPanel({
 
   const [showRequestGroupConfig, setShowRequestGroupConfig] = useState<any | null>(null);
   const [requestGroupConfigForm, setRequestGroupConfigForm] = useState<(any & { note?: string }) | null>(null);
+
+  // Permission request dialog for annotators
+  const [showPermissionRequest, setShowPermissionRequest] = useState<{
+    fieldId: string;
+    groupId?: string;
+    action: string;
+    fieldName: string;
+  } | null>(null);
+  const [permissionRequestNote, setPermissionRequestNote] = useState('');
 
   const toggleEditingField = (fieldName: string) => {
     setEditingFields((prev) => {
@@ -737,20 +752,71 @@ export function NewColumnDataPanel({
     onUpdateFieldConfig(updatedFields);
   };
 
-  const handleDeleteField = (fieldName: string) => {
+  const handleDeleteField = (fieldId: string) => {
     if (!annotationConfig || !onUpdateFieldConfig) return;
     const updatedFields = (annotationConfig.annotationFields || []).map((f) => {
-      if (f.fieldName === fieldName) {
+      if ((f.id || f.fieldName) === fieldId) {
         return { ...f, isAnnotationField: false };
       }
       return f;
     });
     setEditingFields((prev) => {
       const next = new Set(prev);
-      next.delete(fieldName);
+      next.delete(fieldId);
       return next;
     });
     onUpdateFieldConfig(updatedFields);
+  };
+
+  const handleDuplicateField = (field: AnnotationField) => {
+    if (!annotationConfig || !onUpdateFieldConfig) return;
+    if (!field.isAnnotationField) return;
+    const existingNames = new Set(
+      (annotationConfig.annotationFields || [])
+        .filter((f) => f.isAnnotationField)
+        .map((f) => f.fieldName?.toLowerCase()),
+    );
+    let uniqueName = field.fieldName;
+    let counter = 1;
+    while (existingNames.has(uniqueName?.toLowerCase())) {
+      uniqueName = `${field.fieldName}_${counter}`;
+      counter++;
+    }
+    const copy: AnnotationField = {
+      ...field,
+      id: `dup_${Date.now()}`,
+      fieldName: uniqueName,
+      csvColumnName: uniqueName,
+      questionTitle: `Copy of ${field.questionTitle || field.fieldName}`,
+      isNewColumn: true,
+      isAnnotationField: true,
+    };
+    const updatedFields = [...(annotationConfig.annotationFields || []), copy];
+    onUpdateFieldConfig(updatedFields);
+    // Copy the current value (e.g. media URL, text) so the duplicate shows the
+    // same content immediately instead of an empty/broken preview.
+    const currentValue = newColumnData[field.fieldName];
+    if (currentValue) {
+      onNewColumnChange(uniqueName, currentValue);
+    }
+  };
+
+  const handleDuplicateGroup = (group: any) => {
+    if (!annotationConfig || !onUpdateFieldConfig) return;
+    const cloneGroup = JSON.parse(JSON.stringify(group));
+    const newId = `group_${Date.now()}`;
+    cloneGroup.groupId = newId;
+    cloneGroup.groupName = group.groupName;
+    if (cloneGroup.fields) {
+      cloneGroup.fields = cloneGroup.fields.map((cf: any) => ({
+        ...cf,
+        id: `gf_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        fieldName: cf.fieldName,
+        csvColumnName: cf.csvColumnName,
+      }));
+    }
+    const updatedGroups = [...(annotationConfig.fieldGroups || []), cloneGroup];
+    onUpdateFieldConfig(annotationConfig.annotationFields, updatedGroups);
   };
 
   const handleAddNewQuestion = () => {
@@ -764,19 +830,11 @@ export function NewColumnDataPanel({
     const cleanedName = name.replace(/[^a-zA-Z0-9_]/g, '');
     if (!cleanedName) return;
 
-    const exists = (annotationConfig.annotationFields || []).some(
-      (f) => f.fieldName.toLowerCase() === cleanedName.toLowerCase()
-    );
-    if (exists) {
-      showToast({ title: 'Error', description: 'A field with this name already exists.', type: 'error' });
-      return;
-    }
-
     const newField: AnnotationField = {
       id: `field_${Date.now()}`,
       csvColumnName: cleanedName,
       fieldName: cleanedName,
-      fieldType: type === 'image' || type === 'audio' || type === 'video' ? 'text' as const : type as AnnotationField['fieldType'],
+      fieldType: type as AnnotationField['fieldType'],
       columnType: type as AnnotationField['columnType'],
       isRequired: required,
       isAnnotationField: true,
@@ -931,9 +989,12 @@ export function NewColumnDataPanel({
 
   const handleDeleteGroup = (groupId: string) => {
     if (!annotationConfig || !onUpdateFieldConfig) return;
-    const updatedGroups = (annotationConfig.fieldGroups || []).filter(
-      (g) => g.groupId !== groupId
-    );
+    const updatedGroups = (annotationConfig.fieldGroups || []).map((g) => {
+      if (g.groupId === groupId) {
+        return { ...g, deleted: true, deletedAt: new Date().toISOString() };
+      }
+      return g;
+    });
     setEditingGroups((prev) => {
       const next = new Set(prev);
       next.delete(groupId);
@@ -1043,6 +1104,32 @@ export function NewColumnDataPanel({
 
     setShowRequestGroupConfig(null);
     setRequestGroupConfigForm(null);
+  };
+
+  const submitPermissionRequest = async () => {
+    if (!showPermissionRequest || !cloneId) return;
+    try {
+      await permissionsAPI.request({
+        datasetId: cloneId,
+        fieldId: showPermissionRequest.fieldId,
+        groupId: showPermissionRequest.groupId,
+        action: showPermissionRequest.action,
+        note: permissionRequestNote || undefined,
+      });
+      showToast({
+        title: 'Permission Request Sent',
+        description: `Request for "${showPermissionRequest.action}" on "${showPermissionRequest.fieldName}" sent to admin.`,
+        type: 'success',
+      });
+      setShowPermissionRequest(null);
+      setPermissionRequestNote('');
+    } catch (err: any) {
+      showToast({
+        title: 'Error',
+        description: err?.response?.data?.message || 'Failed to submit permission request.',
+        type: 'error',
+      });
+    }
   };
 
   // ── Visibility engine ────────────────────────────────────────────────────────
@@ -1201,76 +1288,18 @@ export function NewColumnDataPanel({
     const isFocused = focusedFieldId === field.fieldName;
     const type = field.columnType || field.fieldType;
     const isTextType = !type || type === 'textarea' || type === 'text' || type === 'number' || type === 'date';
+    // Media fields have interactive native controls (play/seek/volume) — card-level
+    // drag-and-drop must be disabled or the browser's native drag hijacks control clicks.
+    const canDragCard = isDraggable && !['audio', 'video', 'image'].includes(field.fieldType);
 
-    // Render linked data fields as read-only data display
-    if (field.isDataFieldLink) {
-      return (
-        <div
-          key={field.fieldName}
-          id={`card-${field.fieldName}`}
-          className="p-4 border border-dashed border-blue-300 rounded-lg bg-blue-50/30 transition-all duration-200 relative"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-2">
-              <Link2 className="h-4 w-4 text-blue-500 shrink-0" />
-              <span className="text-sm font-medium text-blue-700">
-                {field.fieldName}
-              </span>
-              <span className="text-[10px] font-medium text-blue-500 bg-blue-100 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                Linked Data
-              </span>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {field.fieldType === 'text' ? (
-              <div className="p-3 border border-blue-200 rounded-md bg-white text-sm text-gray-800 whitespace-pre-wrap">
-                {value || <span className="text-gray-400 italic">No data</span>}
-              </div>
-            ) : field.fieldType === 'image' ? (
-              <div className="flex flex-wrap gap-2">
-                {String(value).split(/[,;\n]+/).filter(Boolean).map((url: string, i: number) => (
-                  <a key={i} href={url.trim()} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={url.trim()}
-                      alt={`Image ${i + 1}`}
-                      className="h-20 w-20 object-cover rounded-lg border border-blue-200 hover:opacity-80 transition-opacity"
-                    />
-                  </a>
-                ))}
-              </div>
-            ) : field.fieldType === 'audio' ? (
-              <div className="space-y-2">
-                {String(value).split(/[,;\n]+/).filter(Boolean).map((url: string, i: number) => (
-                  <audio key={i} controls className="w-full h-9" src={url.trim()}>
-                    Your browser does not support the audio element.
-                  </audio>
-                ))}
-              </div>
-            ) : field.fieldType === 'video' ? (
-              <div className="space-y-2">
-                {String(value).split(/[,;\n]+/).filter(Boolean).map((url: string, i: number) => (
-                  <video key={i} controls className="w-full max-h-48 rounded-lg" src={url.trim()}>
-                    Your browser does not support the video element.
-                  </video>
-                ))}
-              </div>
-            ) : (
-              <div className="p-3 border border-blue-200 rounded-md bg-white text-sm text-gray-800 whitespace-pre-wrap">
-                {value || <span className="text-gray-400 italic">No data</span>}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
 
     return (
       <div
-        key={field.fieldName}
+        key={field.id || `${field.csvColumnName}-${field.fieldName}`}
         id={`card-${field.fieldName}`}
         onClick={() => setFocusedFieldId(field.fieldName)}
-        draggable={isDraggable}
-        onDragStart={isDraggable ? (e) => onAnnotationFieldDragStart?.(e, field.csvColumnName) : undefined}
+        draggable={canDragCard}
+        onDragStart={canDragCard ? (e) => onAnnotationFieldDragStart?.(e, field.csvColumnName) : undefined}
         onDragOver={onAnnotationFieldDragOver}
         onDrop={(e) => {
           if (isDraggable) {
@@ -1284,14 +1313,14 @@ export function NewColumnDataPanel({
           isFocused
             ? 'border-teal-500 bg-teal-50/10 shadow-md'
             : 'hover:shadow-md hover:bg-gray-100/70',
-          isDraggable ? 'cursor-move' : 'cursor-default',
+          canDragCard ? 'cursor-move' : 'cursor-default',
           draggedField === field.csvColumnName && 'opacity-50 bg-teal-50 border-teal-300'
         )}
       >
         {/* Question Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
-            {isDraggable && <GripVertical className="h-4 w-4 text-gray-400 shrink-0" />}
+            {canDragCard && <GripVertical className="h-4 w-4 text-gray-400 shrink-0" />}
             <span className="text-sm font-medium text-gray-700">
               {group ? getCleanFieldLabel(field.fieldName, group.groupName, groupInstanceIndex!) : (field.questionTitle || field.fieldName)}
               {field.isRequired && <span className="text-red-500 ml-1 font-bold">*</span>}
@@ -1336,7 +1365,7 @@ export function NewColumnDataPanel({
                     e.stopPropagation();
                     setShowDeleteConfirm({
                       type: 'field',
-                      targetId: field.fieldName,
+                      targetId: field.id || field.fieldName,
                       title: `question "${field.fieldName}"`,
                     });
                   }}
@@ -1496,32 +1525,35 @@ export function NewColumnDataPanel({
                 />
               )
             ) : field.fieldType === 'image' ? (
-              <div className="flex flex-wrap gap-2">
-                {value.split(/[,;\n]+/).filter(Boolean).map((url, i) => (
-                  <a key={i} href={url.trim()} target="_blank" rel="noopener noreferrer">
+              <div className="flex flex-wrap gap-2" onMouseDown={(e) => e.stopPropagation()} draggable={false} onDragStart={(e) => e.preventDefault()}>
+                {value.split(/[,;\n]+/).filter(Boolean).map((url, i) => {
+                  const urls = value.split(/[,;\n]+/).filter(Boolean).map((u: string) => u.trim());
+                  return (
                     <img
+                      key={url.trim() + i}
                       src={url.trim()}
                       alt={`Image ${i + 1}`}
-                      className="h-20 w-20 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity"
+                      draggable={false}
+                      className="h-20 w-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={(e) => { e.stopPropagation(); onImageClick?.(urls, i); }}
                     />
-                  </a>
-                ))}
+                  );
+                })}
               </div>
             ) : field.fieldType === 'audio' ? (
               <div className="space-y-2">
                 {value.split(/[,;\n]+/).filter(Boolean).map((url, i) => (
-                  <audio key={i} controls className="w-full h-9" src={url.trim()}>
-                    Your browser does not support the audio element.
-                  </audio>
+                  <AudioPreview key={url.trim() + i} url={url.trim()} />
                 ))}
               </div>
             ) : field.fieldType === 'video' ? (
               <div className="space-y-2">
-                {value.split(/[,;\n]+/).filter(Boolean).map((url, i) => (
-                  <video key={i} controls className="w-full max-h-48 rounded-lg" src={url.trim()}>
-                    Your browser does not support the video element.
-                  </video>
-                ))}
+                {value.split(/[,;\n]+/).filter(Boolean).map((url, i) => {
+                  const urls = value.split(/[,;\n]+/).filter(Boolean).map((u: string) => u.trim());
+                  return (
+                    <VideoPreview key={url.trim() + i} url={url.trim()} onExpand={() => onVideoClick?.(urls, i)} />
+                  );
+                })}
               </div>
             ) : field.branching?.enabled ? (
               <ConditionalFieldRenderer
@@ -1545,6 +1577,84 @@ export function NewColumnDataPanel({
             )
           )}
         </div>
+
+        {/* Admin action bar */}
+        {isAdmin && onUpdateFieldConfig && !field.isDataFieldLink && (
+          <div className="flex items-center gap-3 mt-3 pt-2 border-t border-gray-200">
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleEditingField(field.fieldName); }}
+              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
+            >
+              <Edit3 className="h-3.5 w-3.5" /> Edit
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDuplicateField(field); }}
+              className="text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1 font-medium"
+            >
+              <Plus className="h-3.5 w-3.5" /> Duplicate
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDeleteField(field.id || field.fieldName); }}
+              className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 font-medium"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleEditingField(field.fieldName); }}
+              className="text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1 font-medium ml-auto"
+            >
+              <Settings className="h-3.5 w-3.5" /> Configure
+            </button>
+          </div>
+        )}
+
+        {/* Annotator locked action bar */}
+        {!isAdmin && !field.isDataFieldLink && (
+          <div className="flex items-center gap-3 mt-3 pt-2 border-t border-gray-200">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowPermissionRequest({ fieldId: field.id || field.fieldName, action: 'EDIT', fieldName: field.fieldName });
+              }}
+              className="text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium"
+            >
+              <Lock className="h-3 w-3" /> Edit
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowPermissionRequest({ fieldId: field.id || field.fieldName, action: 'DUPLICATE', fieldName: field.fieldName });
+              }}
+              className="text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium"
+            >
+              <Lock className="h-3 w-3" /> Duplicate
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowPermissionRequest({ fieldId: field.id || field.fieldName, action: 'DELETE', fieldName: field.fieldName });
+              }}
+              className="text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium"
+            >
+              <Lock className="h-3 w-3" /> Delete
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowPermissionRequest({ fieldId: field.id || field.fieldName, action: 'CONFIGURE', fieldName: field.fieldName });
+              }}
+              className="text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium ml-auto"
+            >
+              <Lock className="h-3 w-3" /> Configure
+            </button>
+          </div>
+        )}
 
         {/* Validation overlay layer (separate from OptionCard surfaces) */}
         <ValidationMessage field={field} value={value} />
@@ -1679,7 +1789,7 @@ export function NewColumnDataPanel({
           })}
 
           {/* Repeatable group containers */}
-          {annotationConfig?.fieldGroups?.map(group => {
+          {annotationConfig?.fieldGroups?.filter(g => !g.deleted).map(group => {
             const instances = groupInstances.filter(gi => gi.groupId === group.groupId);
             if (instances.length === 0) return null;
 
@@ -1729,26 +1839,60 @@ export function NewColumnDataPanel({
                         
                         <div className="flex items-center space-x-3 shrink-0">
                           <StatusPill status={status} />
-                          {onUpdateFieldConfig && (
+                          {onUpdateFieldConfig && isAdmin && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleEditingGroup(group.groupId); }}
+                                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" /> Edit
+                              </button>
+                              <span className="text-gray-300 text-xs">|</span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDuplicateGroup(group); }}
+                                className="text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1 font-medium"
+                              >
+                                <Plus className="h-3.5 w-3.5" /> Duplicate
+                              </button>
+                              <span className="text-gray-300 text-xs">|</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowDeleteConfirm({
+                                    type: 'group',
+                                    targetId: group.groupId,
+                                    title: `repeat group "${group.groupTitle || group.groupName}"`,
+                                  });
+                                }}
+                                className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 font-medium"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </button>
+                              <span className="text-gray-300 text-xs">|</span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleEditingGroup(group.groupId); }}
+                                className={`text-xs flex items-center gap-1 font-medium ${editingGroups.has(group.groupId) ? 'text-green-600 hover:text-green-800' : 'text-gray-600 hover:text-gray-800'}`}
+                              >
+                                <Settings className="h-3.5 w-3.5" /> {editingGroups.has(group.groupId) ? 'Done' : 'Configure'}
+                              </button>
+                            </div>
+                          )}
+                          {onUpdateFieldConfig && !isAdmin && (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (isAdmin) {
-                                  toggleEditingGroup(group.groupId);
-                                } else {
-                                  setShowRequestGroupConfig(group);
-                                  setRequestGroupConfigForm({
-                                    ...group,
-                                    note: '',
-                                  });
-                                }
+                                setShowRequestGroupConfig(group);
+                                setRequestGroupConfigForm({
+                                  ...group,
+                                  note: '',
+                                });
                               }}
                               className="h-7 px-2 text-xs border border-gray-200 hover:bg-gray-100 flex items-center gap-1 bg-white"
                             >
                               <Settings className="h-3.5 w-3.5 text-gray-500" />
-                              <span>{isAdmin ? (editingGroups.has(group.groupId) ? 'Done' : 'Configure') : 'Request Change'}</span>
+                              <span>Request Change</span>
                             </Button>
                           )}
                           {isOpen ? (
@@ -1756,8 +1900,8 @@ export function NewColumnDataPanel({
                           ) : (
                             <ChevronRight className="h-4 w-4 text-gray-500" />
                           )}
+                          </div>
                         </div>
-                      </div>
 
                       {/* Expanded child cards */}
                       {isOpen && (
@@ -1826,7 +1970,7 @@ export function NewColumnDataPanel({
                               </div>
 
                               {group.fields && group.fields.map((childField: any, childIdx: number) => (
-                                <div key={childField.fieldName || childIdx} className="mt-3 p-3 bg-white border border-gray-200 rounded-lg space-y-2">
+                                <div key={childField.id || childIdx} className="mt-3 p-3 bg-white border border-gray-200 rounded-lg space-y-2">
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-gray-500 uppercase">
                                       Child Field: {childField.fieldName || `Field #${childIdx + 1}`}
@@ -2209,6 +2353,40 @@ export function NewColumnDataPanel({
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 7. Permission Request Dialog (Annotator only) */}
+      <Dialog open={!!showPermissionRequest} onOpenChange={(open) => { if (!open) { setShowPermissionRequest(null); setPermissionRequestNote(''); } }}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>Request Permission</DialogTitle>
+            <DialogDescription>
+              You don't have permission to <strong>{showPermissionRequest?.action?.toLowerCase()}</strong> on "{showPermissionRequest?.fieldName}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <p className="text-sm text-gray-600">
+              Would you like to request <strong>{showPermissionRequest?.action}</strong> access from the admin?
+            </p>
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Message / Reason (optional)</Label>
+              <Input
+                placeholder="Why do you need this permission?"
+                value={permissionRequestNote}
+                onChange={(e) => setPermissionRequestNote(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { setShowPermissionRequest(null); setPermissionRequestNote(''); }}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={submitPermissionRequest} className="bg-blue-600 hover:bg-blue-700 text-white">
+              Request Permission
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -20,7 +20,7 @@ log()  { echo -e "\033[0;34m[startup]\033[0m $*"; }
 ok()   { echo -e "\033[0;32m[  OK  ]\033[0m $*"; }
 fail() { echo -e "\033[0;31m[ FAIL ]\033[0m $*"; exit 1; }
 
-BACKEND_URL="${NEXT_PUBLIC_API_URL:-http://localhost:5000}"
+BACKEND_URL="${NEXT_PUBLIC_API_URL:-http://localhost:4000}"
 
 # ── Check backend is reachable ─────────────────────────────────────────────────
 check_backend() {

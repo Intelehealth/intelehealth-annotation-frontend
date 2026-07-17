@@ -16,8 +16,9 @@ import { DataOverview } from '@/components/dataset-components/data-overview';
 import { DatasetUploadComponent } from '@/components/upload-components/dataset-upload-component';
 import { FieldConfig } from '@/components/field-config-components/field-config';
 import { DatasetSettings } from '@/components/dataset-components/dataset-settings';
-import { SchemaRequestsTab } from '@/components/dataset-components/schema-requests-tab';
 import { Sidebar } from '@/components/sidebar';
+import { TopNav } from '@/components/top-nav';
+import { motion } from 'framer-motion';
 import {
   ArrowLeft,
   Database,
@@ -66,7 +67,7 @@ export default function DatasetDetailPage() {
   // Handle tab query parameter
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['overview', 'upload', 'field-configuration', 'settings', 'schema-requests'].includes(tabParam)) {
+    if (tabParam && ['overview', 'upload', 'field-configuration', 'settings'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -177,14 +178,6 @@ export default function DatasetDetailPage() {
       case 'settings':
         return <DatasetSettings datasetId={datasetId} />;
 
-      case 'schema-requests':
-        return (
-          <SchemaRequestsTab
-            datasetId={datasetId}
-            onNavigateToOverview={() => setActiveTab('overview')}
-          />
-        );
-
       default:
         return (
           <div className="space-y-6">
@@ -265,12 +258,17 @@ export default function DatasetDetailPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Main Sidebar - Standardized single sidebar navigation */}
       <Sidebar />
-
-      {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="p-6">{renderContent()}</div>
+        <TopNav />
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="p-4 md:p-6"
+        >
+          {renderContent()}
+        </motion.div>
       </main>
     </div>
   );

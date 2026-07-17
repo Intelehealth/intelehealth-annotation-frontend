@@ -25,7 +25,7 @@ function VerifyEmailContent() {
 
     const verify = async () => {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
         const response = await fetch(`${backendUrl}/auth/verify-email?token=${token}`);
         const resData = await response.json();
         

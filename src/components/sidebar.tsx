@@ -10,9 +10,6 @@ import {
 } from '@/components/ui/popover';
 import { notificationsAPI, NotificationResponse } from '@/lib/api/notifications';
 import { datasetsAPI } from '@/lib/api/datasets';
-import { consensusAPI } from '@/lib/api/consensus';
-import { schemaRequestsAPI } from '@/lib/api/schema-requests';
-import { useToast } from '@/components/ui/toast';
 import {
   Settings,
   ChevronLeft,
@@ -26,14 +23,15 @@ import {
   ClipboardList,
   Upload,
   FileText,
-  Wand2,
   Scale,
   BookOpen,
-  Loader2,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from 'next-themes';
 
 function timeAgo(dateStr: string): string {
   const now = new Date();
@@ -51,17 +49,19 @@ interface SidebarProps {
 }
 
 export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
+  const [mounted, setMounted] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(forceCollapsed);
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
-  const { showToast } = useToast();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [datasetName, setDatasetName] = useState<string>('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [annotatorCount, setAnnotatorCount] = useState<number>(0);
-  const [pendingSchemaCount, setPendingSchemaCount] = useState<number>(0);
 
   // Extract active dataset ID from path
   const pathParts = pathname?.split('/') || [];
@@ -109,68 +109,16 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
         try {
           const data = await datasetsAPI.getById(datasetId);
           setDatasetName(data.name);
-          // Try to get clone group to count annotators
-          try {
-            const cloneGroup = await datasetsAPI.getCloneGroup(datasetId);
-            const annotators = cloneGroup?.clones?.filter((c: any) => c.isClone) || [];
-            setAnnotatorCount(annotators.length);
-          } catch {
-            setAnnotatorCount(0);
-          }
         } catch (error) {
           console.error('Error fetching dataset name for sidebar:', error);
           setDatasetName('Untitled Dataset');
         }
       } else {
         setDatasetName('');
-        setAnnotatorCount(0);
       }
     };
     loadDatasetName();
   }, [datasetId]);
-
-  // Load pending schema requests count
-  useEffect(() => {
-    const fetchPendingSchemaRequests = async () => {
-      if (datasetId && user?.role?.toUpperCase() === 'ADMIN') {
-        try {
-          const reqs = await schemaRequestsAPI.getByDataset(datasetId);
-          setPendingSchemaCount(reqs.filter((r: any) => r.status === 'PENDING').length);
-        } catch {
-          setPendingSchemaCount(0);
-        }
-      } else {
-        setPendingSchemaCount(0);
-      }
-    };
-    fetchPendingSchemaRequests();
-    if (datasetId && user?.role?.toUpperCase() === 'ADMIN') {
-      const timer = setInterval(fetchPendingSchemaRequests, 15000);
-      return () => clearInterval(timer);
-    }
-  }, [datasetId, user]);
-
-  const handleGenerateConsensus = async () => {
-    if (!datasetId) return;
-    try {
-      setIsGenerating(true);
-      const result = await consensusAPI.generate(datasetId);
-      showToast({
-        title: 'Consensus generated!',
-        description: `${result.reviewsCreated} row${result.reviewsCreated !== 1 ? 's' : ''} compared. Opening review…`,
-        type: 'success',
-      });
-      router.push(`/dataset/${datasetId}/consensus`);
-    } catch (err: any) {
-      showToast({
-        title: 'Consensus generation failed',
-        description: err?.response?.data?.message || err?.message || 'Failed to generate consensus',
-        type: 'error',
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const handleMarkAsRead = async (id: string) => {
     try {
@@ -190,7 +138,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'bg-white border-r border-gray-200/80 flex flex-col h-screen transition-all duration-300 shadow-sm flex-shrink-0',
+        'bg-white/90 backdrop-blur-md border-r border-gray-200/70 flex flex-col h-screen transition-all duration-300 shadow-sm flex-shrink-0',
         effectiveCollapsed ? 'w-20' : 'w-72',
         className,
       )}
@@ -345,27 +293,6 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                     <span>Field Configuration</span>
                   </button>
 
-                  {/* Schema Requests */}
-                  <button
-                    onClick={() => router.push(`/dataset/${datasetId}?tab=schema-requests`)}
-                    className={cn(
-                      'w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
-                      pathname === `/dataset/${datasetId}` && pathname.includes('tab=schema-requests')
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                    )}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <FileText className="h-3.5 w-3.5 text-gray-400" />
-                      <span>Schema Requests</span>
-                    </div>
-                    {pendingSchemaCount > 0 && (
-                      <span className="bg-red-500 text-white font-semibold rounded-full px-1.5 py-0.5 text-[10px] min-w-[18px] text-center">
-                        {pendingSchemaCount}
-                      </span>
-                    )}
-                  </button>
-
                   {/* Settings */}
                   <button
                     onClick={() => router.push(`/dataset/${datasetId}?tab=settings`)}
@@ -379,20 +306,6 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                     <Settings className="h-3.5 w-3.5 text-gray-400" />
                     <span>Settings</span>
                   </button>
-
-                  {/* Generate Consensus - always visible for admin */}
-                  <Link
-                    href={`/dataset/${datasetId}/generate-consensus`}
-                    className={cn(
-                      'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
-                      pathname === `/dataset/${datasetId}/generate-consensus`
-                        ? 'bg-blue-50 text-blue-700 font-semibold'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                    )}
-                  >
-                    <Settings className="h-3.5 w-3.5 text-gray-400" />
-                    <span>Generate Consensus</span>
-                  </Link>
 
                   {/* Review Consensus - always visible for admin */}
                   <Link
@@ -554,7 +467,20 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
       </nav>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-gray-100">
+      <div className="p-4 border-t border-gray-100 space-y-2">
+        {mounted && (
+          <Button
+            variant="ghost"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className={cn(
+              'w-full justify-start text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors rounded-xl h-11 px-4',
+              effectiveCollapsed && 'justify-center px-2',
+            )}
+          >
+            {theme === 'dark' ? <Sun className="h-5 w-5 mr-3 flex-shrink-0" /> : <Moon className="h-5 w-5 mr-3 flex-shrink-0" />}
+            {!effectiveCollapsed && <span className="font-semibold text-sm">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+          </Button>
+        )}
         <Button
           onClick={logout}
           variant="ghost"

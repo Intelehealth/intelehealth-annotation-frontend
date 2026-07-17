@@ -8,28 +8,22 @@ import {
   Edit3,
   GripVertical,
   Eye,
-  Volume2,
-  Video,
   ArrowLeft,
 } from 'lucide-react';
 import { ImageThumbnails } from './image-thumbnails';
+import { AudioPreview, VideoPreview } from './media-preview';
 import { cn } from '@/lib/utils';
 import { AnnotationField } from '@/lib/api/csv-imports';
 import { DragDropHelper } from '@/lib/drag-drop-helper';
 
-interface ImageOverlay {
+interface ImageOverlayState {
   isOpen: boolean;
   imageUrl: string;
   imageUrls: string[];
   currentIndex: number;
 }
 
-interface AudioOverlay {
-  isOpen: boolean;
-  audioUrl: string;
-}
-
-interface VideoOverlay {
+interface VideoOverlayState {
   isOpen: boolean;
   videoUrl: string;
 }
@@ -37,14 +31,13 @@ interface VideoOverlay {
 interface MetadataDisplayProps {
   metadata: Record<string, any>;
   orderedMetadataFields: AnnotationField[];
-  linkedFieldNames?: Set<string>; // csvColumnNames of data fields linked to annotation panel
   draggedField: string | null;
   editingField: string | null;
   expandedTextFields: Set<string>;
-  imageOverlay: ImageOverlay;
-  audioOverlay: AudioOverlay;
-  videoOverlay: VideoOverlay;
+  imageOverlay: ImageOverlayState;
+  videoOverlay: VideoOverlayState;
   datasetName?: string;
+  isAdmin: boolean;
   onMetadataChange: (metadata: Record<string, any>) => void;
   onDragStart: (e: React.DragEvent, fieldName: string) => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -55,7 +48,6 @@ interface MetadataDisplayProps {
   onCancelEdit: () => void;
   onToggleTextExpansion: (fieldName: string) => void;
   onOpenImageOverlay: (imageUrls: string[], startIndex?: number) => void;
-  onOpenAudioOverlay: (audioUrls: string[], startIndex?: number) => void;
   onOpenVideoOverlay: (videoUrls: string[], startIndex?: number) => void;
   onNavigateBack: () => void;
   onPanelDragOver?: (e: React.DragEvent) => void;
@@ -95,14 +87,13 @@ const formatTextContent = (content: any, fieldName: string): string => {
 export function MetadataDisplay({
   metadata,
   orderedMetadataFields,
-  linkedFieldNames,
   draggedField,
   editingField,
   expandedTextFields,
   imageOverlay,
-  audioOverlay,
   videoOverlay,
   datasetName,
+  isAdmin,
   onMetadataChange,
   onDragStart,
   onDragOver,
@@ -113,7 +104,6 @@ export function MetadataDisplay({
   onCancelEdit,
   onToggleTextExpansion,
   onOpenImageOverlay,
-  onOpenAudioOverlay,
   onOpenVideoOverlay,
   onNavigateBack,
   onPanelDragOver,
@@ -150,7 +140,7 @@ export function MetadataDisplay({
           Data Fields
         </h2>
         <p className="text-sm text-gray-500 mt-1">
-          Drag fields to reorder • View metadata
+          {isAdmin ? 'Drag fields to reorder • Drop to annotation panel' : 'View metadata (admin can configure layout)'}
         </p>
       </div>
 
@@ -158,7 +148,7 @@ export function MetadataDisplay({
         {orderedMetadataFields.map((field, idx) => {
           // Use DragDropHelper to determine if field can be dragged
           const dragValidation = DragDropHelper.canDragField(field, 'metadata');
-          const isDraggable = dragValidation.canDrag;
+          const isDraggable = isAdmin && dragValidation.canDrag;
           const restrictionMessage = DragDropHelper.getDragRestrictionMessage(field, 'metadata');
           
           return (
@@ -191,14 +181,6 @@ export function MetadataDisplay({
               {field.isPrimaryKey && (
                 <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                   Primary Key
-                </div>
-              )}
-              {linkedFieldNames?.has(field.csvColumnName) && (
-                <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded flex items-center gap-1">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                  Linked
                 </div>
               )}
             </div>
@@ -253,31 +235,17 @@ export function MetadataDisplay({
                           ? String(raw).split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean)
                           : [];
                         return urls.length > 0 ? (
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             <Label className="text-sm font-medium">
                               {field.fieldName} Audio ({urls.length})
                             </Label>
-                            <div className="grid grid-cols-2 gap-2">
-                              {urls.slice(0, 4).map((url: string, idx: number) => (
-                                <div
-                                  key={idx}
-                                  className="relative group cursor-pointer rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all bg-gray-50"
-                                  onClick={() => onOpenAudioOverlay(urls, idx)}
-                                >
-                                  <div className="flex items-center justify-center h-20 bg-gradient-to-br from-blue-50 to-blue-100">
-                                    <Volume2 className="h-8 w-8 text-blue-500" />
-                                  </div>
-                                  <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-                                    {idx + 1}
-                                  </div>
-                                </div>
-                              ))}
-                              {urls.length > 4 && (
-                                <div className="flex items-center justify-center h-20 bg-gray-100 rounded border border-gray-200 text-xs text-gray-500">
-                                  +{urls.length - 4} more
-                                </div>
-                              )}
-                            </div>
+                            {urls.map((url: string, idx: number) => (
+                              <AudioPreview
+                                key={url + idx}
+                                url={url}
+                                index={urls.length > 1 ? idx : undefined}
+                              />
+                            ))}
                           </div>
                         ) : (
                           <div className="text-sm text-gray-500 text-center">No audio found</div>
@@ -295,31 +263,18 @@ export function MetadataDisplay({
                           ? String(raw).split(/[,\n;]/).map((s: string) => s.trim()).filter(Boolean)
                           : [];
                         return urls.length > 0 ? (
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             <Label className="text-sm font-medium">
                               {field.fieldName} Video ({urls.length})
                             </Label>
-                            <div className="grid grid-cols-2 gap-2">
-                              {urls.slice(0, 4).map((url: string, idx: number) => (
-                                <div
-                                  key={idx}
-                                  className="relative group cursor-pointer rounded-lg overflow-hidden border-2 border-gray-200 hover:border-green-400 transition-all bg-gray-50"
-                                  onClick={() => onOpenVideoOverlay(urls, idx)}
-                                >
-                                  <div className="flex items-center justify-center h-20 bg-gradient-to-br from-green-50 to-green-100">
-                                    <Video className="h-8 w-8 text-green-500" />
-                                  </div>
-                                  <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-                                    {idx + 1}
-                                  </div>
-                                </div>
-                              ))}
-                              {urls.length > 4 && (
-                                <div className="flex items-center justify-center h-20 bg-gray-100 rounded border border-gray-200 text-xs text-gray-500">
-                                  +{urls.length - 4} more
-                                </div>
-                              )}
-                            </div>
+                            {urls.map((url: string, idx: number) => (
+                              <VideoPreview
+                                key={url + idx}
+                                url={url}
+                                index={urls.length > 1 ? idx : undefined}
+                                onExpand={() => onOpenVideoOverlay(urls, idx)}
+                              />
+                            ))}
                           </div>
                         ) : (
                           <div className="text-sm text-gray-500 text-center">No video found</div>

@@ -32,7 +32,6 @@ import {
   Users,
   CheckCircle,
   AlertCircle,
-  AlertTriangle,
   Shield,
   ArrowRight,
   ArrowLeft,
@@ -45,7 +44,8 @@ import { useToast } from '@/components/ui/toast';
 import {
   CLONE_MIN_ANNOTATORS,
   CLONE_MAX_ANNOTATORS,
-  isOddCount,
+  RECOMMENDED_ANNOTATOR_COUNT,
+  isValidReviewerCount,
 } from '@/types/feature1';
 
 interface CloneAssignModalProps {
@@ -143,14 +143,6 @@ export function CloneAssignModal({
 
   const handleConfirm = async () => {
     if (selected.length < CLONE_MIN_ANNOTATORS) return;
-    if (!isOddCount(selected.length)) {
-      showToast({
-        title: 'Invalid annotator count',
-        description: 'Consensus and future LLM Evaluation require an odd number of annotators.',
-        type: 'error',
-      });
-      return;
-    }
 
     try {
       setIsSubmitting(true);
@@ -193,8 +185,7 @@ export function CloneAssignModal({
 
   const count = selected.length;
   const canAdd = count < CLONE_MAX_ANNOTATORS;
-  const canGoToStep2 = count >= CLONE_MIN_ANNOTATORS && isOddCount(count);
-  const showEvenWarning = count > 0 && !isOddCount(count);
+  const canGoToStep2 = count >= CLONE_MIN_ANNOTATORS && isValidReviewerCount(count);
 
   const getWorkloadBadgeClass = (userId: string) => {
     const tasks = workloads[userId] || 0;
@@ -285,11 +276,24 @@ export function CloneAssignModal({
           <div className="space-y-4 my-2">
             <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
               <p className="text-xs text-blue-700 leading-relaxed">
-                Select an <strong>odd number of annotators</strong> — <strong>1, 3, 5, 7, or 9</strong>. Each annotator works in their own isolated clone. Odd counts are required for consensus voting and future LLM Evaluation.
+                Select <strong>1–9 reviewers</strong>. Each reviewer works in their own isolated
+                clone. <strong>Recommended: {RECOMMENDED_ANNOTATOR_COUNT} reviewers.</strong>{' '}
+                Even reviewer counts are fully supported — any ties will be resolved during
+                Consensus Review.
               </p>
               <div className="flex items-center gap-1.5 mt-2">
-                {[1,3,5,7,9].map(n => (
-                  <span key={n} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">{n}</span>
+                {Array.from({ length: CLONE_MAX_ANNOTATORS }, (_, i) => i + 1).map(n => (
+                  <span
+                    key={n}
+                    className={cn(
+                      'text-[10px] font-bold px-2 py-0.5 rounded-full border',
+                      n === RECOMMENDED_ANNOTATOR_COUNT
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-blue-100 text-blue-700 border-blue-200'
+                    )}
+                  >
+                    {n}
+                  </span>
                 ))}
                 <span className="text-[10px] text-blue-500 ml-1">allowed</span>
               </div>
@@ -300,25 +304,14 @@ export function CloneAssignModal({
               <span
                 className={cn(
                   'text-xs font-medium px-2.5 py-1 rounded-full',
-                  isOddCount(count)
+                  count > 0
                     ? 'bg-green-100 text-green-700'
-                    : count > 0
-                    ? 'bg-red-100 text-red-700'
                     : 'bg-gray-100 text-gray-600'
                 )}
               >
-                {count} / {CLONE_MAX_ANNOTATORS} selected {count > 0 && !isOddCount(count) ? '— even not allowed' : ''}
+                {count} / {CLONE_MAX_ANNOTATORS} selected
               </span>
             </div>
-
-            {showEvenWarning && (
-              <div className="flex items-start gap-2 p-2.5 bg-red-50 border border-red-100 rounded-lg">
-                <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-red-700 font-medium">
-                  Consensus and future LLM Evaluation require an odd number of annotators.
-                </p>
-              </div>
-            )}
 
             {/* ComboBox Picker */}
             <Popover open={comboOpen} onOpenChange={setComboOpen}>

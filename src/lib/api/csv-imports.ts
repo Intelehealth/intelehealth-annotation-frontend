@@ -64,6 +64,8 @@ export interface AnnotationField {
 
   // NEW Metadata properties
   id?: string;
+  /** Stable identifier linking to the original CSV column. Never changes. */
+  csvColumnId?: string;
   questionTitle?: string;
   questionDescription?: string;
   helpText?: string;
@@ -74,9 +76,9 @@ export interface AnnotationField {
     options: BranchOption[];
   };
 
-  // Data field link — when true, this field is a read-only reference to a source data field
+  /** @deprecated No longer used. CSV fields are now moved (not linked). */
   isDataFieldLink?: boolean;
-  // The csvColumnName of the source data field this link refers to
+  /** @deprecated No longer used alongside isDataFieldLink. */
   sourceCsvColumnName?: string;
 }
 

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { datasetsAPI } from '@/lib/api/datasets';
 import { Sidebar } from '@/components/sidebar';
+import { TopNav } from '@/components/top-nav';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -341,31 +343,14 @@ export default function MyTasksPage() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-
       <main className="flex-1 overflow-auto">
-        <div className="p-6 max-w-5xl mx-auto">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1">
-                <ClipboardList className="h-6 w-6 text-blue-600" />
-                <h1 className="text-2xl font-semibold text-gray-900">My Tasks</h1>
-              </div>
-              <p className="text-gray-500 text-sm">
-                Datasets assigned to you for annotation
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadTasks}
-              disabled={loading}
-              className="text-gray-500"
-            >
-              <RefreshCw className={cn('h-4 w-4 mr-1.5', loading && 'animate-spin')} />
-              Refresh
-            </Button>
-          </div>
+        <TopNav />
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="p-4 md:p-6 max-w-5xl mx-auto"
+        >
 
           {/* Stats row — computed from real progress */}
           {!loading && !error && tasks.length > 0 && (
@@ -427,7 +412,7 @@ export default function MyTasksPage() {
               ))}
             </div>
           )}
-        </div>
+        </motion.div>
       </main>
     </div>
   );

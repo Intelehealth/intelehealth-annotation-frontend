@@ -31,10 +31,11 @@ import { fieldSelectionAPI } from '@/lib/api/field-config';
 import { csvProcessingAPI } from '@/lib/api/csv-processing';
 import { RowFooter, NewColumnDataPanel } from '@/components/new-column-components';
 import { MetadataDisplay } from './metadata-display';
-import { ImageOverlay, AudioOverlay, VideoOverlay } from './media-overlays';
+import { ImageOverlay, VideoOverlay } from './media-overlays';
 import { useToast } from '@/components/ui/toast';
 import { exportToCsv, ExportData } from '@/lib/csv-export-helper';
 import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
+import { logger } from '@/lib/logger';
 
 interface Task {
   id: string;
@@ -54,21 +55,14 @@ interface NewColumnData {
   [fieldName: string]: string;
 }
 
-interface ImageOverlay {
+interface ImageOverlayState {
   isOpen: boolean;
   imageUrl: string;
   imageUrls: string[];
   currentIndex: number;
 }
 
-interface AudioOverlay {
-  isOpen: boolean;
-  audioUrl: string;
-  audioUrls: string[];
-  currentIndex: number;
-}
-
-interface VideoOverlay {
+interface VideoOverlayState {
   isOpen: boolean;
   videoUrl: string;
   videoUrls: string[];
@@ -105,19 +99,13 @@ export function AnnotationWorkbench({
   const [orderedMetadataFields, setOrderedMetadataFields] = useState<AnnotationField[]>([]);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [expandedTextFields, setExpandedTextFields] = useState<Set<string>>(new Set());
-  const [imageOverlay, setImageOverlay] = useState<ImageOverlay>({
+  const [imageOverlay, setImageOverlay] = useState<ImageOverlayState>({
     isOpen: false,
     imageUrl: '',
     imageUrls: [],
     currentIndex: 0,
   });
-  const [audioOverlay, setAudioOverlay] = useState<AudioOverlay>({
-    isOpen: false,
-    audioUrl: '',
-    audioUrls: [],
-    currentIndex: 0,
-  });
-  const [videoOverlay, setVideoOverlay] = useState<VideoOverlay>({
+  const [videoOverlay, setVideoOverlay] = useState<VideoOverlayState>({
     isOpen: false,
     videoUrl: '',
     videoUrls: [],
@@ -141,35 +129,35 @@ export function AnnotationWorkbench({
 
   // Load CSV import data and annotation config
   useEffect(() => {
-    console.log('AnnotationWorkbench useEffect triggered');
-    console.log('csvImportId:', csvImportId);
-    console.log('datasetId:', datasetId);
+    logger.log('AnnotationWorkbench useEffect triggered');
+    logger.log('csvImportId:', csvImportId);
+    logger.log('datasetId:', datasetId);
     const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        console.log('Loading data for csvImportId:', csvImportId);
+        logger.log('Loading data for csvImportId:', csvImportId);
 
         // Load CSV import data using csv-processing API
-        console.log('Loading CSV import data...');
+        logger.log('Loading CSV import data...');
         const csvData = await csvProcessingAPI.getCSVData(csvImportId);
-        console.log('CSV import data loaded:', csvData);
+        logger.log('CSV import data loaded:', csvData);
         setCsvImport(csvData);
 
         // Load annotation config using datasetId
-        console.log('Loading annotation config for dataset:', datasetId);
+        logger.log('Loading annotation config for dataset:', datasetId);
         try {
-          console.log(
+          logger.log(
             'Making API call to fieldSelectionAPI.getDatasetFieldConfig...',
           );
           const config = await fieldSelectionAPI.getDatasetFieldConfig(
             datasetId,
           );
-          console.log('API call completed successfully');
-          console.log('Dataset field config loaded:', config);
-          console.log('Config annotationFields:', config?.annotationFields);
-          console.log('Config annotationLabels:', config?.annotationLabels);
+          logger.log('API call completed successfully');
+          logger.log('Dataset field config loaded:', config);
+          logger.log('Config annotationFields:', config?.annotationFields);
+          logger.log('Config annotationLabels:', config?.annotationLabels);
           if (config) {
             // Use fields directly from backend
             const normalizedFields = (config.annotationFields || []).map((f: any) => ({
@@ -180,13 +168,6 @@ export function AnnotationWorkbench({
               isRequired: Boolean(f.isRequired),
             }));
 
-            // Migrate existing duplicated data fields to linked references
-            const migration = DragDropHelper.migrateExistingDataFields(normalizedFields);
-            if (migration.migrated) {
-              console.log('Migrated existing data fields to linked references:', migration.migrationLog);
-              normalizedFields.length = 0;
-              normalizedFields.push(...migration.migratedFields);
-            }
 
             // Transform the dataset config to match the expected AnnotationConfig format
             const annotationConfig: AnnotationConfig = {
@@ -203,16 +184,16 @@ export function AnnotationWorkbench({
               createdAt: config.createdAt || new Date().toISOString(),
               updatedAt: config.updatedAt || new Date().toISOString(),
             };
-            console.log('Transformed annotation config:', annotationConfig);
-            console.log(
+            logger.log('Transformed annotation config:', annotationConfig);
+            logger.log(
               'Annotation fields count:',
               annotationConfig.annotationFields.length,
             );
-            console.log(
+            logger.log(
               'Annotation labels count:',
               annotationConfig.annotationLabels?.length || 0,
             );
-            console.log('All fields:', annotationConfig.annotationFields.map((f) => ({
+            logger.log('All fields:', annotationConfig.annotationFields.map((f) => ({
               csvColumnName: f.csvColumnName,
               fieldName: f.fieldName,
               isAnnotationField: f.isAnnotationField,
@@ -224,14 +205,14 @@ export function AnnotationWorkbench({
             throw new Error('No field configuration found');
           }
         } catch (configError) {
-          console.log('Error loading annotation config:', configError);
-          console.log(
+          logger.log('Error loading annotation config:', configError);
+          logger.log(
             'Config error details:',
             configError instanceof Error
               ? configError.message
               : String(configError),
           );
-          console.log('No annotation config found, creating default config...');
+          logger.log('No annotation config found, creating default config...');
           // If no annotation config exists, create a default one
           const defaultConfig: AnnotationConfig = {
             _id: '',
@@ -250,7 +231,7 @@ export function AnnotationWorkbench({
         }
 
         // Convert CSV rows to tasks
-        console.log('CSV data structure:', {
+        logger.log('CSV data structure:', {
           hasRowData: !!csvData.rowData,
           rowDataLength: csvData.rowData?.length,
           totalRows: csvData.totalRows,
@@ -273,7 +254,7 @@ export function AnnotationWorkbench({
           }));
         } else {
           // If no rowData, create tasks based on totalRows
-          console.log(
+          logger.log(
             'No rowData found, creating tasks based on totalRows:',
             csvData.totalRows,
           );
@@ -298,18 +279,18 @@ export function AnnotationWorkbench({
           csvData.rowData.length > 0
         ) {
           const firstRowData = csvData.rowData[0].data;
-          console.log('Initializing metadata with CSV data:', firstRowData);
+          logger.log('Initializing metadata with CSV data:', firstRowData);
           setMetadata(firstRowData);
         }
 
-        console.log('Tasks created:', taskData.length, 'tasks');
+        logger.log('Tasks created:', taskData.length, 'tasks');
         setTasks(taskData);
 
         // Load progress and apply completion status
         try {
-          console.log('Loading annotation progress...');
+          logger.log('Loading annotation progress...');
           const progress = await CSVImportsAPI.getDetailedProgress(csvImportId);
-          console.log('Progress loaded:', progress);
+          logger.log('Progress loaded:', progress);
 
           // Apply completion status to tasks
           const updatedTasks = taskData.map(task => {
@@ -324,13 +305,13 @@ export function AnnotationWorkbench({
           // Set current task index to resume position
           if (progress.lastViewedRow > 0 && progress.lastViewedRow < taskData.length) {
             setCurrentTaskIndex(progress.lastViewedRow);
-            console.log(`Resuming from row ${progress.lastViewedRow + 1}`);
+            logger.log(`Resuming from row ${progress.lastViewedRow + 1}`);
           } else {
             // Find first incomplete row
             const firstIncompleteIndex = updatedTasks.findIndex(task => task.status !== 'completed');
             if (firstIncompleteIndex >= 0) {
               setCurrentTaskIndex(firstIncompleteIndex);
-              console.log(`Starting from first incomplete row ${firstIncompleteIndex + 1}`);
+              logger.log(`Starting from first incomplete row ${firstIncompleteIndex + 1}`);
             }
           }
         } catch (progressError) {
@@ -343,7 +324,7 @@ export function AnnotationWorkbench({
           const annotationFields = annotationConfig.annotationFields.filter(
             (field) => field.isNewColumn || field.isAnnotationField
           );
-          console.log('Annotation fields (new columns):', annotationFields.map(f => ({
+          logger.log('Annotation fields (new columns):', annotationFields.map(f => ({
             csvColumnName: f.csvColumnName,
             fieldName: f.fieldName,
             isAnnotationField: f.isAnnotationField,
@@ -378,10 +359,55 @@ export function AnnotationWorkbench({
 
   const currentTask = tasks[currentTaskIndex];
 
+  // Silently persist any unsaved right-panel field values (including newly
+  // duplicated fields) for the CURRENT row — no toasts, no "mark completed"
+  // side effects. Used before row navigation and before CSV export so data
+  // entered/duplicated but not yet explicitly "Saved" isn't lost or missing
+  // from the exported file.
+  const flushPendingRowData = useCallback(async () => {
+    if (!csvImportId || !currentTask) return;
+
+    const annotationFields = annotationConfig?.annotationFields.filter(
+      (field) => field.isNewColumn || field.isAnnotationField
+    ) || [];
+
+    const dataToSave: Record<string, any> = {};
+    for (const field of annotationFields) {
+      const fieldValue = newColumnData[field.fieldName];
+      if (fieldValue !== undefined && fieldValue !== null && String(fieldValue).trim() !== '') {
+        dataToSave[field.fieldName] = fieldValue;
+      }
+    }
+
+    if (Object.keys(dataToSave).length === 0) return;
+
+    try {
+      const response = await CSVImportsAPI.patchCSVRowData(
+        csvImportId,
+        currentTask.rowIndex,
+        dataToSave
+      );
+
+      if (response.success && response.data && csvImport && csvImport.rowData) {
+        const updatedRow = csvImport.rowData.find(row => row.rowIndex === currentTask.rowIndex);
+        if (updatedRow) {
+          Object.entries(dataToSave).forEach(([fieldName, value]) => {
+            updatedRow.data[fieldName] = value;
+          });
+          updatedRow.processed = true;
+          setCsvImport({ ...csvImport });
+        }
+      }
+      setPendingChanges({});
+    } catch (error) {
+      console.error('Failed to auto-flush pending row data:', error);
+    }
+  }, [csvImportId, currentTask, annotationConfig, newColumnData, csvImport]);
+
   // Update metadata when current task changes
   useEffect(() => {
     if (currentTask && currentTask.metadata) {
-      console.log('Updating metadata for task:', currentTask.rowIndex, currentTask.metadata);
+      logger.log('Updating metadata for task:', currentTask.rowIndex, currentTask.metadata);
       setMetadata(currentTask.metadata);
     }
   }, [currentTask]);
@@ -446,12 +472,17 @@ export function AnnotationWorkbench({
   // Export annotations to CSV - Selected Columns Only
   const exportSelectedColumnsToCSV = useCallback(async () => {
     if (!csvImport) {
-      console.log('Cannot export: missing CSV data');
+      logger.log('Cannot export: missing CSV data');
       return;
     }
 
+    // Persist any unsaved right-panel data on the current row (e.g. a
+    // duplicated field that hasn't been explicitly "Saved" yet) BEFORE
+    // reading csvImport data, so the export doesn't miss it.
+    await flushPendingRowData();
+
     try {
-      console.log('Exporting selected columns to CSV...');
+      logger.log('Exporting selected columns to CSV...');
 
       // Get all rows with their annotations
       const allRows = csvImport.rowData || [];
@@ -461,7 +492,7 @@ export function AnnotationWorkbench({
         (field) => !field.isAnnotationField || field.isAnnotationField || field.isNewColumn
       ) || [];
 
-      console.log('Selected fields for export:', selectedFields.map(f => ({
+      logger.log('Selected fields for export:', selectedFields.map(f => ({
         csvColumnName: f.csvColumnName,
         fieldName: f.fieldName,
         isAnnotationField: f.isAnnotationField,
@@ -547,7 +578,7 @@ export function AnnotationWorkbench({
           cleanHtml: true,
           showSuccess: true,
           onSuccess: (message) => {
-            console.log('Selected columns CSV exported successfully');
+            logger.log('Selected columns CSV exported successfully');
             showToast({
               type: 'success',
               title: 'Export Complete',
@@ -564,17 +595,22 @@ export function AnnotationWorkbench({
       console.error('Error exporting selected columns CSV:', error);
       setError('Failed to export selected columns CSV');
     }
-  }, [csvImport, annotations, annotationConfig, showToast]);
+  }, [csvImport, annotations, annotationConfig, showToast, flushPendingRowData]);
 
   // Export annotations to CSV - All Columns (Fixed to include ALL original columns)
   const exportAllColumnsToCSV = useCallback(async () => {
     if (!csvImport) {
-      console.log('Cannot export: missing CSV data');
+      logger.log('Cannot export: missing CSV data');
       return;
     }
 
+    // Persist any unsaved right-panel data on the current row (e.g. a
+    // duplicated field that hasn't been explicitly "Saved" yet) BEFORE
+    // reading csvImport data, so the export doesn't miss it.
+    await flushPendingRowData();
+
     try {
-      console.log('Exporting all columns to CSV...');
+      logger.log('Exporting all columns to CSV...');
 
       // Get all rows with their annotations
       const allRows = csvImport.rowData || [];
@@ -587,8 +623,8 @@ export function AnnotationWorkbench({
         (field) => field.isAnnotationField || field.isNewColumn
       ) || [];
 
-      console.log('Original CSV columns:', originalColumns);
-      console.log('Annotation fields (new columns):', annotationFields.map(f => f.fieldName));
+      logger.log('Original CSV columns:', originalColumns);
+      logger.log('Annotation fields (new columns):', annotationFields.map(f => f.fieldName));
 
       // Prepare export data
       const exportRows: Record<string, any>[] = [];
@@ -661,7 +697,7 @@ export function AnnotationWorkbench({
           cleanHtml: true,
           showSuccess: true,
           onSuccess: (message) => {
-            console.log('All columns CSV exported successfully');
+            logger.log('All columns CSV exported successfully');
             showToast({
               type: 'success',
               title: 'Export Complete',
@@ -678,7 +714,7 @@ export function AnnotationWorkbench({
       console.error('Error exporting all columns CSV:', error);
       setError('Failed to export all columns CSV');
     }
-  }, [csvImport, annotations, annotationConfig, showToast]);
+  }, [csvImport, annotations, annotationConfig, showToast, flushPendingRowData]);
 
   // Individual field save only - bulk save removed
 
@@ -726,7 +762,7 @@ export function AnnotationWorkbench({
     }
   }, [history, historyIndex]);
 
-  const navigateTask = (direction: 'prev' | 'next') => {
+  const navigateTask = async (direction: 'prev' | 'next') => {
     let newIndex = currentTaskIndex;
     
     if (direction === 'prev' && currentTaskIndex > 0) {
@@ -736,6 +772,10 @@ export function AnnotationWorkbench({
     }
     
     if (newIndex !== currentTaskIndex) {
+      // Persist any unsaved right-panel data (including newly duplicated
+      // fields) on the row we're leaving, so it isn't silently lost.
+      await flushPendingRowData();
+
       setCurrentTaskIndex(newIndex);
       
       // Update last viewed row in backend
@@ -808,7 +848,7 @@ export function AnnotationWorkbench({
     
     if (!draggedField || !annotationConfig) return;
 
-    console.log('handleUnifiedDrop called with:', { draggedField, targetFieldName, targetPanel });
+    logger.log('handleUnifiedDrop called with:', { draggedField, targetFieldName, targetPanel });
 
     // Use the DragDropHelper to handle the operation
     const params: DragDropParams = {
@@ -1061,39 +1101,6 @@ export function AnnotationWorkbench({
   };
 
   // Audio overlay handlers
-  const openAudioOverlay = (audioUrls: string[], startIndex: number = 0) => {
-    setAudioOverlay({
-      isOpen: true,
-      audioUrl: audioUrls[startIndex] || '',
-      audioUrls,
-      currentIndex: startIndex,
-    });
-  };
-
-  const closeAudioOverlay = () => {
-    setAudioOverlay({
-      isOpen: false,
-      audioUrl: '',
-      audioUrls: [],
-      currentIndex: 0,
-    });
-  };
-
-  const navigateAudio = (direction: 'prev' | 'next') => {
-    const { audioUrls, currentIndex } = audioOverlay;
-    let newIndex = currentIndex;
-    if (direction === 'prev' && currentIndex > 0) {
-      newIndex = currentIndex - 1;
-    } else if (direction === 'next' && currentIndex < audioUrls.length - 1) {
-      newIndex = currentIndex + 1;
-    }
-    setAudioOverlay(prev => ({
-      ...prev,
-      currentIndex: newIndex,
-      audioUrl: audioUrls[newIndex] || '',
-    }));
-  };
-
   // Video overlay handlers
   const openVideoOverlay = (videoUrls: string[], startIndex: number = 0) => {
     setVideoOverlay({
@@ -1199,7 +1206,7 @@ export function AnnotationWorkbench({
         const completedCount = tasks.filter(t => t.status === 'completed' || t.rowIndex === currentTask.rowIndex).length;
         await CSVImportsAPI.updateAnnotationProgress(csvImportId, currentTask.rowIndex, completedCount);
         
-        console.log(`Row ${currentTask.rowIndex} marked as completed and saved to backend`);
+        logger.log(`Row ${currentTask.rowIndex} marked as completed and saved to backend`);
       } catch (completionError) {
         console.error('Error marking row as completed in backend:', completionError);
         // Don't show error toast for completion failure, as the main action (save data) succeeded
@@ -1301,10 +1308,10 @@ export function AnnotationWorkbench({
         patchData
       );
 
-      console.log('Field configuration updated:', response);
+      logger.log('Field configuration updated:', response);
 
       if (response.success) {
-        console.log(`Updated ${response.updatedFields} field properties:`, response.changedFields);
+        logger.log(`Updated ${response.updatedFields} field properties:`, response.changedFields);
       }
 
     } catch (error) {
@@ -1336,12 +1343,12 @@ export function AnnotationWorkbench({
       // Send PATCH request
       const response = await CSVImportsAPI.patchAnnotationConfig(csvImportId, updates);
 
-      console.log('Annotation configuration updated:', response);
+      logger.log('Annotation configuration updated:', response);
 
       if (response.success && response.data) {
         // Update with server response
         setAnnotationConfig(response.data);
-        console.log(`Updated ${response.updatedFields} configuration fields:`, response.changedFields);
+        logger.log(`Updated ${response.updatedFields} configuration fields:`, response.changedFields);
       }
 
     } catch (error) {
@@ -1382,7 +1389,7 @@ export function AnnotationWorkbench({
       const completedCount = tasks.filter(t => t.status === 'completed' || t.rowIndex === rowIndex).length;
       await CSVImportsAPI.updateAnnotationProgress(csvImportId, rowIndex, completedCount);
       
-      console.log(`Marked row ${rowIndex} as completed and saved to backend`);
+      logger.log(`Marked row ${rowIndex} as completed and saved to backend`);
       
     } catch (error) {
       console.error('Error marking row as completed:', error);
@@ -1436,10 +1443,14 @@ export function AnnotationWorkbench({
 
 
   // Load new column data when task changes
+  const lastLoadedRowKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!currentTask || !annotationConfig) return;
 
     const annotationFields = annotationConfig.annotationFields;
+    const rowKey = `${csvImportId}:${currentTask.rowIndex}`;
+    const isRowChange = lastLoadedRowKeyRef.current !== rowKey;
+    lastLoadedRowKeyRef.current = rowKey;
 
     // Load existing data for this row from CSV row data
     const loadRowData = async () => {
@@ -1451,16 +1462,49 @@ export function AnnotationWorkbench({
         );
         setAnnotations(rowAnnotations);
 
-        // Load new column data from CSV row data (where we actually save it)
-        const newColumnData: NewColumnData = {};
-        annotationFields.forEach((field) => {
-          // Check if the field data exists in the current task's metadata (CSV row data)
-          const fieldValue = currentTask.metadata?.[field.fieldName];
-          newColumnData[field.fieldName] = fieldValue || '';
-        });
+        const metadataKeys = currentTask.metadata ? Object.keys(currentTask.metadata) : [];
 
-        setNewColumnData(newColumnData);
-        console.log('Loaded new column data from CSV row:', newColumnData);
+        if (isRowChange) {
+          // Actual row navigation — full reset from CSV row data is correct here.
+          const newColumnData: NewColumnData = {};
+          annotationFields.forEach((field) => {
+            let fieldValue = currentTask.metadata?.[field.fieldName];
+            if (!fieldValue && field.csvColumnName && currentTask.metadata) {
+              fieldValue = currentTask.metadata[field.csvColumnName];
+            }
+            newColumnData[field.fieldName] = fieldValue || '';
+          });
+          metadataKeys.forEach((key) => {
+            if (!newColumnData.hasOwnProperty(key)) {
+              newColumnData[key] = currentTask.metadata?.[key] || '';
+            }
+          });
+          setNewColumnData(newColumnData);
+          logger.log('Loaded new column data from CSV row:', newColumnData);
+        } else {
+          // Same row — only the field configuration changed (add/duplicate/delete
+          // question, edit type, etc). Merge in defaults for any NEW field keys
+          // without overwriting values already held in memory (e.g. a value just
+          // copied into a duplicated field via onNewColumnChange, or unsaved edits).
+          setNewColumnData((prev) => {
+            const merged: NewColumnData = { ...prev };
+            annotationFields.forEach((field) => {
+              if (merged[field.fieldName] !== undefined && merged[field.fieldName] !== '') return;
+              let fieldValue = currentTask.metadata?.[field.fieldName];
+              if (!fieldValue && field.csvColumnName && currentTask.metadata) {
+                fieldValue = currentTask.metadata[field.csvColumnName];
+              }
+              if (fieldValue) merged[field.fieldName] = fieldValue;
+              else if (merged[field.fieldName] === undefined) merged[field.fieldName] = '';
+            });
+            metadataKeys.forEach((key) => {
+              if (!merged.hasOwnProperty(key)) {
+                merged[key] = currentTask.metadata?.[key] || '';
+              }
+            });
+            return merged;
+          });
+        }
       } catch (err) {
         console.error('Error loading row data:', err);
       }
@@ -1499,13 +1543,12 @@ export function AnnotationWorkbench({
         <MetadataDisplay
           metadata={{ ...metadata, rowIndex: currentTask?.rowIndex }}
           orderedMetadataFields={orderedMetadataFields}
-          linkedFieldNames={new Set(annotationConfig?.annotationFields.filter(f => f.isDataFieldLink).map(f => f.sourceCsvColumnName || f.csvColumnName) ?? [])}
           draggedField={draggedField}
           editingField={editingField}
           expandedTextFields={expandedTextFields}
           imageOverlay={imageOverlay}
-          audioOverlay={audioOverlay}
           videoOverlay={videoOverlay}
+          isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
           onMetadataChange={setMetadata}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
@@ -1516,7 +1559,6 @@ export function AnnotationWorkbench({
           onCancelEdit={handleCancelEdit}
           onToggleTextExpansion={toggleTextExpansion}
           onOpenImageOverlay={openImageOverlay}
-          onOpenAudioOverlay={openAudioOverlay}
           onOpenVideoOverlay={openVideoOverlay}
           onNavigateBack={handleNavigateBack}
           onPanelDragOver={handleDragOver}
@@ -1545,6 +1587,8 @@ export function AnnotationWorkbench({
           isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
           cloneId={datasetId}
           currentRowId={currentTask?.id}
+          onImageClick={openImageOverlay}
+          onVideoClick={openVideoOverlay}
         />
               </div>
 
@@ -1565,16 +1609,6 @@ export function AnnotationWorkbench({
         currentIndex={imageOverlay.currentIndex}
         onClose={closeImageOverlay}
         onNavigate={navigateImage}
-      />
-
-      {/* Audio Overlay */}
-      <AudioOverlay
-        isOpen={audioOverlay.isOpen}
-        audioUrl={audioOverlay.audioUrl}
-        audioUrls={audioOverlay.audioUrls}
-        currentIndex={audioOverlay.currentIndex}
-        onClose={closeAudioOverlay}
-        onNavigate={navigateAudio}
       />
 
       {/* Video Overlay */}

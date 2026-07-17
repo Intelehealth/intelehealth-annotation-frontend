@@ -122,7 +122,7 @@ function LoginPageContent() {
   };
 
   const handleGithubAuth = () => {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     window.location.href = `${backendUrl}/auth/github`;
   };
 

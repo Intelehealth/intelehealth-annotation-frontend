@@ -12,7 +12,6 @@ import {
   Loader2,
   Settings,
   Scale,
-  Wand2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { datasetsAPI, DatasetResponse } from '@/lib/api/datasets';
@@ -38,7 +37,6 @@ export function DatasetSidebar({
   const { user } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
-  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     const loadDataset = async () => {
@@ -55,30 +53,6 @@ export function DatasetSidebar({
     };
     if (datasetId) loadDataset();
   }, [datasetId]);
-
-  const handleGenerateConsensus = async () => {
-    try {
-      setIsGenerating(true);
-      const result = await datasetsAPI.generateConsensus(datasetId);
-      showToast({
-        title: 'Consensus generated!',
-        description: `${result.reviewsCreated} row${result.reviewsCreated !== 1 ? 's' : ''} compared. Opening review…`,
-        type: 'success',
-      });
-      // Navigate to the review page
-      router.push(`/dataset/${datasetId}/consensus`);
-    } catch (err: any) {
-      const rawMsg: string = err?.response?.data?.message || err?.message || '';
-      // The backend includes a multi-line waiting-for list — surface it verbatim
-      showToast({
-        title: 'Cannot generate consensus',
-        description: rawMsg || 'Ensure all annotators have completed their tasks.',
-        type: 'error',
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const datasetMenuItems = [
     { id: 'overview', label: 'Data Overview', icon: Database, description: 'View dataset information' },
@@ -183,22 +157,6 @@ export function DatasetSidebar({
               Consensus
             </h3>
             <button
-              onClick={handleGenerateConsensus}
-              disabled={isGenerating}
-              className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              {isGenerating
-                ? <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-gray-400" />
-                : <Wand2 className="h-4 w-4 flex-shrink-0 text-gray-400 group-hover:text-gray-600" />
-              }
-              <div className="flex-1 min-w-0">
-                <span className="font-medium text-sm truncate block">
-                  {isGenerating ? 'Generating...' : 'Generate Consensus'}
-                </span>
-                <span className="text-xs text-gray-500 truncate block">Compare all annotators</span>
-              </div>
-            </button>
-            <button
               onClick={() => router.push(`/dataset/${datasetId}/consensus`)}
               className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900 group"
             >
@@ -214,14 +172,6 @@ export function DatasetSidebar({
         {/* ── Feature 1: Consensus icons (admin only, collapsed) ─────────── */}
         {user?.role?.toUpperCase() === 'ADMIN' && isCollapsed && (
           <div className="pt-2 mt-1 border-t border-gray-100 space-y-1">
-            <button
-              onClick={handleGenerateConsensus}
-              disabled={isGenerating}
-              className="w-full flex justify-center px-2 py-2.5 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Generate Consensus"
-            >
-              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-            </button>
             <button
               onClick={() => router.push(`/dataset/${datasetId}/consensus`)}
               className="w-full flex justify-center px-2 py-2.5 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-gray-600"

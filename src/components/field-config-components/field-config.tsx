@@ -37,6 +37,7 @@ import { LivePreviewTree } from './live-preview-tree';
 import { FieldTypeConfigurator } from './field-type-configurator';
 import { DecisionCardEngine, parseOptions } from '@/components/new-column-components/new-column-data-panel';
 import { ConditionalFieldRenderer } from '@/components/new-column-components/conditional-field-renderer';
+import { schemaRequestsAPI } from '@/lib/api/schema-requests';
 
 function FieldLivePreview({ field }: { field: AnnotationField }) {
   const [value, setValue] = useState<string>('');
@@ -219,6 +220,9 @@ export function FieldConfig({
   const [columnValidationErrors, setColumnValidationErrors] = useState<Record<string, string>>({});
   const [datasetInfo, setDatasetInfo] = useState<{ name: string; description: string } | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [syncChoices, setSyncChoices] = useState<Record<string, 'PUSH_ALL' | 'KEEP_LOCAL'>>({});
 
   const toggleRowExpanded = (rowId: string) => {
     setExpandedRows((prev) => {
@@ -353,6 +357,7 @@ export function FieldConfig({
         setAnnotationFields(cleanFields);
         setNewColumns(config.newColumns || []);
         setFieldGroups(config.fieldGroups || []);
+        setPendingRequests(config.pendingFieldRequests || []);
 
         const progressStarted = config.completedRows > 0 || (config.rowAnnotations || []).some(
           (row: any) => row.status !== 'pending' || (row.annotations && Object.keys(row.annotations).length > 0)
@@ -474,7 +479,6 @@ export function FieldConfig({
       });
     }
 
-    setHasChanges(true);
   };
 
   const getUnifiedType = (field: AnnotationField) => {
@@ -1031,6 +1035,33 @@ export function FieldConfig({
     setHasChanges(true);
   };
 
+  const handleApproveRequest = async (requestId: string) => {
+    const choice = syncChoices[requestId] || 'PUSH_ALL';
+    const note = reviewNotes[requestId] || '';
+    try {
+      await schemaRequestsAPI.approve(requestId, { choice, reviewNote: note });
+      showToast({ title: 'Request Approved', description: 'Field change has been applied.', type: 'success' });
+      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
+      setReviewNotes((prev) => { const n = { ...prev }; delete n[requestId]; return n; });
+      setSyncChoices((prev) => { const n = { ...prev }; delete n[requestId]; return n; });
+      loadExistingFieldConfig();
+    } catch (err: any) {
+      showToast({ title: 'Approval Failed', description: err?.response?.data?.message || 'Failed to approve.', type: 'error' });
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    const note = reviewNotes[requestId] || '';
+    try {
+      await schemaRequestsAPI.reject(requestId, { reviewNote: note });
+      showToast({ title: 'Request Rejected', description: 'Field request has been discarded.', type: 'success' });
+      setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
+      setReviewNotes((prev) => { const n = { ...prev }; delete n[requestId]; return n; });
+    } catch (err: any) {
+      showToast({ title: 'Rejection Failed', description: err?.response?.data?.message || 'Failed to reject.', type: 'error' });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1050,6 +1081,118 @@ export function FieldConfig({
           <AlertCircle className="h-5 w-5" />
           <span>{datasetLoadingError}</span>
         </div>
+      )}
+
+      {/* Pending Field Requests */}
+      {pendingRequests.length > 0 && (
+        <Card className="border-amber-200 shadow-sm">
+          <CardHeader className="pb-3 border-b border-amber-100 bg-amber-50/30">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-amber-800">
+              <AlertCircle className="h-4 w-4" />
+              <span>Pending Field Requests ({pendingRequests.length})</span>
+            </CardTitle>
+            <CardDescription className="text-xs text-amber-700">
+              Annotators have requested changes to the field configuration. Review, approve, or reject below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0 divide-y divide-gray-100">
+            {pendingRequests.map((req) => {
+              const requestId = req.id;
+              const annotatorName = req.requestedBy
+                ? `${req.requestedBy.firstName} ${req.requestedBy.lastName}`
+                : 'Unknown';
+              const currentSync = syncChoices[requestId] || 'PUSH_ALL';
+
+              return (
+                <div key={requestId} className={`p-4 ${req.targetFieldMissing ? 'bg-red-50' : ''}`}>
+                  {req.targetFieldMissing && (
+                    <div className="mb-2 flex items-center gap-1.5 text-xs text-red-700 bg-red-100 px-2 py-1 rounded">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      <span className="font-semibold">Warning:</span> Target field no longer exists in configuration
+                    </div>
+                  )}
+                  <div className="flex flex-col md:flex-row gap-4">
+                    {/* Left: Info */}
+                    <div className="flex-1 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">{req.type}</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {req.type === 'ADD_FIELD' && req.field?.fieldName}
+                          {req.type === 'ADD_GROUP' && req.field?.groupName}
+                          {req.type === 'RENAME_FIELD' && `${req.fieldName} → ${req.newFieldName || req.newQuestionTitle}`}
+                          {req.type === 'DELETE_FIELD' && req.fieldName}
+                          {req.type === 'UPDATE_FIELD' && req.fieldName}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        <span className="font-medium">Requested by:</span> {annotatorName}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {new Date(req.createdAt).toLocaleString()}
+                      </div>
+                      {req.field?.columnType && (
+                        <div className="text-xs text-gray-500">
+                          <span className="font-medium">Type:</span> {req.field.columnType}
+                          {req.field.options?.length > 0 && (
+                            <span className="ml-2">Options: {req.field.options.join(', ')}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right: Actions */}
+                    <div className="w-full md:w-64 space-y-2">
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSyncChoices((prev) => ({ ...prev, [requestId]: 'PUSH_ALL' }))}
+                          className={`px-2 py-1.5 text-xs font-semibold rounded border text-center transition-all ${
+                            currentSync === 'PUSH_ALL'
+                              ? 'bg-teal-50 border-teal-500 text-teal-700'
+                              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          All Clones
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSyncChoices((prev) => ({ ...prev, [requestId]: 'KEEP_LOCAL' }))}
+                          className={`px-2 py-1.5 text-xs font-semibold rounded border text-center transition-all ${
+                            currentSync === 'KEEP_LOCAL'
+                              ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
+                              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          Keep Local
+                        </button>
+                      </div>
+                      <input
+                        placeholder="Review note (optional)..."
+                        value={reviewNotes[requestId] || ''}
+                        onChange={(e) => setReviewNotes((prev) => ({ ...prev, [requestId]: e.target.value }))}
+                        className="w-full h-7 text-xs px-2 border border-gray-200 rounded bg-white"
+                      />
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => handleRejectRequest(requestId)}
+                          className="flex-1 px-2 py-1.5 text-xs font-semibold rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          onClick={() => handleApproveRequest(requestId)}
+                          className="flex-1 px-2 py-1.5 text-xs font-semibold rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
+                        >
+                          Approve
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
       )}
 
       {/* Available Columns Display */}

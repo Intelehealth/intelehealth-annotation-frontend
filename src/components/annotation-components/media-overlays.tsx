@@ -2,21 +2,12 @@
 
 import { useState, useCallback, useRef, useEffect, type MouseEvent, type WheelEvent } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, RotateCcw, Volume2, PictureInPicture2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, RotateCcw, PictureInPicture2 } from 'lucide-react';
 
 interface ImageOverlayProps {
   isOpen: boolean;
   imageUrl: string;
   imageUrls: string[];
-  currentIndex: number;
-  onClose: () => void;
-  onNavigate: (direction: 'prev' | 'next') => void;
-}
-
-interface AudioOverlayProps {
-  isOpen: boolean;
-  audioUrl: string;
-  audioUrls: string[];
   currentIndex: number;
   onClose: () => void;
   onNavigate: (direction: 'prev' | 'next') => void;
@@ -341,123 +332,6 @@ export function ImageOverlay({
   );
 }
 
-export function AudioOverlay({
-  isOpen,
-  audioUrl,
-  audioUrls,
-  currentIndex,
-  onClose,
-  onNavigate,
-}: AudioOverlayProps) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
-
-  const handleSpeedChange = useCallback((speed: number) => {
-    setPlaybackSpeed(speed);
-    if (audioRef.current) {
-      audioRef.current.playbackRate = speed;
-    }
-  }, []);
-
-  useEffect(() => {
-    handleSpeedChange(1);
-  }, [audioUrl, handleSpeedChange]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowLeft' && currentIndex > 0) onNavigate('prev');
-      if (e.key === 'ArrowRight' && currentIndex < audioUrls.length - 1) onNavigate('next');
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, onNavigate, currentIndex, audioUrls.length]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl border border-gray-700">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Volume2 className="h-5 w-5 text-blue-400" />
-            <h3 className="text-lg font-semibold text-white">Audio Player</h3>
-            {audioUrls.length > 1 && (
-              <span className="text-sm text-gray-400 ml-2">
-                {currentIndex + 1} / {audioUrls.length}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white rounded-full p-1 hover:bg-gray-700 transition-colors"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        <div className="bg-gray-800 rounded-lg p-4">
-          <audio
-            ref={audioRef}
-            controls
-            className="w-full"
-            src={audioUrl}
-          >
-            Your browser does not support the audio element.
-          </audio>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-400">Speed:</span>
-            {[0.5, 0.75, 1, 1.25, 1.5, 2].map(speed => (
-              <button
-                key={speed}
-                onClick={() => handleSpeedChange(speed)}
-                className={`px-2 py-0.5 text-xs rounded transition-colors ${
-                  playbackSpeed === speed
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                {speed}x
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {audioUrls.length > 1 && (
-          <div className="mt-4 flex items-center justify-center space-x-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onNavigate('prev')}
-              disabled={currentIndex === 0}
-              className="bg-gray-800 hover:bg-gray-700 border-gray-600 text-gray-200"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onNavigate('next')}
-              disabled={currentIndex === audioUrls.length - 1}
-              className="bg-gray-800 hover:bg-gray-700 border-gray-600 text-gray-200"
-            >
-              Next <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-        )}
-
-        <div className="mt-3 text-sm text-gray-500">
-          <p className="truncate">{audioUrl}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function VideoOverlay({
   isOpen,
   videoUrl,
@@ -531,6 +405,7 @@ export function VideoOverlay({
             ref={videoRef}
             controls
             className="w-full max-h-[75vh]"
+            preload="auto"
             src={videoUrl}
           >
             Your browser does not support the video element.

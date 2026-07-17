@@ -12,6 +12,8 @@ import { ArrowLeft, User, Mail, Shield, Save, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import { z } from 'zod';
+import { TopNav } from '@/components/top-nav';
+import { motion } from 'framer-motion';
 
 // Validation schema
 const profileSchema = z
@@ -125,27 +127,14 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center space-x-4 mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push('/dashboard')}
-            className="h-10 w-10"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">
-              Profile Settings
-            </h1>
-            <p className="text-gray-600 text-sm">
-              Manage your account information and security
-            </p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      <TopNav />
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="p-4 md:p-6 max-w-2xl mx-auto"
+      >
 
         {/* Main Form Container */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -359,7 +348,7 @@ export default function ProfilePage() {
             </div>
           </form>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

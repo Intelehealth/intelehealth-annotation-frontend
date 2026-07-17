@@ -20,7 +20,7 @@ export function LivePreviewTree({ fields, depth = 0 }: LivePreviewTreeProps) {
   return (
     <div className="font-mono text-xs leading-relaxed">
       {fields.map((field, idx) => (
-        <TreeNode key={field.fieldName || idx} field={field} depth={depth} isLast={idx === fields.length - 1} />
+        <TreeNode key={field.id || idx} field={field} depth={depth} isLast={idx === fields.length - 1} />
       ))}
     </div>
   );

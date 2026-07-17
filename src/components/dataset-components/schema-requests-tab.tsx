@@ -481,7 +481,7 @@ function RenderGroupTree({ group }: { group: any }) {
         <div className="ml-4 border-l border-slate-200 pl-3 space-y-2 mt-1">
           {group.fields.map((field: any, idx: number) => (
             <RenderGroupFieldNode
-              key={field.fieldName || idx}
+              key={field.id || idx}
               field={field}
               isLast={idx === group.fields.length - 1}
             />
