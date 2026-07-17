@@ -700,7 +700,6 @@ export function DatasetAnnotationWorkbench({
           description: 'Field configuration updated successfully.'
         });
       } catch (error: any) {
-      } catch (error: any) {
         console.error('Failed to save updated field configuration:', error);
         const isNetworkError = !error.response && error.message === 'Network Error';
         const serverMsg = error?.response?.data?.message || '';
