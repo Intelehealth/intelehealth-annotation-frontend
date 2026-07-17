@@ -17,6 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FileText,
+  Lock,
   Loader2,
   RefreshCw,
   Search,
@@ -75,8 +77,11 @@ export default function ReviewConsensusPage() {
   const [search, setSearch] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [startingSession, setStartingSession] = useState(false);
+  const [resolvedStatus, setResolvedStatus] = useState<{
+    available: boolean; status: string | null; resolvedCount: number;
+    mergedAt: string | null; finalizedAt: string | null;
+  } | null>(null);
 
   const loadData = async (showLoader = true) => {
     try {
@@ -100,6 +105,14 @@ export default function ReviewConsensusPage() {
     }
   };
 
+  const loadResolvedStatus = async () => {
+    try {
+      setResolvedStatus(await consensusAPI.getResolvedStatus(datasetId));
+    } catch {
+      setResolvedStatus(null);
+    }
+  };
+
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
@@ -107,11 +120,12 @@ export default function ReviewConsensusPage() {
       return;
     }
     loadData();
+    loadResolvedStatus();
   }, [authLoading, isAuthenticated, datasetId, page, statusFilter, search]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    const timer = window.setInterval(() => loadData(false), 7000);
+    const timer = window.setInterval(() => { loadData(false); loadResolvedStatus(); }, 7000);
     return () => window.clearInterval(timer);
   }, [isAuthenticated, datasetId, page, statusFilter, search]);
 
@@ -151,16 +165,38 @@ export default function ReviewConsensusPage() {
   const handleExport = async (type: string) => {
     try {
       await consensusAPI.exportCsv(datasetId, type);
-      setExportMenuOpen(false);
-      showToast({ title: 'Exported', description: 'Consensus report downloaded.', type: 'success' });
+      showToast({ title: 'Exported', description: 'Pre-consensus report downloaded.', type: 'success' });
     } catch {
       showToast({ title: 'Export failed', description: 'The report could not be generated.', type: 'error' });
+    }
+  };
+
+  const handleResolvedExport = async (format: 'csv' | 'json') => {
+    try {
+      await consensusAPI.exportResolvedReport(datasetId, format);
+      showToast({ title: 'Exported', description: 'Resolved report downloaded.', type: 'success' });
+    } catch (error: any) {
+      showToast({
+        title: 'Export failed',
+        description: error?.response?.data?.message || 'The resolved report could not be generated.',
+        type: 'error',
+      });
     }
   };
 
   const handleStartCollaborativeReview = async () => {
     try {
       setStartingSession(true);
+      // Resume an in-progress collaborative session instead of creating a new
+      // one — so admin and annotators share the same link and answers.
+      const existing = await consensusAPI.listSessions(datasetId).catch(() => []);
+      const active = (existing || []).find(
+        (s: any) => s.reviewMode === 'COLLABORATIVE' && ['CREATED', 'ACTIVE', 'DISCUSSION', 'TIE'].includes(s.status),
+      );
+      if (active?.shareCode) {
+        router.push(`/dataset/${datasetId}/review-session/${active.shareCode}`);
+        return;
+      }
       const cloneGroup = await datasetsAPI.getCloneGroup(datasetId);
       const participantIds = (cloneGroup?.clones || [])
         .map((clone: any) => clone.assignedAnnotatorId || clone.annotator?._id)
@@ -171,6 +207,7 @@ export default function ReviewConsensusPage() {
         snapshotId: snapshot._id,
         title: `${cloneGroup?.original?.name || 'Dataset'} - Consensus Review`,
         participantIds,
+        fromTiesOnly: false,
       });
       router.push(`/dataset/${datasetId}/review-session/${session.shareCode}`);
     } catch (error: any) {
@@ -219,15 +256,55 @@ export default function ReviewConsensusPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => loadData()} disabled={loading}><RefreshCw className={cn('mr-1 h-4 w-4', loading && 'animate-spin')} /> Refresh</Button>
-              <div className="relative">
-                <Button variant="outline" size="sm" onClick={() => setExportMenuOpen((open) => !open)} disabled={!gridData?.totalRows}><Download className="mr-1 h-4 w-4" /> Export <ChevronDown className="ml-1 h-3 w-3" /></Button>
-                {exportMenuOpen && <div className="absolute right-0 z-30 mt-2 w-48 rounded-xl border bg-white py-1 shadow-xl">
-                  {['dataset', 'json', 'audit', 'agreement', 'conflict', 'pending'].map((type) => <button key={type} onClick={() => handleExport(type)} className="block w-full px-4 py-2 text-left text-xs capitalize text-gray-700 hover:bg-gray-50">{type} export</button>)}
-                </div>}
-              </div>
+              <Button variant="outline" size="sm" onClick={() => { loadData(); loadResolvedStatus(); }} disabled={loading}><RefreshCw className={cn('mr-1 h-4 w-4', loading && 'animate-spin')} /> Refresh</Button>
             </div>
           </header>
+
+          {/* Reports — clearly separated pre-consensus vs post-resolution */}
+          <section className="rounded-xl border bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800"><FileText className="h-4 w-4 text-indigo-600" /> Reports</div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {/* Before resolution */}
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-800">Pre-consensus report</div>
+                    <div className="mt-0.5 text-xs text-gray-500">Every annotator&apos;s answers with agreement %, conflicts and ties — the raw input <span className="font-medium">before</span> resolution.</div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">LIVE</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" disabled={!gridData?.totalRows} onClick={() => handleExport('dataset')}><Download className="mr-1 h-3.5 w-3.5" /> Full CSV</Button>
+                  <Button variant="outline" size="sm" disabled={!gridData?.totalRows} onClick={() => handleExport('json')}>JSON</Button>
+                  <Button variant="outline" size="sm" disabled={!gridData?.totalRows} onClick={() => handleExport('conflict')}>Conflicts only</Button>
+                </div>
+              </div>
+
+              {/* After resolution */}
+              <div className={cn('rounded-lg border p-3', resolvedStatus?.available ? 'border-emerald-200 bg-emerald-50/30' : 'border-gray-200')}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-800">Resolved report</div>
+                    <div className="mt-0.5 text-xs text-gray-500">The final consensus answers with a <span className="font-medium">before/after</span> comparison showing what changed vs the majority.</div>
+                  </div>
+                  {resolvedStatus?.available
+                    ? <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{resolvedStatus.status}</span>
+                    : <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-400"><Lock className="h-3 w-3" /> NOT RESOLVED</span>}
+                </div>
+                {resolvedStatus?.available ? (
+                  <>
+                    <div className="mt-1.5 text-[11px] text-gray-500">{resolvedStatus.resolvedCount} field(s) resolved{resolvedStatus.finalizedAt ? ' · finalized' : resolvedStatus.mergedAt ? ' · merged' : ''}</div>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => handleResolvedExport('csv')}><Download className="mr-1 h-3.5 w-3.5" /> CSV (with comparison)</Button>
+                      <Button variant="outline" size="sm" onClick={() => handleResolvedExport('json')}>JSON</Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-3 text-[11px] text-gray-500">Run a collaborative review and <span className="font-semibold text-gray-600">Merge into resolved</span> to generate this report.</div>
+                )}
+              </div>
+            </div>
+          </section>
 
           <section className="rounded-xl border bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800"><Users className="h-4 w-4 text-indigo-600" /> Annotator Progress</div>
@@ -275,7 +352,7 @@ export default function ReviewConsensusPage() {
 
           <footer className="flex items-center justify-between text-xs text-gray-500"><span>Page {gridData?.currentPage || page} of {gridData?.totalPages || 1} · {gridData?.totalRows || 0} rows</span><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}><ChevronLeft className="h-4 w-4" /></Button><Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(gridData?.totalPages || current + 1, current + 1))} disabled={page >= (gridData?.totalPages || 1)}><ChevronRight className="h-4 w-4" /></Button></div></footer>
 
-          <div className="flex justify-end gap-2"><Button variant="outline" onClick={handleRequestReview}>Review Again</Button><Button variant="outline" onClick={handleStartCollaborativeReview} disabled={startingSession || !stats.tie}>{startingSession ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Start Collaborative Review</Button></div>
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={handleRequestReview}>Review Again</Button><Button variant="outline" onClick={handleStartCollaborativeReview} disabled={startingSession || !gridData?.totalRows}>{startingSession ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Start Collaborative Review</Button></div>
         </div>
       </main>
     </div>

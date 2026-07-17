@@ -67,6 +67,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
   const pathParts = pathname?.split('/') || [];
   const isDatasetRoute = pathParts[1] === 'dataset' && pathParts[2] && pathParts[2] !== 'add-dataset';
   const datasetId = isDatasetRoute ? pathParts[2] : null;
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
 
   const fetchNotifications = async () => {
     if (!user) return;
@@ -102,10 +103,14 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
     }
   }, [user]);
 
-  // Load dataset name if in dataset context
+  // Load dataset name only for admins — the name is shown solely in the
+  // admin-only dataset sub-menu. Non-admins (e.g. annotators opening a
+  // collaborative review-session link) must not fetch the parent dataset:
+  // they have no access to it, so the request would 404 and it would leak
+  // dataset context into a shared collaboration link.
   useEffect(() => {
     const loadDatasetName = async () => {
-      if (datasetId) {
+      if (datasetId && isAdmin) {
         try {
           const data = await datasetsAPI.getById(datasetId);
           setDatasetName(data.name);
@@ -118,7 +123,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
       }
     };
     loadDatasetName();
-  }, [datasetId]);
+  }, [datasetId, isAdmin]);
 
   const handleMarkAsRead = async (id: string) => {
     try {
@@ -132,7 +137,6 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
   };
 
   const effectiveCollapsed = forceCollapsed || isCollapsed;
-  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
   const isInvited = user?.invitedByAdmin !== false;
 
   return (

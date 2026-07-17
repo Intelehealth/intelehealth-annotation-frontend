@@ -68,6 +68,36 @@ export const consensusAPI = {
     window.URL.revokeObjectURL(url);
   },
 
+  async getResolvedStatus(datasetId: string): Promise<{
+    available: boolean;
+    sessionId: string | null;
+    status: string | null;
+    resolvedCount: number;
+    mergedAt: string | null;
+    finalizedAt: string | null;
+  }> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/resolved-status`, { headers: authHeaders() });
+    return res.data;
+  },
+
+  async exportResolvedReport(datasetId: string, format: 'csv' | 'json' = 'csv'): Promise<void> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/resolved-report`, {
+      params: { format },
+      headers: authHeaders(),
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    const disposition = res.headers['content-disposition'];
+    const match = disposition?.match(/filename="(.+)"/);
+    link.download = match ? match[1] : `consensus-resolved-report.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+
   // ─── Round-based review (Phase 2 Items 6-9) ──────────────────────────────────
 
   async requestReview(datasetId: string): Promise<{ message: string; roundNumber: number }> {
@@ -144,6 +174,16 @@ export const consensusAPI = {
 
   async getSessionResults(sessionId: string): Promise<any> {
     const res = await axios.get(`${API_BASE_URL}/consensus/session/${sessionId}/results`, { headers: authHeaders() });
+    return res.data;
+  },
+
+  async getCollabGrid(sessionId: string): Promise<any> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/session/${sessionId}/collab-grid`, { headers: authHeaders() });
+    return res.data;
+  },
+
+  async setSharedAnswer(sessionId: string, body: { rowIndex: number; fieldName: string; value: string }): Promise<any> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/session/${sessionId}/shared-answer`, body, { headers: jsonHeaders() });
     return res.data;
   },
 
