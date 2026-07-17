@@ -311,13 +311,13 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                   <Link
                     href={`/dataset/${datasetId}/consensus`}
                     className={cn(
-                      'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left block',
+                      'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
                       pathname === `/dataset/${datasetId}/consensus`
-                        ? 'bg-blue-50 text-blue-700 font-semibold'
+                        ? 'bg-blue-50 text-blue-700'
                         : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                     )}
                   >
-                    <Scale className="h-3.5 w-3.5 text-gray-400" />
+                    <Scale className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
                     <span>Review Consensus</span>
                   </Link>
                 </div>
