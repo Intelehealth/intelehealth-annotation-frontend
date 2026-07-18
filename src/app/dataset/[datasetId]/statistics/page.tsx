@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/toast';
 import { consensusAPI } from '@/lib/api/consensus';
+import { useReliabilityMetric } from '@/lib/use-reliability-metric';
 import { TopNav } from '@/components/top-nav';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Loader2, BarChart3, Users, List, Clock, GitCompare, Activity, FileText, Settings, Download, RefreshCw, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Loader2, BarChart3, Users, List, Clock, GitCompare, Activity, FileText, Settings, Download, RefreshCw, RotateCcw, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const KPI_CARD_STYLES: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -36,6 +37,7 @@ export default function StatisticsPage() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [activeTab, setActiveTab] = useState('overview');
+  const { catalog: metricCatalog, metric, setMetric } = useReliabilityMetric();
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login');
@@ -55,14 +57,14 @@ export default function StatisticsPage() {
     if (!sessionId) return;
     setLoading(true);
     try {
-      const data = await consensusAPI.getStatistics(sessionId);
+      const data = await consensusAPI.getStatistics(sessionId, metric || undefined);
       setStats(data);
     } catch (err: any) {
       showToast({ title: 'Error', description: err?.response?.data?.message || 'Failed to load statistics', type: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, metric]);
 
   useEffect(() => {
     if (selectedSessionId) fetchStats(selectedSessionId);
@@ -72,7 +74,7 @@ export default function StatisticsPage() {
     if (!selectedSessionId) return;
     setComputing(true);
     try {
-      const data = await consensusAPI.computeStatistics(selectedSessionId);
+      const data = await consensusAPI.computeStatistics(selectedSessionId, metric || undefined);
       setStats(data);
       showToast({ title: 'Statistics Computed', description: 'Latest statistics are now available.', type: 'success' });
     } catch (err: any) {
@@ -141,6 +143,17 @@ export default function StatisticsPage() {
                 <option value="">Select session...</option>
                 {sessions.map((s: any) => (
                   <option key={s._id} value={s._id}>{s.title || `Session ${s._id?.slice(-6)}`}</option>
+                ))}
+              </select>
+              <select
+                value={metric}
+                onChange={(e) => setMetric(e.target.value)}
+                disabled={!metricCatalog.length}
+                title="Inter-rater reliability metric"
+                className="h-8 px-2 border border-gray-200 rounded-lg text-xs bg-white disabled:opacity-50"
+              >
+                {metricCatalog.map((m) => (
+                  <option key={m.key} value={m.key}>{m.label}</option>
                 ))}
               </select>
               <Button variant="outline" size="sm" onClick={() => selectedSessionId && fetchStats(selectedSessionId)}>

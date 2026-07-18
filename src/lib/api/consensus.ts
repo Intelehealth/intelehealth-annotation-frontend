@@ -3,6 +3,39 @@ import type { ConsensusReview, ResolveConsensusRequest } from '@/types/feature1'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+export interface ReliabilityMetricMeta {
+  key: string;
+  label: string;
+  order: number;
+  description?: string;
+}
+
+export interface ReliabilityResult {
+  key: string;
+  label: string;
+  order: number;
+  score: number | null;
+  percentage: number | null;
+  interpretation: string;
+  supported: boolean;
+  itemsUsed: number;
+}
+
+export interface ReliabilityCatalog {
+  metrics: ReliabilityMetricMeta[];
+  default: string;
+}
+
+export interface DatasetReliability {
+  datasetId: string;
+  selectedMetric: string;
+  catalog: ReliabilityMetricMeta[];
+  overall: ReliabilityResult[];
+  selectedOverall: ReliabilityResult | null;
+  perField: { fieldName: string; displayName: string; metrics: ReliabilityResult[]; selected: ReliabilityResult | null }[];
+  totalRows: number;
+}
+
 const authHeaders = () => {
   const token = localStorage.getItem('accessToken');
   return { Authorization: `Bearer ${token}` };
@@ -202,13 +235,28 @@ export const consensusAPI = {
     return res.data;
   },
 
-  async getStatistics(sessionId: string): Promise<any> {
-    const res = await axios.get(`${API_BASE_URL}/consensus/sessions/${sessionId}/statistics`, { headers: authHeaders() });
+  /** Ordered catalog of selectable inter-rater reliability metrics + the default. */
+  async getMetricsCatalog(): Promise<ReliabilityCatalog> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/metrics/catalog`, { headers: authHeaders() });
     return res.data;
   },
 
-  async computeStatistics(sessionId: string): Promise<any> {
-    const res = await axios.post(`${API_BASE_URL}/consensus/sessions/${sessionId}/statistics/compute`, {}, { headers: jsonHeaders() });
+  /** Field-level reliability for the LIVE dataset grid (no session required). */
+  async getReliability(datasetId: string, metric?: string): Promise<DatasetReliability> {
+    const qs = metric ? `?metric=${encodeURIComponent(metric)}` : '';
+    const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/reliability${qs}`, { headers: authHeaders() });
+    return res.data;
+  },
+
+  async getStatistics(sessionId: string, metric?: string): Promise<any> {
+    const qs = metric ? `?metric=${encodeURIComponent(metric)}` : '';
+    const res = await axios.get(`${API_BASE_URL}/consensus/sessions/${sessionId}/statistics${qs}`, { headers: authHeaders() });
+    return res.data;
+  },
+
+  async computeStatistics(sessionId: string, metric?: string): Promise<any> {
+    const qs = metric ? `?metric=${encodeURIComponent(metric)}` : '';
+    const res = await axios.post(`${API_BASE_URL}/consensus/sessions/${sessionId}/statistics/compute${qs}`, {}, { headers: jsonHeaders() });
     return res.data;
   },
 

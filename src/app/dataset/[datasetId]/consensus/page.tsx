@@ -7,8 +7,9 @@ import { Sidebar } from '@/components/sidebar';
 import { TopNav } from '@/components/top-nav';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
-import { consensusAPI } from '@/lib/api/consensus';
+import { consensusAPI, DatasetReliability } from '@/lib/api/consensus';
 import { datasetsAPI } from '@/lib/api/datasets';
+import { useReliabilityMetric } from '@/lib/use-reliability-metric';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft,
@@ -52,6 +53,186 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
+function formatReliability(r: { key: string; score: number | null; percentage: number | null; supported: boolean } | null | undefined): string {
+  if (!r || !r.supported || r.score === null) return 'N/A';
+  if (r.key === 'PERCENT_AGREEMENT') return `${r.percentage}%`;
+  return r.score.toFixed(3);
+}
+
+// ─── Consensus field hierarchy ──────────────────────────────────────────────
+// Each grid field carries parentPath / nestedLevel / branchStatus from the
+// backend aggregation. The old UI ignored all of it and dumped one bare "%"
+// per field, so nested-group children, repeat instances and dead conditional
+// branches all showed up as unlabeled "0%"s. These helpers rebuild the
+// parent → child tree and drop inactive (losing) branches from the rollups.
+
+const PENDING_STATUSES = new Set(['NOT_STARTED', 'PENDING', 'not_started', 'pending', '']);
+
+function isPendingStatus(status?: string): boolean {
+  return status == null || PENDING_STATUSES.has(status);
+}
+
+type FieldNode = any & { children: FieldNode[]; inactive: boolean };
+
+// Build the parent→child tree via `parentPath`, then propagate branch
+// inactivity downward so a losing branch takes its whole subtree with it.
+function buildFieldTree(fields: any[]): FieldNode[] {
+  const byName = new Map<string, FieldNode>();
+  (fields || []).forEach((f) =>
+    byName.set(f.fieldName, { ...f, children: [], inactive: f?.branchStatus === 'LOSING_BRANCH' }),
+  );
+  const roots: FieldNode[] = [];
+  byName.forEach((node) => {
+    const parent = node.parentPath ? byName.get(node.parentPath) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  });
+  const mark = (node: FieldNode, ancestorInactive: boolean) => {
+    node.inactive = node.inactive || ancestorInactive;
+    node.children.forEach((child: FieldNode) => mark(child, node.inactive));
+  };
+  roots.forEach((root) => mark(root, false));
+  return roots;
+}
+
+// Depth-first walk yielding active nodes (with depth) and the inactive ones
+// separately, so callers can indent live questions and tuck dead branches away.
+function walkFieldTree(roots: FieldNode[]): { active: { node: FieldNode; depth: number }[]; inactive: FieldNode[] } {
+  const active: { node: FieldNode; depth: number }[] = [];
+  const inactive: FieldNode[] = [];
+  const walk = (node: FieldNode, depth: number) => {
+    if (node.inactive) {
+      inactive.push(node);
+      return;
+    }
+    active.push({ node, depth });
+    node.children.forEach((child: FieldNode) => walk(child, depth + 1));
+  };
+  roots.forEach((root) => walk(root, 0));
+  return { active, inactive };
+}
+
+// QUESTIONS column label: live question count, with dead branches noted apart.
+function questionSummary(fields: any[]): string {
+  const { active, inactive } = walkFieldTree(buildFieldTree(fields));
+  const base = `${active.length} question${active.length === 1 ? '' : 's'}`;
+  return inactive.length > 0 ? `${base} · ${inactive.length} hidden` : base;
+}
+
+// AGREEMENT column: labelled rollup of the live questions instead of
+// "33% · 0% · 0% · 0% …". Scored questions show their %, the rest collapse
+// into a single "N pending" line.
+function AgreementCell({ fields }: { fields: any[] }) {
+  const { active } = walkFieldTree(buildFieldTree(fields));
+  if (active.length === 0) return <span className="text-gray-400">—</span>;
+  const scored = active.map((a) => a.node).filter((n) => !isPendingStatus(n.status));
+  const pending = active.length - scored.length;
+  return (
+    <div className="space-y-0.5">
+      {scored.slice(0, 3).map((n) => (
+        <div key={n.fieldName} className="flex items-center gap-1.5 whitespace-nowrap">
+          <span className="max-w-[120px] truncate text-gray-500">{n.displayName || n.question || n.fieldName}</span>
+          <span className="font-semibold text-gray-800">{n.agreementPercentage}%</span>
+          {n.status === 'TIE' && <span className="text-[10px] font-medium text-fuchsia-600">tie</span>}
+        </div>
+      ))}
+      {scored.length > 3 && <div className="text-[10px] text-gray-400">+{scored.length - 3} more scored</div>}
+      {scored.length === 0 && <div className="text-gray-400">Not started</div>}
+      {pending > 0 && <div className="text-[10px] text-gray-400">{pending} pending</div>}
+    </div>
+  );
+}
+
+// WINNER column: winners of live questions only, labelled by question.
+function WinnerCell({ fields }: { fields: any[] }) {
+  const { active } = walkFieldTree(buildFieldTree(fields));
+  const decided = active.map((a) => a.node).filter((n) => n.winner);
+  if (decided.length === 0) return <span className="text-gray-500">Pending</span>;
+  return (
+    <div className="space-y-0.5">
+      {decided.slice(0, 3).map((n) => (
+        <div key={n.fieldName} className="whitespace-nowrap">
+          <span className="text-gray-400">{n.displayName || n.fieldName}: </span>
+          <span className="font-medium text-gray-700">{n.winner}</span>
+        </div>
+      ))}
+      {decided.length > 3 && <span className="text-[10px] text-gray-400">+{decided.length - 3} more</span>}
+    </div>
+  );
+}
+
+// One field card in the expanded detail — indented by nesting depth, with the
+// annotator answers, winner, pending list and vote distribution.
+function FieldDetailCard({ field, depth, inactive }: { field: FieldNode; depth: number; inactive?: boolean }) {
+  return (
+    <div
+      style={{ marginLeft: depth * 20 }}
+      className={cn(
+        'rounded-lg border bg-white p-3',
+        depth > 0 && 'border-l-2 border-l-indigo-200',
+        inactive && 'opacity-60',
+      )}
+    >
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2 font-semibold text-gray-800">
+            {depth > 0 && <span className="text-[10px] font-normal text-indigo-400">└ nested</span>}
+            {field.question || field.fieldName}
+            {inactive && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-gray-400">inactive branch</span>}
+          </div>
+          <div className="text-[10px] text-gray-400">{field.fieldName}</div>
+        </div>
+        <span className="text-xs font-medium text-gray-600">{field.status} · {field.agreementPercentage}%</span>
+      </div>
+      <div className="grid gap-2 md:grid-cols-3">
+        {field.annotatorAnswers?.map((answer: any) => (
+          <div key={`${field.fieldName}-${answer.annotatorId}`} className="rounded border bg-gray-50 p-2">
+            <div className="text-[10px] font-semibold text-gray-500">{answer.annotatorName}</div>
+            <div className={cn('mt-1 text-sm', answer.submitted ? 'text-gray-900' : 'text-gray-400')}>{formatValue(answer.value)}</div>
+            <div className="mt-1 text-[10px] text-gray-400">{answer.submitted ? 'Submitted' : 'Pending'}</div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-600">
+        <span>Winner: <strong>{field.winner || 'Pending'}</strong></span>
+        <span>Pending: <strong>{field.missingAnnotations?.join(', ') || 'None'}</strong></span>
+        <span>Votes: <strong>{field.voteDistribution?.map((entry: any) => `${entry.label} ${entry.votes}`).join(', ') || 'None'}</strong></span>
+      </div>
+    </div>
+  );
+}
+
+// Expanded row detail: live questions grouped parent → child, dead conditional
+// branches tucked behind a toggle so they stop masquerading as pending work.
+function RowDetails({ row }: { row: any }) {
+  const [showInactive, setShowInactive] = useState(false);
+  const { active, inactive } = walkFieldTree(buildFieldTree(row.fields));
+  return (
+    <div className="space-y-3">
+      {active.map(({ node, depth }) => (
+        <FieldDetailCard key={node.fieldName} field={node} depth={depth} />
+      ))}
+      {inactive.length > 0 && (
+        <div className="pt-1">
+          <button
+            onClick={() => setShowInactive((v) => !v)}
+            className="text-[11px] font-medium text-gray-400 hover:text-gray-600"
+          >
+            {showInactive ? 'Hide' : 'Show'} {inactive.length} inactive branch question{inactive.length > 1 ? 's' : ''}
+          </button>
+          {showInactive && (
+            <div className="mt-2 space-y-2">
+              {inactive.map((node) => (
+                <FieldDetailCard key={node.fieldName} field={node} depth={0} inactive />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatCard({ label, value, tone }: { label: string; value: number | string; tone: string }) {
   return (
     <div className={cn('rounded-xl border p-4 shadow-sm', tone)}>
@@ -68,6 +249,8 @@ export default function ReviewConsensusPage() {
   const { showToast } = useToast();
   const datasetId = params.datasetId as string;
 
+  const { catalog: metricCatalog, metric, setMetric } = useReliabilityMetric();
+  const [reliability, setReliability] = useState<DatasetReliability | null>(null);
   const [gridData, setGridData] = useState<any>(null);
   const [progress, setProgress] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -103,6 +286,16 @@ export default function ReviewConsensusPage() {
     } finally {
       if (showLoader) setLoading(false);
     }
+    loadReliability();
+  };
+
+  const loadReliability = async () => {
+    if (!metric) return;
+    try {
+      setReliability(await consensusAPI.getReliability(datasetId, metric));
+    } catch {
+      setReliability(null);
+    }
   };
 
   const loadResolvedStatus = async () => {
@@ -122,6 +315,13 @@ export default function ReviewConsensusPage() {
     loadData();
     loadResolvedStatus();
   }, [authLoading, isAuthenticated, datasetId, page, statusFilter, search]);
+
+  // Refetch field-level reliability when the selected metric changes.
+  useEffect(() => {
+    if (!isAuthenticated || !metric) return;
+    loadReliability();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metric, datasetId, isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -326,6 +526,45 @@ export default function ReviewConsensusPage() {
             <StatCard label="Not Started" value={stats.notStarted} tone="border-gray-200 bg-gray-50" />
           </section>
 
+          <section className="rounded-xl border bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                <Scale className="h-4 w-4 text-indigo-600" /> Inter-rater Reliability
+                <span className="text-[11px] font-normal text-gray-400">field-level over {reliability?.totalRows ?? stats.totalRows} rows · not per-row</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="reliability-metric" className="text-xs text-gray-500">Metric</label>
+                <select
+                  id="reliability-metric"
+                  value={metric}
+                  onChange={(event) => setMetric(event.target.value)}
+                  disabled={!metricCatalog.length}
+                  className="h-9 rounded-lg border bg-white px-3 text-sm text-gray-700 outline-none focus:border-indigo-500 disabled:opacity-50"
+                >
+                  {metricCatalog.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+                </select>
+              </div>
+            </div>
+            {reliability ? (
+              <div className="mt-3 flex flex-wrap items-stretch gap-3">
+                <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-indigo-500">Overall · {reliability.selectedOverall?.label}</div>
+                  <div className="text-lg font-bold text-gray-900">{formatReliability(reliability.selectedOverall)}</div>
+                  <div className="text-[11px] text-gray-500">{reliability.selectedOverall?.interpretation}</div>
+                </div>
+                {reliability.perField.map((field) => (
+                  <div key={field.fieldName} className="rounded-lg border bg-gray-50 px-3 py-2">
+                    <div className="text-[11px] font-medium text-gray-600">{field.displayName}</div>
+                    <div className="text-base font-semibold text-gray-900">{formatReliability(field.selected)}</div>
+                    <div className="text-[10px] text-gray-400">{field.selected?.interpretation}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-3 text-xs text-gray-400">Reliability not available yet.</div>
+            )}
+          </section>
+
           <section className="flex flex-wrap items-center gap-3">
             <div className="relative min-w-[260px] flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search rows, questions, answers, annotators..." className="h-10 w-full rounded-lg border bg-white pl-9 pr-3 text-sm outline-none focus:border-indigo-500" /></div>
             <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }} className="h-10 rounded-lg border bg-white px-3 text-sm text-gray-700 outline-none focus:border-indigo-500">
@@ -342,8 +581,8 @@ export default function ReviewConsensusPage() {
                   const expanded = expandedRows.has(row.rowIndex);
                   const rowBadge = STATUS_BADGE[row.rowStatus] || STATUS_BADGE.NOT_STARTED;
                   return <Fragment key={row.rowIndex}>
-                    <tr key={row.rowIndex} className="border-b hover:bg-gray-50/60"><td className="p-3"><button onClick={() => toggleSelected(row.rowIndex)}>{selectedRows.has(row.rowIndex) ? <CheckSquare className="h-4 w-4 text-indigo-600" /> : <Square className="h-4 w-4 text-gray-400" />}</button></td><td className="p-3 font-semibold text-gray-700">Row {row.rowIndex + 1}</td><td className="max-w-[220px] p-3"><button onClick={() => toggleRow(row.rowIndex)} className="flex items-center gap-1 font-medium text-indigo-700 hover:underline">{expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}{row.fields?.length || 0} questions</button></td><td className="max-w-[360px] p-3"><div className="space-y-1">{row.fields?.slice(0, 3).map((field: any) => <div key={field.fieldName} className="truncate"><span className="font-medium text-gray-500">{field.question || field.fieldName}: </span>{field.annotatorAnswers?.map((answer: any) => `${answer.annotatorName}: ${formatValue(answer.value)}`).join(' · ')}</div>)}{row.fields?.length > 3 && <span className="text-gray-400">+{row.fields.length - 3} more</span>}</div></td><td className="p-3">{row.fields?.map((field: any) => field.winner).filter(Boolean).join(' · ') || 'Pending'}</td><td className="p-3">{row.fields?.map((field: any) => `${field.agreementPercentage}%`).join(' · ') || '0%'}</td><td className="p-3"><span className={cn('inline-flex items-center gap-1 rounded border px-2 py-1 text-[10px] font-medium', rowBadge.bg, rowBadge.text)}><span className={cn('h-1.5 w-1.5 rounded-full', rowBadge.dot)} />{rowBadge.label}</span></td><td className="p-3"><button onClick={() => toggleRow(row.rowIndex)} className="font-medium text-indigo-600 hover:underline">{expanded ? 'Hide details' : 'View details'}</button></td></tr>
-                    {expanded && <tr key={`${row.rowIndex}-details`} className="border-b bg-indigo-50/20"><td colSpan={8} className="p-4"><div className="space-y-4">{row.fields?.map((field: any) => <div key={field.fieldName} className="rounded-lg border bg-white p-3"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div><div className="font-semibold text-gray-800">{field.question || field.fieldName}</div><div className="text-[10px] text-gray-400">{field.fieldName}</div></div><span className="text-xs font-medium text-gray-600">{field.status} · {field.agreementPercentage}%</span></div><div className="grid gap-2 md:grid-cols-3">{field.annotatorAnswers?.map((answer: any) => <div key={`${field.fieldName}-${answer.annotatorId}`} className="rounded border bg-gray-50 p-2"><div className="text-[10px] font-semibold text-gray-500">{answer.annotatorName}</div><div className={cn('mt-1 text-sm', answer.submitted ? 'text-gray-900' : 'text-gray-400')}>{formatValue(answer.value)}</div><div className="mt-1 text-[10px] text-gray-400">{answer.submitted ? 'Submitted' : 'Pending'}</div></div>)}</div><div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-600"><span>Winner: <strong>{field.winner || 'Pending'}</strong></span><span>Pending: <strong>{field.missingAnnotations?.join(', ') || 'None'}</strong></span><span>Votes: <strong>{field.voteDistribution?.map((entry: any) => `${entry.label} ${entry.votes}`).join(', ') || 'None'}</strong></span></div></div>)}</div></td></tr>}
+                    <tr key={row.rowIndex} className="border-b hover:bg-gray-50/60"><td className="p-3"><button onClick={() => toggleSelected(row.rowIndex)}>{selectedRows.has(row.rowIndex) ? <CheckSquare className="h-4 w-4 text-indigo-600" /> : <Square className="h-4 w-4 text-gray-400" />}</button></td><td className="p-3 font-semibold text-gray-700">Row {row.rowIndex + 1}</td><td className="max-w-[220px] p-3"><button onClick={() => toggleRow(row.rowIndex)} className="flex items-center gap-1 font-medium text-indigo-700 hover:underline">{expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}{questionSummary(row.fields)}</button></td><td className="max-w-[360px] p-3"><div className="space-y-1">{row.fields?.slice(0, 3).map((field: any) => <div key={field.fieldName} className="truncate"><span className="font-medium text-gray-500">{field.question || field.fieldName}: </span>{field.annotatorAnswers?.map((answer: any) => `${answer.annotatorName}: ${formatValue(answer.value)}`).join(' · ')}</div>)}{row.fields?.length > 3 && <span className="text-gray-400">+{row.fields.length - 3} more</span>}</div></td><td className="p-3"><WinnerCell fields={row.fields} /></td><td className="p-3"><AgreementCell fields={row.fields} /></td><td className="p-3"><span className={cn('inline-flex items-center gap-1 rounded border px-2 py-1 text-[10px] font-medium', rowBadge.bg, rowBadge.text)}><span className={cn('h-1.5 w-1.5 rounded-full', rowBadge.dot)} />{rowBadge.label}</span></td><td className="p-3"><button onClick={() => toggleRow(row.rowIndex)} className="font-medium text-indigo-600 hover:underline">{expanded ? 'Hide details' : 'View details'}</button></td></tr>
+                    {expanded && <tr key={`${row.rowIndex}-details`} className="border-b bg-indigo-50/20"><td colSpan={8} className="p-4"><RowDetails row={row} /></td></tr>}
                   </Fragment>;
                 })}{gridData.rows?.length === 0 && <tr><td colSpan={8} className="p-12 text-center italic text-gray-400">No consensus data matches the current filter.</td></tr>}</tbody>
               </table>
