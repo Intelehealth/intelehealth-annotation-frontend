@@ -30,6 +30,7 @@ import {
 } from '@/lib/api/csv-imports';
 import { fieldSelectionAPI } from '@/lib/api/field-config';
 import { datasetsAPI } from '@/lib/api/datasets';
+import { consensusAPI } from '@/lib/api/consensus';
 import { RowFooter, NewColumnDataPanel } from '@/components/new-column-components';
 import { MetadataDisplay } from './metadata-display';
 import { ImageOverlay, VideoOverlay } from './media-overlays';
@@ -86,6 +87,7 @@ interface DatasetAnnotationWorkbenchProps {
   mode?: 'annotation' | 'inspect';
   /** Sprint B: return URL after inspection */
   returnTo?: string;
+  reviewRequestId?: string;
 }
 
 export function DatasetAnnotationWorkbench({
@@ -93,6 +95,7 @@ export function DatasetAnnotationWorkbench({
   taskId,
   mode = 'annotation',
   returnTo,
+  reviewRequestId,
 }: DatasetAnnotationWorkbenchProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -115,6 +118,7 @@ export function DatasetAnnotationWorkbench({
   const [datasetNewColumns, setDatasetNewColumns] = useState<any[]>([]);
   const [datasetData, setDatasetData] = useState<DatasetMergedRowsData | null>(null);
   const [orderedMetadataFields, setOrderedMetadataFields] = useState<AnnotationField[]>([]);
+  const [reviewRequest, setReviewRequest] = useState<any>(null);
 
   const isInspectMode = mode === 'inspect';
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -160,6 +164,33 @@ export function DatasetAnnotationWorkbench({
       setOrderedMetadataFields(metadataFields);
     }
   }, [annotationConfig]);
+
+  useEffect(() => {
+    if (!reviewRequestId) {
+      setReviewRequest(null);
+      return;
+    }
+    consensusAPI.getReviewRequest(reviewRequestId).then(setReviewRequest).catch(() => setReviewRequest(null));
+  }, [reviewRequestId]);
+
+  useEffect(() => {
+    if (!reviewRequest || !tasks.length) return;
+    const requestedIndex = tasks.findIndex((task) => task.rowIndex === Number(reviewRequest.rowIndex));
+    if (requestedIndex >= 0) setCurrentTaskIndex(requestedIndex);
+  }, [reviewRequest, tasks]);
+
+  useEffect(() => {
+    if (!reviewRequest?.fieldNames?.length) return;
+    const timer = window.setTimeout(() => {
+      const firstRequestedField = reviewRequest.fieldNames.find((fieldName: string) =>
+        document.getElementById(`card-${fieldName}`),
+      );
+      if (firstRequestedField) {
+        document.getElementById(`card-${firstRequestedField}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [reviewRequest, currentTaskIndex]);
 
   // Load dataset data and annotation config
   useEffect(() => {
@@ -1347,6 +1378,15 @@ export function DatasetAnnotationWorkbench({
       try {
         await DatasetMergedRowsAPI.markRowCompleted(datasetId, currentTask.rowIndex, taskId);  // Feature 1
 
+        if (reviewRequestId) {
+          const resubmission = await consensusAPI.resubmitReviewRequest(reviewRequestId);
+          setReviewRequest((current: any) => ({
+            ...current,
+            status: resubmission.requestStatus || current?.status,
+            submittedAt: resubmission.submittedAt || current?.submittedAt,
+          }));
+        }
+
         // Always update local datasetData.completed flag so CSV export shows TRUE
         if (datasetData && datasetData.mergedRows) {
           const completedRow = datasetData.mergedRows.find(row => row.rowIndex === currentTask.rowIndex);
@@ -1363,7 +1403,14 @@ export function DatasetAnnotationWorkbench({
         logger.log(`Row ${currentTask.rowIndex} marked as completed and saved to backend`);
       } catch (completionError) {
         console.error('Error marking row as completed in backend:', completionError);
-        // Don't show error toast for completion failure, as the main action (save data) succeeded
+        showToast({
+          type: 'error',
+          title: reviewRequestId ? 'Re-submission failed' : 'Completion failed',
+          description: reviewRequestId
+            ? 'The row was saved, but the review request could not be submitted. Please retry.'
+            : 'The row could not be marked as completed. Please retry.',
+        });
+        return;
       }
 
       setLastSavedTime(new Date());
@@ -1691,6 +1738,37 @@ export function DatasetAnnotationWorkbench({
           </button>
         </div>
       )}
+      {reviewRequest && (
+        <div className="border-b border-violet-200 bg-violet-50 px-6 py-3 text-sm text-violet-950 shadow-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <strong className="font-semibold">Review Requested</strong>
+            <span>Requested by: {reviewRequest.requestedBy || 'Admin'}</span>
+            <span>Admin Reason: {reviewRequest.reason}</span>
+            <span>Deadline: {new Date(reviewRequest.deadlineAt).toLocaleString()}</span>
+            {reviewRequest.status === 'COMPLETED' && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                Re-submitted
+              </span>
+            )}
+            <span className="basis-full text-xs text-violet-800">
+              Admin Comment: {reviewRequest.comment || 'No comment provided.'}
+            </span>
+            <span className="basis-full text-xs font-medium text-violet-800">
+              Editable fields: {reviewRequest.fieldNames?.join(', ') || 'Requested fields'}
+            </span>
+            <div className="basis-full grid gap-2 pt-2 sm:grid-cols-3">
+              {(reviewRequest.fieldNames || []).map((fieldName: string) => (
+                <div key={fieldName} className="rounded-lg border border-violet-200 bg-white/70 p-2 text-xs">
+                  <strong className="block text-violet-900">{fieldName}</strong>
+                  <span className="block text-[10px] text-slate-500">Original Answer: {reviewRequest.previousAnswer?.annotations?.[fieldName] ?? 'Pending'}</span>
+                  <span className="block text-[10px] text-slate-500">Requested Correction: {reviewRequest.comment || reviewRequest.reason || 'See request'}</span>
+                  <span className="block text-[10px] font-semibold text-violet-800">Current Value: {newColumnData[fieldName] || 'Pending'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Main Content Area - Resizable Panels */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanels
@@ -1704,7 +1782,7 @@ export function DatasetAnnotationWorkbench({
               imageOverlay={imageOverlay}
               videoOverlay={videoOverlay}
               datasetName={datasetName}
-              isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
+              isAdmin={user?.role?.toUpperCase() === 'ADMIN' && !reviewRequestId}
               onMetadataChange={setMetadata}
               onDragStart={handleDragStart}
               onDragOver={handleUnifiedDragOver}
@@ -1739,10 +1817,11 @@ export function DatasetAnnotationWorkbench({
               onAnnotationFieldDragStart={handleDragStart}
               onAnnotationFieldDragOver={handleUnifiedDragOver}
               onAnnotationFieldDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation')}
-              onUpdateFieldConfig={handleUpdateFieldConfig}
-              isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
+              onUpdateFieldConfig={reviewRequestId ? undefined : handleUpdateFieldConfig}
+              isAdmin={user?.role?.toUpperCase() === 'ADMIN' && !reviewRequestId}
               cloneId={datasetId}
               currentRowId={currentTask?.id}
+              reviewRequestFields={reviewRequestId ? (reviewRequest?.fieldNames || []) : undefined}
               onImageClick={openImageOverlay}
               onVideoClick={openVideoOverlay}
             />

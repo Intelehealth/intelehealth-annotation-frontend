@@ -131,6 +131,16 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
     }
   };
 
+  const handleNotificationClick = async (notification: NotificationResponse) => {
+    if (!notification.isRead) await handleMarkAsRead(notification._id);
+    const metadata = notification.metadata || {};
+    if (notification.type === 'CONSENSUS_REVIEW_REQUESTED' && metadata.cloneDatasetId) {
+      const actionUrl = metadata.actionUrl ||
+        `/dataset/${metadata.cloneDatasetId}/annotation?taskId=${metadata.taskId || ''}&reviewRequestId=${metadata.reviewRequestId || ''}&rowIndex=${metadata.rowIndex ?? ''}`;
+      router.push(actionUrl);
+    }
+  };
+
   const effectiveCollapsed = forceCollapsed || isCollapsed;
   const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
   const isInvited = user?.invitedByAdmin !== false;
@@ -429,7 +439,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                 notifications.map((notif) => (
                   <div
                     key={notif._id}
-                    onClick={() => !notif.isRead && handleMarkAsRead(notif._id)}
+                    onClick={() => handleNotificationClick(notif)}
                     className={cn(
                       'p-3.5 text-left text-xs transition-colors cursor-pointer flex gap-2.5 items-start',
                       notif.isRead ? 'hover:bg-gray-50/50 text-gray-500' : 'bg-blue-50/10 hover:bg-blue-50/20 text-gray-900 font-semibold'

@@ -187,7 +187,7 @@ the app instead of owned by one module.
 `src/components/dataset-components/data-overview.tsx:831`:
 
 ```ts
-window.open(`http://localhost:5000/clones/${clone._id}/export?token=${localStorage.getItem('accessToken')}`, '_blank');
+window.open(`http://localhost:4000/clones/${clone._id}/export?token=${localStorage.getItem('accessToken')}`, '_blank');
 ```
 
 **Why it hurts:** Bearer tokens in URLs leak into browser history, server access logs, and the
@@ -197,16 +197,14 @@ window.open(`http://localhost:5000/clones/${clone._id}/export?token=${localStora
 ### 3.4 🟠 `API_BASE_URL` resolved in 9 places, with a port mismatch
 
 `process.env.NEXT_PUBLIC_API_URL` is read in `api.ts:3`, `datasets.ts:11`, `users.ts:3`,
-`consensus.ts:4`, `GoogleOAuthAdmin.tsx:19`, `GoogleOAuth.tsx:21`, plus hardcoded hosts in
-`data-overview.tsx:831`. The fallbacks **disagree**:
+`consensus.ts:4`, `GoogleOAuthAdmin.tsx:19`, `GoogleOAuth.tsx:21`, plus the fallback in
+`data-overview.tsx:826`. The fallbacks now consistently use the backend's development port:
 
-- `GoogleOAuth.tsx:21` falls back to `http://localhost:5000`
-- everything else falls back to `http://localhost:3001`
-- README says the backend runs on `:5000`
+- all frontend API clients fall back to `http://localhost:4000`
+- the frontend README and backend configuration use the same API port
 
-**Why it hurts:** In any environment that relies on the fallback (misconfigured `.env`), Google
-sign-in points at a different origin than the rest of the app. Config should have **one source
-of truth**.
+**Why it hurts:** The fallback is duplicated across several modules and can drift again when a
+port or deployment URL changes. Config should have **one source of truth**.
 
 ### 3.5 🟠 JWT in `localStorage` (XSS exposure)
 
@@ -362,7 +360,7 @@ Ordered by **value ÷ risk**. Tier 1 is safe and behavior-preserving; Tier 3 is 
 should follow a test-harness investment.
 
 ## Tier 1 — Safe, behavior-preserving (do first)
-1. **`lib/config.ts`** — export `API_BASE_URL` and constants (`HEARTBEAT_MS=60000`, `NOTIFICATIONS_POLL_MS=15000`, `TOAST_MS=5000`, `ROWS_PAGE_SIZE=50`). Replace 9 env reads + magic numbers. Resolves the port mismatch (§3.4).
+1. **`lib/config.ts`** — export `API_BASE_URL` and constants (`HEARTBEAT_MS=60000`, `NOTIFICATIONS_POLL_MS=15000`, `TOAST_MS=5000`, `ROWS_PAGE_SIZE=50`). Replace 9 env reads + magic numbers. Prevents future port drift (§3.4).
 2. **`lib/auth-storage.ts`** — `getToken/setToken/getUser/setUser/clearAuth`, SSR-guarded. Replace all 40 sites (§3.2).
 3. **Unify HTTP** — point `datasets.ts`/`consensus.ts`/`users.ts` at the shared client (or a shared `authHeaders()` helper) so all 10 modules behave identically (§3.1). Single `download.ts` (§3.8).
 4. **`lib/format.ts`** — one `formatDate` + `formatISTTimestamp`; delete the 7 copies (§3.8).
@@ -390,7 +388,7 @@ should follow a test-harness investment.
 ```ts
 // Single source of truth for environment + tunables.
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export const TIMINGS = {
   heartbeatMs: 60_000,
@@ -469,7 +467,7 @@ http.interceptors.response.use(
 **Before** (`datasets.ts`, repeated per module):
 
 ```ts
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('accessToken')}` };
 }

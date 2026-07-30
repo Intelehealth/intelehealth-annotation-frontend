@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import type { AnnotationTask } from '@/types/feature1';
 import { computeTaskStatus } from '@/types/feature1';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Sidebar } from '@/components/sidebar';
 import { Separator } from '@/components/ui/separator';
@@ -41,7 +41,7 @@ import {
 } from 'recharts';
 
 // ─── Page entrance animation variants ─────────────────────────────────────
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -49,7 +49,7 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 24, scale: 0.97 },
   visible: {
     opacity: 1, y: 0, scale: 1,

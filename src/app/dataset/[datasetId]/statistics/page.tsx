@@ -11,7 +11,7 @@ import { useToast } from '@/components/ui/toast';
 import { consensusAPI } from '@/lib/api/consensus';
 import { TopNav } from '@/components/top-nav';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Loader2, BarChart3, Users, List, Clock, GitCompare, Activity, FileText, Settings, Download, RefreshCw, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Loader2, BarChart3, Users, List, Clock, GitCompare, Activity, FileText, Settings, Download, RefreshCw, RotateCcw, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const KPI_CARD_STYLES: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -454,7 +454,7 @@ export default function StatisticsPage() {
                         {health.components && Object.entries(health.components).map(([key, val]) => (
                           <div key={key} className="flex justify-between">
                             <span className="text-xs text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                            <span className="text-sm font-bold">{typeof val === 'number' ? Math.round(val as number) : val}</span>
+                             <span className="text-sm font-bold">{typeof val === 'number' ? Math.round(val as number) : String(val)}</span>
                           </div>
                         ))}
                       </CardContent>

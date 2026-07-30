@@ -21,7 +21,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'npm run dev',
-      url: 'http://localhost:3000',
+      url: 'http://localhost:3000/login',
       reuseExistingServer: !process.env.CI,
       timeout: 120000,
       cwd: '/mnt/d/smirthi project/Annotation project/annotation-platform-frontend',

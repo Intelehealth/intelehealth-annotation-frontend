@@ -52,6 +52,7 @@ interface NewColumnDataPanelProps {
   isAdmin?: boolean;
   cloneId?: string;
   currentRowId?: string;
+  reviewRequestFields?: string[];
   onImageClick?: (imageUrls: string[], index: number) => void;
   onVideoClick?: (videoUrls: string[], index: number) => void;
 }
@@ -667,6 +668,7 @@ export function NewColumnDataPanel({
   isAdmin = false,
   cloneId,
   currentRowId,
+  reviewRequestFields,
   onImageClick,
   onVideoClick,
 }: NewColumnDataPanelProps) {
@@ -1291,6 +1293,9 @@ export function NewColumnDataPanel({
     // Media fields have interactive native controls (play/seek/volume) — card-level
     // drag-and-drop must be disabled or the browser's native drag hijacks control clicks.
     const canDragCard = isDraggable && !['audio', 'video', 'image'].includes(field.fieldType);
+    const fieldEditable =
+      reviewRequestFields === undefined || reviewRequestFields.includes(field.fieldName);
+    const isRequestedField = reviewRequestFields?.includes(field.fieldName) === true;
 
 
     return (
@@ -1312,7 +1317,9 @@ export function NewColumnDataPanel({
           'p-4 border border-gray-200 rounded-lg bg-gray-50 transition-all duration-200 relative',
           isFocused
             ? 'border-teal-500 bg-teal-50/10 shadow-md'
-            : 'hover:shadow-md hover:bg-gray-100/70',
+            : isRequestedField
+              ? 'border-violet-400 bg-violet-50/60 shadow-[0_0_0_2px_rgba(139,92,246,0.15)]'
+              : 'hover:shadow-md hover:bg-gray-100/70',
           canDragCard ? 'cursor-move' : 'cursor-default',
           draggedField === field.csvColumnName && 'opacity-50 bg-teal-50 border-teal-300'
         )}
@@ -1490,6 +1497,7 @@ export function NewColumnDataPanel({
                   type="text"
                   value={value}
                   onChange={e => onNewColumnChange(field.fieldName, e.target.value)}
+                  disabled={!fieldEditable}
                   onFocus={() => setFocusedFieldId(field.fieldName)}
                   placeholder={field.placeholder || `Enter value…`}
                   maxLength={field.maxLength}
@@ -1500,6 +1508,7 @@ export function NewColumnDataPanel({
                   type="number"
                   value={value}
                   onChange={e => onNewColumnChange(field.fieldName, e.target.value)}
+                  disabled={!fieldEditable}
                   onFocus={() => setFocusedFieldId(field.fieldName)}
                   min={field.min} max={field.max}
                   className="w-full text-sm h-9 border-gray-200 rounded-lg focus-visible:ring-1 focus-visible:ring-teal-500"
@@ -1509,6 +1518,7 @@ export function NewColumnDataPanel({
                   type="date"
                   value={value}
                   onChange={e => onNewColumnChange(field.fieldName, e.target.value)}
+                  disabled={!fieldEditable}
                   min={field.minDate} max={field.maxDate}
                   className="w-full text-sm h-9 border-gray-200 rounded-lg focus-visible:ring-1 focus-visible:ring-teal-500"
                 />
@@ -1516,6 +1526,7 @@ export function NewColumnDataPanel({
                 <Textarea
                   value={value}
                   onChange={e => onNewColumnChange(field.fieldName, e.target.value)}
+                  disabled={!fieldEditable}
                   onFocus={() => setFocusedFieldId(field.fieldName)}
                   onBlur={() => setFocusedFieldId(null)}
                   placeholder={field.placeholder || `Enter details…`}
@@ -1559,20 +1570,20 @@ export function NewColumnDataPanel({
               <ConditionalFieldRenderer
                 field={field}
                 formData={newColumnData}
-                onChange={(data) => {
+                onChange={fieldEditable ? (data) => {
                   Object.keys(data).forEach(key => {
                     if (data[key] !== newColumnData[key]) {
                       onNewColumnChange(key, data[key]);
                     }
                   });
-                }}
+                } : () => {}}
               />
             ) : (
               <DecisionCardEngine
                 field={field}
                 options={options}
                 value={value}
-                onChange={v => onNewColumnChange(field.fieldName, v)}
+                onChange={fieldEditable ? v => onNewColumnChange(field.fieldName, v) : () => {}}
               />
             )
           )}
@@ -2362,7 +2373,7 @@ export function NewColumnDataPanel({
           <DialogHeader>
             <DialogTitle>Request Permission</DialogTitle>
             <DialogDescription>
-              You don't have permission to <strong>{showPermissionRequest?.action?.toLowerCase()}</strong> on "{showPermissionRequest?.fieldName}".
+              You don&apos;t have permission to <strong>{showPermissionRequest?.action?.toLowerCase()}</strong> on &quot;{showPermissionRequest?.fieldName}&quot;.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3">

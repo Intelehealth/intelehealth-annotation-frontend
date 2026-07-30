@@ -93,32 +93,6 @@ export function DataOverview({
     }
   };
 
-  // Generate consensus — called from clone panel button
-  const handleGenerateConsensus = async () => {
-    if (!datasetId) return;
-    try {
-      setIsGeneratingConsensus(true);
-      const result = await datasetsAPI.generateConsensus(datasetId);
-      showToast({
-        title: 'Consensus generated!',
-        description: `${result.reviewsCreated} rows compared. Redirecting to review…`,
-        type: 'success',
-      });
-      router.push(`/dataset/${datasetId}/generate-consensus`);
-    } catch (err: any) {
-      const msg: string = err?.response?.data?.message || err?.message || 'Failed to generate consensus.';
-      showToast({
-        title: 'Consensus generation failed',
-        description: msg,
-        type: 'error',
-      });
-    } finally {
-      setIsGeneratingConsensus(false);
-    }
-  };
-
-
-
   const loadCSVImports = async () => {
     try {
       setLoading(true);
