@@ -1675,24 +1675,24 @@ export function DatasetAnnotationWorkbench({
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="flex flex-col h-full w-full min-w-0 bg-gray-50">
       {/* Inspection Banner */}
       {isInspectMode && (
-        <div className="bg-blue-600 text-white px-6 py-2 flex items-center justify-between shadow-md z-10">
-          <div className="flex items-center gap-3">
+        <div className="bg-blue-600 text-white px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 shadow-md z-10">
+          <div className="flex flex-wrap items-center gap-3 min-w-0">
             <span className="text-sm font-bold uppercase tracking-wider">🔍 Inspection Mode</span>
             <span className="text-blue-100 text-sm">Viewing clone — Read Only</span>
           </div>
           <button
             onClick={() => router.push(returnTo || `/dataset/${datasetId}`)}
-            className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0"
           >
             {returnTo ? 'Back' : 'Exit Inspection'}
           </button>
         </div>
       )}
       {/* Main Content Area - Resizable Panels */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-w-0 overflow-hidden">
         <ResizablePanels
           leftPanel={
             <MetadataDisplay

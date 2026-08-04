@@ -23,7 +23,7 @@ export default function AnnotationPage() {
 
   if (isDatasetLevel) {
     return (
-      <div className="h-screen">
+      <div className="h-dvh">
         <DatasetAnnotationWorkbench
           datasetId={datasetId}
           taskId={taskId}
@@ -34,7 +34,7 @@ export default function AnnotationPage() {
     );
   } else {
     return (
-      <div className="h-screen">
+      <div className="h-dvh">
         <AnnotationWorkbench csvImportId={csvImportId} datasetId={datasetId} />
       </div>
     );

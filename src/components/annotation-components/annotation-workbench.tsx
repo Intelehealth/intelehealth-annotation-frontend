@@ -1536,10 +1536,11 @@ export function AnnotationWorkbench({
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="flex flex-col h-full w-full min-w-0 bg-gray-50">
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 min-w-0 overflow-hidden">
         {/* Left Panel: Metadata Display */}
+        <div className="w-full min-w-0 h-1/2 lg:h-full lg:w-auto overflow-hidden flex flex-col">
         <MetadataDisplay
           metadata={{ ...metadata, rowIndex: currentTask?.rowIndex }}
           orderedMetadataFields={orderedMetadataFields}
@@ -1564,8 +1565,10 @@ export function AnnotationWorkbench({
           onPanelDragOver={handleDragOver}
           onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
         />
+        </div>
 
         {/* Right Panel: New Column Data Entry */}
+        <div className="w-full min-w-0 h-1/2 lg:h-full lg:flex-1 overflow-hidden flex flex-col">
         <NewColumnDataPanel
           annotationConfig={annotationConfig}
           newColumnData={newColumnData}
@@ -1590,6 +1593,7 @@ export function AnnotationWorkbench({
           onImageClick={openImageOverlay}
           onVideoClick={openVideoOverlay}
         />
+        </div>
               </div>
 
       {/* Fixed Footer: Row Navigation */}
