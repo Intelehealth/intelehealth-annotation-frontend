@@ -241,7 +241,7 @@ export default function CollaborativeReviewSessionPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar className="hidden lg:flex" />
       <main className="flex-1 overflow-auto">
         <TopNav />
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">

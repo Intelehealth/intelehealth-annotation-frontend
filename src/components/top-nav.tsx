@@ -3,18 +3,19 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Menu, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Sidebar } from '@/components/sidebar';
+import { MobileNav } from '@/components/mobile-nav';
 
 interface TopNavProps {
   onRefresh?: () => void;
   refreshing?: boolean;
   children?: React.ReactNode;
+  /** When false, the mobile hamburger is omitted (e.g. when the layout already provides it). */
+  showMobileNav?: boolean;
 }
 
-export function TopNav({ onRefresh, refreshing, children }: TopNavProps) {
+export function TopNav({ onRefresh, refreshing, children, showMobileNav = true }: TopNavProps) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 10);
@@ -29,22 +30,13 @@ export function TopNav({ onRefresh, refreshing, children }: TopNavProps) {
       )}
     >
       <div className="flex items-center justify-between px-4 md:px-6 h-16 max-w-7xl mx-auto">
-        <div className="flex items-center gap-3">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72">
-              <Sidebar forceCollapsed={false} />
-            </SheetContent>
-          </Sheet>
+        <div className="flex items-center gap-3 min-w-0">
+          {showMobileNav && <MobileNav />}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {children}
           {onRefresh && (
-            <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing} className="h-9 gap-1.5 text-sm">
+            <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing} className="h-9 gap-1.5 text-sm flex-shrink-0">
               <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>

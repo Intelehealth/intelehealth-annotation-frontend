@@ -258,7 +258,7 @@ export default function DatasetDetailPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar className="hidden lg:flex" />
       <main className="flex-1 overflow-auto">
         <TopNav />
         <motion.div

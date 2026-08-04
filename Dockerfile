@@ -14,7 +14,7 @@ RUN npm install --frozen-lockfile --prefer-offline
 COPY . .
 
 # Build-time env var — baked into the JS bundle at compile time
-ARG NEXT_PUBLIC_API_URL=http://localhost:5000
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production

@@ -116,11 +116,58 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-  }
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overflow-x: clip;
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    overflow-x: clip;
+    min-height: 100dvh;
+    text-rendering: optimizeLegibility;
+  }
+  @media screen and (max-width: 767px) {
+    body {
+      font-size: 16px;
+    }
+  }
+}
+
+/* ─── Responsive foundation ──────────────────────────────────────────────── */
+/* Prevent media and rich content from overflowing the viewport */
+img,
+video,
+canvas,
+svg,
+iframe {
+  max-width: 100%;
+}
+
+/* Allow flex/grid children to shrink instead of forcing horizontal overflow */
+.flex > *,
+.grid > * {
+  min-width: 0;
+}
+
+/* Tables scroll horizontally on small screens instead of breaking layout */
+.table-responsive,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+}
+
+/* Consistent reduced-motion for mobile interactions */
+@media (hover: none) {
+  input[type='range'],
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card-3d-inner:hover {
+    transform: none;
   }
 }
 

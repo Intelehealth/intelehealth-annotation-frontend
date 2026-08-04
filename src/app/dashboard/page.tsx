@@ -20,7 +20,6 @@ import {
   BarChart3,
   Target,
   FileText,
-  Menu,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,8 +32,6 @@ import { useToast } from '@/components/ui/toast';
 import type { AnnotationTask } from '@/types/feature1';
 import { computeTaskStatus } from '@/types/feature1';
 import { motion } from 'framer-motion';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Sidebar } from '@/components/sidebar';
 import { Separator } from '@/components/ui/separator';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -77,25 +74,15 @@ function TopNav({ title, onRefresh, refreshing, children }: {
       )}
     >
       <div className="flex items-center justify-between px-4 md:px-6 h-16 max-w-7xl mx-auto">
-        <div className="flex items-center gap-3">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72">
-              <Sidebar forceCollapsed={false} />
-            </SheetContent>
-          </Sheet>
+        <div className="flex items-center gap-3 min-w-0">
           <div className="hidden sm:block">
-            <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+            <h1 className="text-lg font-semibold text-foreground whitespace-nowrap">{title}</h1>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {children}
           {onRefresh && (
-            <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing} className="h-9 gap-1.5 text-sm">
+            <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing} className="h-9 gap-1.5 text-sm flex-shrink-0">
               <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>

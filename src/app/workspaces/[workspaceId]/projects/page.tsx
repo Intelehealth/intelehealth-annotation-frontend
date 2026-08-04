@@ -7,7 +7,7 @@ import {
   Plus, RefreshCw, Search, Grid3X3, List, Filter, ArrowUpDown,
   Folder, FolderOpen, Activity, Clock, CheckCircle, Users,
   Database, FileText, TrendingUp, AlertCircle, LayoutDashboard,
-  Menu, ChevronRight, BarChart3, Zap, Layers, Cpu, GitBranch,
+  ChevronRight, BarChart3, Zap, Layers, Cpu, GitBranch,
   User, Edit, MoreHorizontal, Loader2, Star, Eye, Play,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -46,8 +46,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import { motion } from 'framer-motion';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Sidebar } from '@/components/sidebar';
 import { Separator } from '@/components/ui/separator';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -270,16 +268,6 @@ export default function ProjectsListing() {
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm -mx-4 md:-mx-6 px-4 md:px-6">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-72">
-                <Sidebar forceCollapsed={false} />
-              </SheetContent>
-            </Sheet>
             <div className="hidden sm:flex items-center gap-2 text-sm">
               <Link href={`/workspaces/${workspaceId}`} className="text-muted-foreground hover:text-foreground transition-colors">Workspace</Link>
               <ChevronRight className="h-3 w-3 text-muted-foreground" />

@@ -71,29 +71,29 @@ export function ResizablePanels({
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
   return (
-    <div 
+    <div
       ref={containerRef}
-      className={cn("flex h-full", className)}
+      className={cn("flex flex-col lg:flex-row h-full w-full overflow-hidden", className)}
+      style={{ '--left-w': `${leftWidth}%` } as React.CSSProperties}
     >
       {/* Left Panel */}
-      <div 
-        className="flex-shrink-0 overflow-hidden"
-        style={{ width: `${leftWidth}%` }}
+      <div
+        className="flex-shrink-0 overflow-hidden w-full h-[var(--left-w)] lg:h-full lg:w-[var(--left-w)] lg:overflow-hidden"
       >
         {leftPanel}
       </div>
 
-      {/* Resizable Divider */}
+      {/* Resizable Divider (desktop only) */}
       <div
         className={cn(
-          "flex-shrink-0 w-1 bg-gray-200 hover:bg-gray-300 cursor-col-resize transition-all duration-200 relative group",
+          "hidden lg:flex flex-shrink-0 w-1 bg-gray-200 hover:bg-gray-300 cursor-col-resize transition-all duration-200 relative group",
           isResizing && "bg-blue-400 shadow-lg"
         )}
         onMouseDown={handleMouseDown}
       >
         {/* Invisible hit area for easier grabbing */}
         <div className="absolute inset-y-0 -left-3 -right-3 cursor-col-resize" />
-        
+
         {/* Visual indicator with dots */}
         <div className="absolute inset-y-0 left-1/2 transform -translate-x-1/2 flex flex-col justify-center items-center space-y-1">
           <div className="w-1 h-1 bg-gray-400 rounded-full group-hover:bg-gray-600 transition-colors duration-200" />
@@ -103,9 +103,8 @@ export function ResizablePanels({
       </div>
 
       {/* Right Panel */}
-      <div 
-        className="flex-1 overflow-hidden"
-        style={{ width: `${100 - leftWidth}%` }}
+      <div
+        className="flex-1 overflow-hidden w-full h-full"
       >
         {rightPanel}
       </div>

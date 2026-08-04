@@ -203,7 +203,7 @@ export default function ReviewConsensusPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar className="hidden lg:flex" />
       <main className="flex-1 overflow-auto">
         <TopNav />
         <div className="mx-auto max-w-[1500px] space-y-4 p-4 md:p-6">

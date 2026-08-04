@@ -46,7 +46,7 @@ export function HeroSection() {
   }, [mouseX, mouseY])
 
   return (
-    <section ref={heroRef} className="relative h-screen flex items-center justify-center overflow-hidden pt-20">
+    <section ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden pt-24 pb-20">
       {/* 3D Animated Particle Field Background with scroll parallax */}
       <motion.div
         style={{ y: bgY, opacity: bgOpacity, scale: bgScale }}
@@ -65,7 +65,7 @@ export function HeroSection() {
       >
         <TextReveal
           text="The world's most important decisions need reliable data annotation."
-          className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-tight"
+          className="text-3xl sm:text-5xl md:text-6xl lg:text-8xl font-bold text-white mb-6 leading-tight"
           as="h1"
         />
 
@@ -73,7 +73,7 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8, duration: 0.8, ease: EASE_OUT_EXPO }}
-          className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto"
+          className="text-base sm:text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto"
         >
           We work across the AI stack, from the data that trains models to the systems that put them to work.
         </motion.p>
@@ -82,18 +82,18 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.0, duration: 0.8, ease: EASE_OUT_EXPO }}
-          className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+          className="flex flex-col sm:flex-row gap-4 justify-center items-center w-full"
         >
-          <MagneticButton href="/dashboard" strength={0.4}>
-            <span className="inline-flex items-center justify-center px-8 py-4 text-lg font-medium rounded-lg bg-white text-black hover:bg-gray-200 transition-all duration-300 group">
+          <MagneticButton href="/dashboard" strength={0.4} className="w-full sm:w-auto">
+            <span className="inline-flex items-center justify-center w-full sm:w-auto min-h-[44px] px-8 py-4 text-lg font-medium rounded-lg bg-white text-black hover:bg-gray-200 transition-all duration-300 group">
               <span className="transition-transform duration-300 group-hover:scale-90">
                 Get Started
               </span>
             </span>
           </MagneticButton>
 
-          <MagneticButton href="/documentation" strength={0.4}>
-            <span className="inline-flex items-center justify-center px-8 py-4 text-lg font-medium rounded-lg border-2 border-white text-white hover:bg-white hover:text-black transition-all duration-300 group relative overflow-hidden">
+          <MagneticButton href="/documentation" strength={0.4} className="w-full sm:w-auto">
+            <span className="inline-flex items-center justify-center w-full sm:w-auto min-h-[44px] px-8 py-4 text-lg font-medium rounded-lg border-2 border-white text-white hover:bg-white hover:text-black transition-all duration-300 group relative overflow-hidden">
               <span className="absolute inset-0 bg-black opacity-0 mix-blend-multiply transition-opacity duration-300 group-hover:opacity-0" />
               <span className="transition-transform duration-300 group-hover:scale-90">
                 Learn More

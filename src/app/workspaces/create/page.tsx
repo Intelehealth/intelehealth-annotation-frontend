@@ -220,7 +220,7 @@ export default function CreateWorkspacePage() {
             </div>
           </motion.div>
 
-          <div className="flex gap-6">
+          <div className="flex flex-col lg:flex-row gap-6">
             {/* Left Panel */}
             <div className="flex-1 space-y-6 max-w-2xl">
               {/* Workspace Name + Description */}
@@ -338,7 +338,7 @@ export default function CreateWorkspacePage() {
             </div>
 
             {/* Center: Module Marketplace */}
-            <motion.div variants={itemVariants} className="w-[400px] flex-shrink-0">
+            <motion.div variants={itemVariants} className="w-full lg:w-[400px] lg:flex-shrink-0">
               <div className="sticky top-24 bg-white rounded-2xl border shadow-sm overflow-hidden">
                 <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
                   <h2 className="text-lg font-bold text-foreground flex items-center gap-2">

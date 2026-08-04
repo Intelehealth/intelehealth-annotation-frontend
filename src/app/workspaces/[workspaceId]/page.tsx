@@ -15,7 +15,6 @@ import {
   LayoutDashboard,
   AlertCircle,
   FileText,
-  Menu,
   Settings,
   Edit,
   Download,
@@ -47,8 +46,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import { motion } from 'framer-motion';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Sidebar } from '@/components/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -292,16 +289,6 @@ function TopNav({ title, onRefresh, refreshing, children }: {
     <header className={cn('sticky top-0 z-40 transition-all duration-300', scrolled ? 'glass-strong shadow-sm' : 'bg-background/80 backdrop-blur-sm')}>
       <div className="flex items-center justify-between px-4 md:px-6 h-16 max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72">
-              <Sidebar forceCollapsed={false} />
-            </SheetContent>
-          </Sheet>
           <div className="hidden sm:block">
             <h1 className="text-lg font-semibold text-foreground">{title}</h1>
           </div>
@@ -634,6 +621,7 @@ export default function WorkspaceDashboard() {
             )}
           </div>
         </div>
+      </motion.div>
       </motion.div>
     </div>
   );

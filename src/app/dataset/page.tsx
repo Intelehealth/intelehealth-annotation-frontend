@@ -47,7 +47,7 @@ export default function DatasetPage() {
 
   return (
     <div className="h-screen bg-gray-50 flex overflow-hidden">
-      <Sidebar />
+      <Sidebar className="hidden lg:flex" />
       <main className="flex-1 overflow-auto">
         <TopNav />
         <motion.div variants={containerVariants} initial="hidden" animate="visible" className="p-4 md:p-6">

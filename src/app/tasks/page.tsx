@@ -298,9 +298,10 @@ export default function MyTasksPage() {
   if (!isInvited) {
     return (
       <div className="flex h-screen bg-gray-50">
-        <Sidebar />
+        <Sidebar className="hidden lg:flex" />
 
         <main className="flex-1 overflow-auto">
+          <TopNav />
           <div className="p-6 max-w-5xl mx-auto">
             {/* Header */}
             <div className="flex items-start justify-between mb-6">
@@ -342,7 +343,7 @@ export default function MyTasksPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar className="hidden lg:flex" />
       <main className="flex-1 overflow-auto">
         <TopNav />
         <motion.div

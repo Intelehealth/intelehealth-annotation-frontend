@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import {
   Plus, RefreshCw, Search, Database, Users, CheckCircle, Clock,
   TrendingUp, Activity, ArrowRight, Folder, LayoutDashboard,
-  AlertCircle, FileText, Menu, Settings, Eye, Play, Pause,
+  AlertCircle, FileText, Settings, Eye, Play, Pause,
   GitBranch, BarChart3, Cpu, Upload, Scan, FileCheck, Layers,
   Zap, ChevronRight, Home, Loader2, Star, Bot, Grid3X3, List,
   Download,
@@ -58,8 +58,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import { motion } from 'framer-motion';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Sidebar } from '@/components/sidebar';
 import { Separator } from '@/components/ui/separator';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -295,16 +293,6 @@ export default function ProjectDashboard() {
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm -mx-4 md:-mx-6 px-4 md:px-6">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-72">
-                <Sidebar forceCollapsed={false} />
-              </SheetContent>
-            </Sheet>
             <div className="hidden sm:flex items-center gap-2 text-sm">
               <Link href={`/workspaces/${workspaceId}`} className="text-muted-foreground hover:text-foreground transition-colors">Workspace</Link>
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
