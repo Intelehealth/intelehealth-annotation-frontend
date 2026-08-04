@@ -73,12 +73,12 @@ export function ResizablePanels({
   return (
     <div
       ref={containerRef}
-      className={cn("flex flex-col lg:flex-row h-full w-full overflow-hidden", className)}
+      className={cn("flex flex-col lg:flex-row h-full w-full overflow-y-auto lg:overflow-hidden", className)}
       style={{ '--left-w': `${leftWidth}%` } as React.CSSProperties}
     >
       {/* Left Panel */}
       <div
-        className="flex-shrink-0 overflow-hidden w-full min-w-0 h-1/2 lg:h-full lg:w-[var(--left-w)] lg:overflow-hidden"
+        className="flex-shrink-0 w-full min-w-0 lg:h-full lg:w-[var(--left-w)] lg:overflow-hidden"
       >
         {leftPanel}
       </div>
@@ -104,7 +104,7 @@ export function ResizablePanels({
 
       {/* Right Panel */}
       <div
-        className="flex-1 overflow-hidden w-full h-full min-w-0"
+        className="flex-1 w-full min-w-0 lg:h-full lg:overflow-hidden"
       >
         {rightPanel}
       </div>

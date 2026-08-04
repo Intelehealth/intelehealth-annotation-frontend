@@ -1536,11 +1536,11 @@ export function AnnotationWorkbench({
   }
 
   return (
-    <div className="flex flex-col h-full w-full min-w-0 bg-gray-50">
+    <div className="flex flex-col h-full w-full min-w-0 overflow-hidden bg-gray-50">
       {/* Main Content Area */}
-      <div className="flex flex-col lg:flex-row flex-1 min-w-0 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 min-w-0 overflow-y-auto lg:overflow-hidden">
         {/* Left Panel: Metadata Display */}
-        <div className="w-full min-w-0 h-1/2 lg:h-full lg:w-auto overflow-hidden flex flex-col">
+        <div className="w-full min-w-0 lg:h-full lg:w-auto lg:overflow-hidden flex flex-col">
         <MetadataDisplay
           metadata={{ ...metadata, rowIndex: currentTask?.rowIndex }}
           orderedMetadataFields={orderedMetadataFields}
@@ -1568,7 +1568,7 @@ export function AnnotationWorkbench({
         </div>
 
         {/* Right Panel: New Column Data Entry */}
-        <div className="w-full min-w-0 h-1/2 lg:h-full lg:flex-1 overflow-hidden flex flex-col">
+        <div className="w-full min-w-0 lg:h-full lg:flex-1 lg:overflow-hidden flex flex-col">
         <NewColumnDataPanel
           annotationConfig={annotationConfig}
           newColumnData={newColumnData}

@@ -1713,17 +1713,17 @@ export function NewColumnDataPanel({
               </span>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center flex-wrap gap-2 w-full sm:w-auto shrink-0">
+          <div className="flex flex-col lg:flex-row lg:items-center flex-wrap gap-2 w-full lg:w-auto shrink-0">
             {onUpdateFieldConfig && (
-              <>
+              <div className="flex flex-1 lg:flex-none gap-2 w-full lg:w-auto lg:min-w-0">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   onClick={handleAddNewQuestion}
-                  className="border-teal-200 text-teal-700 hover:bg-teal-50 text-xs font-semibold h-8 w-full sm:w-auto justify-center"
+                  className="border-teal-200 text-teal-700 hover:bg-teal-50 text-xs font-semibold h-8 flex-1 lg:flex-none justify-center min-w-0"
                 >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  <Plus className="h-3.5 w-3.5 mr-1 shrink-0" />
                   Add New Question
                 </Button>
                 <Button
@@ -1731,19 +1731,19 @@ export function NewColumnDataPanel({
                   size="sm"
                   variant="outline"
                   onClick={handleAddRepeatGroup}
-                  className="border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-semibold h-8 w-full sm:w-auto justify-center"
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-semibold h-8 flex-1 lg:flex-none justify-center min-w-0"
                 >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  <Plus className="h-3.5 w-3.5 mr-1 shrink-0" />
                   Add Repeat Group
                 </Button>
-              </>
+              </div>
             )}
             <Button
               type="button"
               size="sm"
               onClick={onExportAllColumns}
               disabled={isSaving}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs h-8 px-3 cursor-pointer transition-colors shadow-sm w-full sm:w-auto justify-center"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs h-8 px-3 cursor-pointer transition-colors shadow-sm w-full lg:w-auto justify-center"
             >
               Download CSV
             </Button>

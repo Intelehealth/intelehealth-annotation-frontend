@@ -386,10 +386,10 @@ export function DataOverview({
   // Initial View (No Uploaded Data)
   if (!loading && csvImports.length === 0) {
     return (
-      <div className={cn('space-y-6', className)}>
+      <div className={cn('space-y-6 overflow-x-hidden', className)}>
         {/* Header with Upload and Configure Fields Buttons */}
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col md:flex-row items-start gap-4 md:items-center md:justify-between min-w-0">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900">
               {datasetInfo?.name || 'Data Overview'}
             </h1>
@@ -397,22 +397,24 @@ export function DataOverview({
               {'Data Overview - Manage and monitor your uploaded data files'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col md:flex-row md:items-center flex-wrap gap-3 w-full md:w-auto min-w-0">
             <Button
               onClick={onNavigateToFieldConfig}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full md:w-auto justify-center flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
             >
               <Settings className="h-4 w-4" />
               Configure Fields
             </Button>
-            <ExportDropdown
-              options={exportOptions}
-              disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
-            />
+            <div className="w-full md:w-auto flex-shrink-0 min-w-0">
+              <ExportDropdown
+                options={exportOptions}
+                disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+              />
+            </div>
             <Button
               onClick={handleStartDatasetAnnotation}
               disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full md:w-auto justify-center flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {checkingConfig || checkingAnnotationProgress ? (
                 <>
@@ -502,9 +504,9 @@ export function DataOverview({
   // Loading State
   if (loading) {
     return (
-      <div className={cn('space-y-6', className)}>
-        <div className="flex items-center justify-between">
-          <div>
+      <div className={cn('space-y-6 overflow-x-hidden', className)}>
+        <div className="flex flex-col md:flex-row items-start gap-4 md:items-center md:justify-between min-w-0">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900">
               {datasetInfo?.name || 'Data Overview'}
             </h1>
@@ -512,22 +514,24 @@ export function DataOverview({
               {'Data Overview - Manage and monitor your uploaded data files'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col md:flex-row md:items-center flex-wrap gap-3 w-full md:w-auto min-w-0">
             <Button
               onClick={onNavigateToFieldConfig}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full md:w-auto justify-center flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
             >
               <Settings className="h-4 w-4" />
               Configure Fields
             </Button>
-            <ExportDropdown
-              options={exportOptions}
-              disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
-            />
+            <div className="w-full md:w-auto flex-shrink-0 min-w-0">
+              <ExportDropdown
+                options={exportOptions}
+                disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+              />
+            </div>
             <Button
               onClick={handleStartDatasetAnnotation}
               disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full md:w-auto justify-center flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {checkingConfig || checkingAnnotationProgress ? (
                 <>
@@ -555,9 +559,9 @@ export function DataOverview({
   // Error State
   if (error) {
     return (
-      <div className={cn('space-y-6', className)}>
-        <div className="flex items-center justify-between">
-          <div>
+      <div className={cn('space-y-6 overflow-x-hidden', className)}>
+        <div className="flex flex-col md:flex-row items-start gap-4 md:items-center md:justify-between min-w-0">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900">
               {datasetInfo?.name || 'Data Overview'}
             </h1>
@@ -565,22 +569,24 @@ export function DataOverview({
               {'Data Overview - Manage and monitor your uploaded data files'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col md:flex-row md:items-center flex-wrap gap-3 w-full md:w-auto min-w-0">
             <Button
               onClick={onNavigateToFieldConfig}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full md:w-auto justify-center flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
             >
               <Settings className="h-4 w-4" />
               Configure Fields
             </Button>
-            <ExportDropdown
-              options={exportOptions}
-              disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
-            />
+            <div className="w-full md:w-auto flex-shrink-0 min-w-0">
+              <ExportDropdown
+                options={exportOptions}
+                disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+              />
+            </div>
             <Button
               onClick={handleStartDatasetAnnotation}
               disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full md:w-auto justify-center flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {checkingConfig || checkingAnnotationProgress ? (
                 <>
@@ -622,33 +628,35 @@ export function DataOverview({
 
   // View with Existing Data
   return (
-    <div className={cn('space-y-6', className)}>
+    <div className={cn('space-y-6 overflow-x-hidden', className)}>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {datasetInfo?.name || 'Data Overview'}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            {"Data Overview - Manage and monitor your uploaded data files"}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col md:flex-row items-start gap-4 md:items-center md:justify-between min-w-0">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900">
+              {datasetInfo?.name || 'Data Overview'}
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {"Data Overview - Manage and monitor your uploaded data files"}
+            </p>
+          </div>
+          <div className="flex flex-col md:flex-row md:items-center flex-wrap gap-3 w-full md:w-auto min-w-0">
           <Button
             onClick={onNavigateToFieldConfig}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+            className="w-full md:w-auto justify-center flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
           >
             <Settings className="h-4 w-4" />
             Configure Fields
           </Button>
-          <ExportDropdown
-            options={exportOptions}
-            disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
-          />
+          <div className="w-full md:w-auto flex-shrink-0 min-w-0">
+            <ExportDropdown
+              options={exportOptions}
+              disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+            />
+          </div>
           <Button
             onClick={handleStartDatasetAnnotation}
             disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full md:w-auto justify-center flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {checkingConfig || checkingAnnotationProgress ? (
               <>
@@ -668,14 +676,14 @@ export function DataOverview({
       {/* CSV Imports List */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-600" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 min-w-0">
+            <CardTitle className="flex items-center gap-2 min-w-0">
+              <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" />
               Uploaded Files
             </CardTitle>
             <Button
               onClick={onNavigateToUpload}
-              className="flex items-center gap-2 bg-black hover:bg-gray-800 text-white"
+              className="mt-3 sm:mt-0 w-full md:w-auto justify-center flex items-center gap-2 bg-black hover:bg-gray-800 text-white"
             >
               <Upload className="h-4 w-4" />
               Upload Data
@@ -687,17 +695,17 @@ export function DataOverview({
             {csvImports.map((csvImport) => (
               <div
                 key={csvImport._id}
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
+                className="w-full min-w-0 flex items-center justify-between gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
               >
-                <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <div className="flex items-center space-x-4 min-w-0">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <FileText className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-medium text-gray-900 truncate">
+                    <h4 className="font-medium text-gray-900 break-all">
                       {csvImport.originalFileName}
                     </h4>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 min-w-0">
                       <span>{csvImport.totalRows} rows</span>
                       <span>•</span>
                       <span>

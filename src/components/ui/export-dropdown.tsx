@@ -37,7 +37,7 @@ export function ExportDropdown({ options, disabled = false }: ExportDropdownProp
   return (
     <Select value={selectedValue} onValueChange={handleValueChange} disabled={disabled}>
       <SelectTrigger className="w-full bg-green-600 hover:bg-green-700 text-white border-green-600 font-medium px-4 py-2 [&>svg]:!text-white [&>svg]:!fill-white [&>svg]:stroke-white [&>svg]:!stroke-white">
-        <span className="flex items-center text-white">
+        <span className="flex flex-1 items-center justify-center text-white">
           <FileText className="h-4 w-4 mr-2 text-white" />
           <SelectValue placeholder="Export CSV" />
         </span>

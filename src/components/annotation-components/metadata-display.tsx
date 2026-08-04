@@ -124,7 +124,7 @@ export function MetadataDisplay({
       <div className="p-3 sm:p-4 pb-2">
           <Button
             onClick={onNavigateBack}
-            className="bg-black hover:bg-gray-800 text-white font-medium px-4 py-2 w-full sm:w-auto justify-center"
+            className="bg-black hover:bg-gray-800 text-white font-medium px-4 py-2 justify-center"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dataset
@@ -133,9 +133,9 @@ export function MetadataDisplay({
 
       {/* Data Fields Header */}
       <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-b border-gray-100 min-w-0">
-        <h2 className="text-lg font-semibold text-gray-900 break-all">
+        <h2 className="text-lg font-semibold text-gray-900 flex items-center whitespace-nowrap">
           {datasetName && (
-            <span className="block lg:inline text-lg sm:text-2xl break-all">{datasetName} - </span>
+            <span className="text-lg sm:text-2xl">{datasetName} - </span>
           )}
           Data Fields
         </h2>
@@ -179,7 +179,7 @@ export function MetadataDisplay({
                 </Label>
               </div>
               {field.isPrimaryKey && (
-                <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded shrink-0">
                   Primary Key
                 </div>
               )}

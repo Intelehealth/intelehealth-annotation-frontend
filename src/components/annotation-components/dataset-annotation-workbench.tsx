@@ -1679,13 +1679,13 @@ export function DatasetAnnotationWorkbench({
       {/* Inspection Banner */}
       {isInspectMode && (
         <div className="bg-blue-600 text-white px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 shadow-md z-10">
-          <div className="flex flex-wrap items-center gap-3 min-w-0">
-            <span className="text-sm font-bold uppercase tracking-wider">🔍 Inspection Mode</span>
-            <span className="text-blue-100 text-sm">Viewing clone — Read Only</span>
+          <div className="flex flex-wrap items-center gap-3 min-w-0 w-full sm:w-auto">
+            <span className="text-sm font-bold uppercase tracking-wider whitespace-nowrap">🔍 Inspection Mode</span>
+            <span className="text-blue-100 text-sm whitespace-nowrap">Viewing clone — Read Only</span>
           </div>
           <button
             onClick={() => router.push(returnTo || `/dataset/${datasetId}`)}
-            className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0"
+            className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0 w-full sm:w-auto justify-center"
           >
             {returnTo ? 'Back' : 'Exit Inspection'}
           </button>

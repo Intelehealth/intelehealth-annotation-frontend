@@ -259,13 +259,13 @@ export default function DatasetDetailPage() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar className="hidden lg:flex" />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto min-w-0">
         <TopNav />
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="p-4 md:p-6"
+          className="p-4 md:p-6 min-w-0 overflow-x-hidden"
         >
           {renderContent()}
         </motion.div>
