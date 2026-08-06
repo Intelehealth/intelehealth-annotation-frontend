@@ -2,10 +2,10 @@
 
 import { Sidebar } from '@/components/sidebar';
 import { MobileNav } from '@/components/mobile-nav';
-import { Database } from 'lucide-react';
+import { Brand } from '@/components/brand';
 
 /**
- * Responsive authenticated app shell used by the dashboard, workspaces and
+ * Responsive authenticated app shell used by the dashboard and
  * profile layouts.
  *
  * - Desktop (>= lg): renders the permanent sidebar exactly as before.
@@ -26,10 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3 min-w-0">
             <MobileNav />
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Database className="h-4 w-4 text-white" />
-              </div>
-              <span className="font-bold text-gray-900 truncate">DataAnnotate</span>
+              <Brand size="sm" />
             </div>
           </div>
         </header>

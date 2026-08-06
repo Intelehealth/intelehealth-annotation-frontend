@@ -395,7 +395,7 @@ function AdminDashboard({ user }: { user: any }) {
 
       {/* KPI Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="Total Datasets" value={totalDatasets} icon={Database} sub="Active datasets in workspace" color="blue" empty={totalDatasets === 0} />
+           <StatCard label="Total Datasets" value={totalDatasets} icon={Database} sub="Active datasets" color="blue" empty={totalDatasets === 0} />
           <StatCard label="Total Users" value={totalUsers} icon={Users} sub="Total registered users" color="indigo" empty={totalUsers === 0} />
           <StatCard label="Active Users" value={activeUsers} icon={CheckCircle} sub="Can login and annotate" color="emerald" empty={activeUsers === 0} />
           <StatCard label="Pending Users" value={pendingUsers} icon={Clock} sub="Pending invitations" color="amber" empty={pendingUsers === 0} />

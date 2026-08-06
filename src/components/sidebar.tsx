@@ -27,12 +27,12 @@ import {
   BookOpen,
   Moon,
   Sun,
-  LayoutTemplate,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
+import { Brand } from '@/components/brand';
 
 function timeAgo(dateStr: string): string {
   const now = new Date();
@@ -148,13 +148,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <div className={cn('flex items-center space-x-3', effectiveCollapsed && 'hidden')}>
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-              <Database className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">DataAnnotate</h2>
-              <p className="text-xs text-gray-500">Annotation platform</p>
-            </div>
+            <Brand size="lg" />
           </div>
           {!forceCollapsed && (
             <Button
@@ -224,21 +218,6 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
         >
           <LayoutDashboard className={cn('h-5 w-5 flex-shrink-0', pathname === '/dashboard' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
           {!effectiveCollapsed && <span className="font-medium text-sm">Dashboard</span>}
-        </Link>
-
-        {/* WORKSPACES */}
-        <Link
-          href="/workspaces/templates"
-          className={cn(
-            'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
-            pathname.startsWith('/workspaces')
-              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
-              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-            effectiveCollapsed && 'justify-center px-2',
-          )}
-        >
-          <LayoutTemplate className={cn('h-5 w-5 flex-shrink-0', pathname.startsWith('/workspaces') ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
-          {!effectiveCollapsed && <span className="font-medium text-sm">Workspaces</span>}
         </Link>
 
         {/* ADMIN SIDEBAR SECTIONS */}

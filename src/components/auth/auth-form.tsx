@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
-import { API_BASE_URL, isBackendReachable } from "@/lib/api"
+import { Brand } from "@/components/brand"
 import { loginSchema, signupSchema, type LoginFormData, type SignupFormData } from "@/schemas/auth"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -53,17 +53,7 @@ export function AuthForm() {
     if (modeParam === "signup") setMode("signup")
     if (modeParam === "login") setMode("login")
     const errorParam = searchParams.get("error")
-    if (errorParam === "oauth_failed") {
-      const reason = searchParams.get("reason")
-      const messages: Record<string, string> = {
-        email_missing: "Google did not return an email address for your account. Please use a Google account that has an email.",
-        name_missing: "Google did not return your name. Please check your Google account details.",
-        account_disabled: "This account has been disabled. Please contact an administrator.",
-        oauth_token_exchange: "Google could not verify your credentials. Check that your Google OAuth Client ID and Secret are correct, and that the Authorized redirect URI matches.",
-        oauth_error: "Google OAuth authentication failed. Please try again.",
-      }
-      setError(messages[reason || "oauth_error"] || messages.oauth_error)
-    }
+    if (errorParam === "oauth_failed") setError("Google OAuth authentication failed. Please try again.")
     if (errorParam === "no_account") setError("No account found. Please create your account.")
     const emailParam = searchParams.get("email")
     if (emailParam) setEmail(emailParam)
@@ -154,31 +144,16 @@ export function AuthForm() {
     setTimeout(() => setDone(false), 2200)
   }
 
-  async function handleGoogleAuth() {
-    setError("")
-    // Verify the backend is reachable before redirecting so we never send the
-    // user to a dead URL (e.g. wrong/misconfigured port).
-    const reachable = await isBackendReachable()
-    if (!reachable) {
-      setError(
-        `Cannot reach the backend at ${API_BASE_URL}. Please make sure the server is running and try again.`
-      )
-      return
-    }
-    window.location.href = `${API_BASE_URL}/auth/google`
+  function handleGoogleAuth() {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+    window.location.href = `${backendUrl}/auth/google`
   }
 
   return (
     <div className="w-full max-w-md text-black">
       {/* Brand */}
       <div className="mb-8 flex items-center gap-3 animate-float-up" style={{ animationDelay: "40ms" }}>
-        <img src="/logo.png" alt="Logo" className="h-10 w-auto rounded-xl" />
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500">Platform</p>
-          <p className="text-sm font-medium text-gray-900">
-            Latent Verify
-          </p>
-        </div>
+        <Brand />
       </div>
 
       {/* Heading */}
