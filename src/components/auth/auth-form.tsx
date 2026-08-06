@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
+import { Brand } from "@/components/brand"
 import { loginSchema, signupSchema, type LoginFormData, type SignupFormData } from "@/schemas/auth"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -152,13 +153,7 @@ export function AuthForm() {
     <div className="w-full max-w-md text-black">
       {/* Brand */}
       <div className="mb-8 flex items-center gap-3 animate-float-up" style={{ animationDelay: "40ms" }}>
-        <img src="/logo.png" alt="Logo" className="h-10 w-auto rounded-xl" />
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500">Platform</p>
-          <p className="text-sm font-medium text-gray-900">
-            Latent Verify
-          </p>
-        </div>
+        <Brand />
       </div>
 
       {/* Heading */}
