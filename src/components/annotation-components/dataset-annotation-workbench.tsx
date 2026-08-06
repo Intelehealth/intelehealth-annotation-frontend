@@ -1726,7 +1726,6 @@ export function DatasetAnnotationWorkbench({
               annotationConfig={annotationConfig}
               newColumnData={newColumnData}
               onNewColumnChange={handleNewColumnChange}
-              onSaveAllNewColumnData={saveAllNewColumnData}
               onExportSelectedColumns={handleExportSelectedColumns}
               onExportAllColumns={handleExportAllColumns}
               isSaving={isSaving}
@@ -1762,6 +1761,8 @@ export function DatasetAnnotationWorkbench({
         onMarkAsCompleted={handleMarkAsCompleted}
         completedCount={annotatedTasks.length}
         totalCount={tasks.length}
+        onSaveAllNewColumnData={saveAllNewColumnData}
+        isSaving={isSaving}
       />
 
       {/* Image Overlay */}

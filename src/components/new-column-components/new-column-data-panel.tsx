@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, GripVertical, ChevronDown, ChevronRight, Settings, Plus, Trash2, Edit3, Wrench, Lock } from 'lucide-react';
+import { GripVertical, ChevronDown, ChevronRight, Settings, Plus, Trash2, Edit3, Wrench, Lock } from 'lucide-react';
 import { AnnotationField, AnnotationConfig } from '@/lib/api/csv-imports';
 import { cn } from '@/lib/utils';
 import { DragDropHelper } from '@/lib/drag-drop-helper';
@@ -35,7 +35,6 @@ interface NewColumnDataPanelProps {
   annotationConfig: AnnotationConfig | null;
   newColumnData: NewColumnData;
   onNewColumnChange: (fieldName: string, value: string) => void;
-  onSaveAllNewColumnData: () => void;
   onExportSelectedColumns: () => void;
   onExportAllColumns: () => void;
   isSaving: boolean;
@@ -650,7 +649,6 @@ export function NewColumnDataPanel({
   annotationConfig,
   newColumnData,
   onNewColumnChange,
-  onSaveAllNewColumnData,
   onExportSelectedColumns,
   onExportAllColumns,
   isSaving,
@@ -1683,6 +1681,12 @@ export function NewColumnDataPanel({
       onDrop={e => { e.preventDefault(); if (onDropFromMetadata) onDropFromMetadata(); }}
     >
 
+      {/* Section divider: Data Fields → Annotation Workbench (mobile & tablet only) */}
+      <div className="lg:hidden relative my-8 px-4 sm:px-5" aria-hidden="true">
+        <div className="h-0.5 w-full bg-gray-400" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-2 w-14 rounded-full bg-gray-500" />
+      </div>
+
       {/* ── Header ── */}
       <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 bg-white">
         <div className="h-10 hidden sm:block" /> {/* spacer for nav */}
@@ -2392,18 +2396,6 @@ export function NewColumnDataPanel({
         </DialogContent>
       </Dialog>
 
-      {/* ── Save controls ── */}
-      <div className="p-3 sm:p-4 border-t border-gray-100 bg-slate-50 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 flex-wrap">
-        <Button
-          size="sm"
-          onClick={onSaveAllNewColumnData}
-          disabled={isSaving}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 h-9 transition-colors shadow-sm w-full sm:w-auto justify-center"
-        >
-          <CheckCircle className="h-4 w-4 mr-2" />
-          {isSaving ? 'Saving…' : 'Save and Continue'}
-        </Button>
-      </div>
     </div>
   );
 }

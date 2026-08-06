@@ -1573,7 +1573,6 @@ export function AnnotationWorkbench({
           annotationConfig={annotationConfig}
           newColumnData={newColumnData}
           onNewColumnChange={handleNewColumnChange}
-          onSaveAllNewColumnData={saveAllNewColumnData}
           onExportSelectedColumns={exportSelectedColumnsToCSV}
           onExportAllColumns={exportAllColumnsToCSV}
           isSaving={isSaving}
@@ -1603,6 +1602,8 @@ export function AnnotationWorkbench({
         onNavigateTask={navigateTask}
         onJumpToRow={jumpToRow}
         onMarkAsCompleted={handleMarkAsCompleted}
+        onSaveAllNewColumnData={saveAllNewColumnData}
+        isSaving={isSaving}
       />
 
       {/* Image Overlay */}

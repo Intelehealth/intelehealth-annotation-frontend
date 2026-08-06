@@ -57,24 +57,24 @@ export function DatasetPagination({
   };
 
   return (
-    <div className={cn('flex items-center justify-center pt-3', className)}>
-      <div className="flex items-center space-x-2">
+    <div className={cn('flex justify-center pt-3', className)}>
+      <div className="flex items-center justify-center gap-2 flex-nowrap max-w-full overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:thin]">
         <Button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           variant="outline"
           size="sm"
-          className="flex items-center space-x-1 transition-all duration-200 hover:scale-105"
+          className="flex shrink-0 items-center gap-1 min-h-11 whitespace-nowrap transition-all duration-200 hover:scale-105"
         >
           <ChevronLeft className="h-4 w-4" />
           <span>Previous</span>
         </Button>
 
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center gap-2 flex-nowrap shrink-0">
           {getVisiblePages().map((page, index) => {
             if (page === '...') {
               return (
-                <span key={`dots-${index}`} className="px-2 py-1 text-sm text-gray-400">
+                <span key={`dots-${index}`} className="flex h-11 min-w-11 items-center justify-center px-2 text-sm text-gray-400 shrink-0">
                   ...
                 </span>
               );
@@ -88,7 +88,7 @@ export function DatasetPagination({
                 key={pageNumber}
                 onClick={() => onPageChange(pageNumber)}
                 className={cn(
-                  'px-3 py-2 text-sm rounded-md transition-all duration-200 hover:scale-105',
+                  'flex h-11 min-w-11 shrink-0 items-center justify-center px-2 text-sm rounded-md transition-all duration-200 hover:scale-105',
                   isCurrentPage
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -105,7 +105,7 @@ export function DatasetPagination({
           disabled={currentPage === totalPages}
           variant="outline"
           size="sm"
-          className="flex items-center space-x-1 transition-all duration-200 hover:scale-105"
+          className="flex shrink-0 items-center gap-1 min-h-11 whitespace-nowrap transition-all duration-200 hover:scale-105"
         >
           <span>Next</span>
           <ChevronRight className="h-4 w-4" />

@@ -397,15 +397,15 @@ export function DataOverview({
               {'Data Overview - Manage and monitor your uploaded data files'}
             </p>
           </div>
-          <div className="flex flex-col md:flex-row md:items-center flex-wrap gap-3 w-full md:w-auto min-w-0">
+          <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
             <Button
               onClick={onNavigateToFieldConfig}
-              className="w-full md:w-auto justify-center flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
             >
-              <Settings className="h-4 w-4" />
-              Configure Fields
+              <Settings className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate text-sm">Configure Fields</span>
             </Button>
-            <div className="w-full md:w-auto flex-shrink-0 min-w-0">
+            <div className="flex-1 min-w-0 md:w-auto md:flex-none">
               <ExportDropdown
                 options={exportOptions}
                 disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
@@ -414,7 +414,7 @@ export function DataOverview({
             <Button
               onClick={handleStartDatasetAnnotation}
               disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="w-full md:w-auto justify-center flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
             >
               {checkingConfig || checkingAnnotationProgress ? (
                 <>
@@ -423,8 +423,8 @@ export function DataOverview({
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4" />
-                  {annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}
+                  <Play className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
                 </>
               )}
             </Button>
@@ -514,15 +514,15 @@ export function DataOverview({
               {'Data Overview - Manage and monitor your uploaded data files'}
             </p>
           </div>
-          <div className="flex flex-col md:flex-row md:items-center flex-wrap gap-3 w-full md:w-auto min-w-0">
+          <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
             <Button
               onClick={onNavigateToFieldConfig}
-              className="w-full md:w-auto justify-center flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
             >
-              <Settings className="h-4 w-4" />
-              Configure Fields
+              <Settings className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate text-sm">Configure Fields</span>
             </Button>
-            <div className="w-full md:w-auto flex-shrink-0 min-w-0">
+            <div className="flex-1 min-w-0 md:w-auto md:flex-none">
               <ExportDropdown
                 options={exportOptions}
                 disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
@@ -531,7 +531,7 @@ export function DataOverview({
             <Button
               onClick={handleStartDatasetAnnotation}
               disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="w-full md:w-auto justify-center flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
             >
               {checkingConfig || checkingAnnotationProgress ? (
                 <>
@@ -540,8 +540,8 @@ export function DataOverview({
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4" />
-                  {annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}
+                  <Play className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
                 </>
               )}
             </Button>
@@ -569,15 +569,15 @@ export function DataOverview({
               {'Data Overview - Manage and monitor your uploaded data files'}
             </p>
           </div>
-          <div className="flex flex-col md:flex-row md:items-center flex-wrap gap-3 w-full md:w-auto min-w-0">
+          <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
             <Button
               onClick={onNavigateToFieldConfig}
-              className="w-full md:w-auto justify-center flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
             >
-              <Settings className="h-4 w-4" />
-              Configure Fields
+              <Settings className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate text-sm">Configure Fields</span>
             </Button>
-            <div className="w-full md:w-auto flex-shrink-0 min-w-0">
+            <div className="flex-1 min-w-0 md:w-auto md:flex-none">
               <ExportDropdown
                 options={exportOptions}
                 disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
@@ -586,7 +586,7 @@ export function DataOverview({
             <Button
               onClick={handleStartDatasetAnnotation}
               disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="w-full md:w-auto justify-center flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
             >
               {checkingConfig || checkingAnnotationProgress ? (
                 <>
@@ -595,8 +595,8 @@ export function DataOverview({
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4" />
-                  {annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}
+                  <Play className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
                 </>
               )}
             </Button>
@@ -639,15 +639,15 @@ export function DataOverview({
               {"Data Overview - Manage and monitor your uploaded data files"}
             </p>
           </div>
-          <div className="flex flex-col md:flex-row md:items-center flex-wrap gap-3 w-full md:w-auto min-w-0">
+          <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
           <Button
             onClick={onNavigateToFieldConfig}
-            className="w-full md:w-auto justify-center flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+            className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white border-blue-600 md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
           >
-            <Settings className="h-4 w-4" />
-            Configure Fields
+            <Settings className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate text-sm">Configure Fields</span>
           </Button>
-          <div className="w-full md:w-auto flex-shrink-0 min-w-0">
+          <div className="flex-1 min-w-0 md:w-auto md:flex-none">
             <ExportDropdown
               options={exportOptions}
               disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
@@ -656,7 +656,7 @@ export function DataOverview({
           <Button
             onClick={handleStartDatasetAnnotation}
             disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-            className="w-full md:w-auto justify-center flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
           >
             {checkingConfig || checkingAnnotationProgress ? (
               <>
@@ -665,8 +665,8 @@ export function DataOverview({
               </>
             ) : (
               <>
-                <Play className="h-4 w-4" />
-                {annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}
+                <Play className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
               </>
             )}
           </Button>
