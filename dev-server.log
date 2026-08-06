@@ -1,0 +1,69 @@
+
+> frontend@0.1.0 dev
+> next dev
+
+ ⚠ Port 3000 is in use by process 15684, using available port 3001 instead.
+   ▲ Next.js 15.4.7
+   - Local:        http://localhost:3001
+   - Network:      http://172.168.168.225:3001
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3.8s
+ ✓ Compiled /middleware in 462ms (108 modules)
+ ○ Compiling / ...
+RangeError: Failed to allocate memory
+    at new Promise (<anonymous>) {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+ ⨯ unhandledRejection: RangeError: Failed to allocate memory
+    at new Promise (<anonymous>) {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+ ⨯ unhandledRejection:  RangeError: Failed to allocate memory
+    at new Promise (<anonymous>) {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+RangeError: Failed to allocate memory
+    at new Promise (<anonymous>) {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+ ⨯ unhandledRejection: RangeError: Failed to allocate memory
+    at new Promise (<anonymous>) {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+ ⨯ unhandledRejection:  RangeError: Failed to allocate memory
+    at new Promise (<anonymous>) {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: RangeError: Failed to allocate memory
+ ✓ Compiled / in 48.1s (1674 modules)
+ GET / 200 in 49346ms
+ ✓ Compiled in 4s (739 modules)
+ ✓ Compiled in 2.1s (739 modules)
+ ✓ Compiled in 1405ms (739 modules)
+ ✓ Compiled in 1292ms (739 modules)
+ ✓ Compiled in 1470ms (739 modules)
+ ✓ Compiled in 1006ms (739 modules)
+ ✓ Compiled in 1183ms (739 modules)
+ ✓ Compiled in 1022ms (739 modules)
+ ✓ Compiled in 1466ms (739 modules)
+ ✓ Compiled in 921ms (739 modules)
+ ✓ Compiled in 1157ms (739 modules)
+ ✓ Compiled in 1201ms (739 modules)
+ ✓ Compiled in 2s (739 modules)
+ ✓ Compiled in 1375ms (739 modules)
+ ✓ Compiled in 1557ms (739 modules)
+ ✓ Compiled in 1113ms (739 modules)
+ ✓ Compiled in 1213ms (739 modules)
+ ○ Compiling /dataset/[datasetId]/annotation ...
+ ✓ Compiled /dataset/[datasetId]/annotation in 8.5s (1449 modules)
+ GET /dataset/test-dataset/annotation 200 in 11653ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1222ms (1450 modules)
+ GET /workspaces/w/projects/p/datasets/d/annotation 404 in 2193ms
+ GET /dataset/test-dataset/annotation 200 in 395ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'C:\Users\admin\Documents\DataAnnotate\annotation-platform-frontend\.next\cache\webpack\server-development\15.pack.gz_' -> 'C:\Users\admin\Documents\DataAnnotate\annotation-platform-frontend\.next\cache\webpack\server-development\15.pack.gz'
+ ✓ Compiled in 1781ms (870 modules)
+ ✓ Compiled in 1147ms (870 modules)
+ ✓ Compiled in 1233ms (870 modules)
