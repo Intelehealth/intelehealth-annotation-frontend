@@ -153,7 +153,9 @@ export function DatasetList({
   };
 
   const handleCardClick = (dataset: DatasetResponse) => {
-    router.push(`/dataset/${dataset._id}`);
+    if (dataset?._id) {
+      router.push(`/dataset/${dataset._id}`);
+    }
   };
 
   const handlePageChange = (page: number) => {

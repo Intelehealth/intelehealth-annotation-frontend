@@ -2,19 +2,20 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Database, FileText, Plus } from 'lucide-react';
+import { Database, FileText, Plus, File } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CSVColumn {
   name: string;
   sampleData?: string;
-  source?: 'CSV' | 'MANUAL';
+  source?: 'CSV' | 'MANUAL' | 'DOCUMENT';
   csvImportId?: string;
 }
 
 interface CSVColumnsDisplayProps {
   csvColumns: CSVColumn[];
   manualColumns?: CSVColumn[];
+  documentColumns?: CSVColumn[];
   selectedColumns: Set<string>;
   onColumnClick: (columnName: string) => void;
   onSelectAll?: () => void;
@@ -27,6 +28,7 @@ interface CSVColumnsDisplayProps {
 export function CSVColumnsDisplay({
   csvColumns,
   manualColumns = [],
+  documentColumns = [],
   selectedColumns,
   onColumnClick,
   onSelectAll,
@@ -77,7 +79,7 @@ export function CSVColumnsDisplay({
               )}
             </div>
             <Badge variant="outline" className="text-xs py-0.5 px-2 bg-gray-50 border-gray-200 font-medium">
-              {csvColumns.length + manualColumns.length} columns
+              {csvColumns.length + manualColumns.length + documentColumns.length} columns
             </Badge>
           </div>
         </div>
@@ -147,8 +149,40 @@ export function CSVColumnsDisplay({
             </div>
           )}
 
+          {/* Document Columns */}
+          {documentColumns.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                <File className="h-4 w-4 mr-2 text-purple-600" />
+                Document Columns ({documentColumns.length})
+              </h4>
+              <div className="overflow-x-auto">
+                <div className="grid grid-cols-10 gap-2 min-w-max">
+                  {documentColumns.map((column) => {
+                    const isSelected = selectedColumns.has(column.name);
+                    return (
+                      <span
+                        key={column.name}
+                        onClick={() => onColumnClick(column.name)}
+                        className={cn(
+                          "px-3 py-1 text-sm border text-center truncate rounded-sm cursor-pointer transition-all duration-200 hover:scale-105",
+                          isSelected
+                            ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+                            : "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200"
+                        )}
+                        title={`${column.name} - Click to ${isSelected ? 'remove' : 'add'} to annotation fields`}
+                      >
+                        {column.name}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* No Columns State */}
-          {csvColumns.length === 0 && manualColumns.length === 0 && (
+          {csvColumns.length === 0 && manualColumns.length === 0 && documentColumns.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <p className="text-sm">No columns available</p>
             </div>

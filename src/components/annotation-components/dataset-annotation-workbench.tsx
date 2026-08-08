@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   AlertCircle,
+  ArrowLeft,
   Image as ImageIcon,
   AudioLines,
   Loader2,
@@ -42,6 +43,11 @@ import { ResizablePanels } from '@/components/ui/resizable-panels';
 import { logger } from '@/lib/logger';
 import { TopNav } from '@/components/top-nav';
 import { motion } from 'framer-motion';
+import { AnnotationViewSwitcher, ViewMode } from './annotation-view-switcher';
+import {
+  DocumentViewProvider,
+  DocumentIntelligencePage,
+} from '@/components/document-intelligence';
 
 interface Task {
   id: string;
@@ -52,6 +58,7 @@ interface Task {
   status: 'pending' | 'in_progress' | 'completed' | 'needs_review';
   assignedTo?: string;
   metadata?: Record<string, any>;
+  documentId?: string | null;
   csvInfo?: {
     csvImportId: string;
     fileName: string;
@@ -100,6 +107,7 @@ export function DatasetAnnotationWorkbench({
   const { user } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [metadata, setMetadata] = useState<Record<string, any>>({});
@@ -146,6 +154,9 @@ export function DatasetAnnotationWorkbench({
     completionTime: string;
   } | null>(null);
   const [datasetName, setDatasetName] = useState<string>('');
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    (searchParams.get('view') as ViewMode) || 'annotation'
+  );
 
   // Initialize ordered metadata fields when annotation config changes
   useEffect(() => {
@@ -325,6 +336,7 @@ export function DatasetAnnotationWorkbench({
             filePath: `/dataset/${datasetId}/row/${row.rowIndex}`,
             status: row.completed ? 'completed' : 'pending',
             metadata: row.data || {},
+            documentId: row.documentId || null,
             csvInfo: row.csvInfo || null,
             createdAt: new Date(mergedData.createdAt),
             updatedAt: new Date(mergedData.lastUpdatedAt),
@@ -1769,35 +1781,48 @@ export function DatasetAnnotationWorkbench({
           </div>
         </div>
       )}
-      {/* Main Content Area - Resizable Panels */}
+      {/* View Mode Switcher */}
+      <AnnotationViewSwitcher
+        datasetId={datasetId}
+        mode={viewMode}
+        onModeChange={setViewMode}
+        returnTo={returnTo}
+      />
+
+      {/* Main Content Area */}
       <div className="flex-1 overflow-hidden">
-        <ResizablePanels
+        {viewMode === 'document-view' ? (
+          <DocumentViewProvider datasetId={datasetId}>
+            <DocumentIntelligencePage datasetName={datasetName} />
+          </DocumentViewProvider>
+        ) : (
+          <ResizablePanels
           leftPanel={
-            <MetadataDisplay
-              metadata={metadata}
-              orderedMetadataFields={orderedMetadataFields}
-              draggedField={draggedField}
-              editingField={editingField}
-              expandedTextFields={expandedTextFields}
-              imageOverlay={imageOverlay}
-              videoOverlay={videoOverlay}
-              datasetName={datasetName}
-              isAdmin={user?.role?.toUpperCase() === 'ADMIN' && !reviewRequestId}
-              onMetadataChange={setMetadata}
-              onDragStart={handleDragStart}
-              onDragOver={handleUnifiedDragOver}
-              onDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'metadata')}
-              onEditField={handleEditField}
-              onSaveField={handleSaveField}
-              onSaveIndividualField={handleSaveIndividualField}
-              onCancelEdit={handleCancelEdit}
-              onToggleTextExpansion={toggleTextExpansion}
-              onOpenImageOverlay={openImageOverlay}
-              onOpenVideoOverlay={openVideoOverlay}
-              onNavigateBack={handleNavigateBack}
-              onPanelDragOver={handleUnifiedDragOver}
-              onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
-            />
+              <MetadataDisplay
+                metadata={metadata}
+                orderedMetadataFields={orderedMetadataFields}
+                draggedField={draggedField}
+                editingField={editingField}
+                expandedTextFields={expandedTextFields}
+                imageOverlay={imageOverlay}
+                videoOverlay={videoOverlay}
+                datasetName={datasetName}
+                isAdmin={user?.role?.toUpperCase() === 'ADMIN' && !reviewRequestId}
+                onMetadataChange={setMetadata}
+                onDragStart={handleDragStart}
+                onDragOver={handleUnifiedDragOver}
+                onDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'metadata')}
+                onEditField={handleEditField}
+                onSaveField={handleSaveField}
+                onSaveIndividualField={handleSaveIndividualField}
+                onCancelEdit={handleCancelEdit}
+                onToggleTextExpansion={toggleTextExpansion}
+                onOpenImageOverlay={openImageOverlay}
+                onOpenVideoOverlay={openVideoOverlay}
+                onNavigateBack={handleNavigateBack}
+                onPanelDragOver={handleUnifiedDragOver}
+                onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
+              />
           }
           rightPanel={
             <NewColumnDataPanel
@@ -1811,12 +1836,12 @@ export function DatasetAnnotationWorkbench({
               completedCount={annotatedTasks.length}
               pendingCount={unannotatedTasks.length}
               currentRowIndex={currentTask?.rowIndex}
-              onPanelDragOver={handleUnifiedDragOver}
-              onDropFromMetadata={() => handleUnifiedDrop(null, '', 'annotation')}
-              draggedField={draggedField}
-              onAnnotationFieldDragStart={handleDragStart}
-              onAnnotationFieldDragOver={handleUnifiedDragOver}
-              onAnnotationFieldDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation')}
+              onPanelDragOver={viewMode === 'annotation' ? handleUnifiedDragOver : undefined}
+              onDropFromMetadata={viewMode === 'annotation' ? () => handleUnifiedDrop(null, '', 'annotation') : undefined}
+              draggedField={viewMode === 'annotation' ? draggedField : null}
+              onAnnotationFieldDragStart={viewMode === 'annotation' ? handleDragStart : undefined}
+              onAnnotationFieldDragOver={viewMode === 'annotation' ? handleUnifiedDragOver : undefined}
+              onAnnotationFieldDrop={viewMode === 'annotation' ? (e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation') : undefined}
               onUpdateFieldConfig={reviewRequestId ? undefined : handleUpdateFieldConfig}
               isAdmin={user?.role?.toUpperCase() === 'ADMIN' && !reviewRequestId}
               cloneId={datasetId}
@@ -1830,18 +1855,21 @@ export function DatasetAnnotationWorkbench({
           minLeftWidth={25}
           maxLeftWidth={75}
         />
+        )}
       </div>
 
-      {/* Fixed Footer: Row Navigation */}
-      <RowFooter
-        tasks={tasks}
-        currentTaskIndex={currentTaskIndex}
-        onNavigateTask={navigateTask}
-        onJumpToRow={jumpToRow}
-        onMarkAsCompleted={handleMarkAsCompleted}
-        completedCount={annotatedTasks.length}
-        totalCount={tasks.length}
-      />
+      {/* Fixed Footer: Row Navigation — annotation mode only */}
+      {viewMode === 'annotation' && (
+        <RowFooter
+          tasks={tasks}
+          currentTaskIndex={currentTaskIndex}
+          onNavigateTask={navigateTask}
+          onJumpToRow={jumpToRow}
+          onMarkAsCompleted={handleMarkAsCompleted}
+          completedCount={annotatedTasks.length}
+          totalCount={tasks.length}
+        />
+      )}
 
       {/* Image Overlay */}
       <ImageOverlay

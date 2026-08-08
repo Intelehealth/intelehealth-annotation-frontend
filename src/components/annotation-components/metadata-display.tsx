@@ -122,13 +122,6 @@ export function MetadataDisplay({
     >
       {/* Navigation Header */}
       <div className="p-4 pb-2">
-          <Button
-            onClick={onNavigateBack}
-            className="bg-black hover:bg-gray-800 text-white font-medium px-4 py-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dataset
-          </Button>
       </div>
 
       {/* Data Fields Header */}

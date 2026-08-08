@@ -104,18 +104,19 @@ export const csvProcessingAPI = {
   },
 
   // Preview CSV content
-  previewCSV: async (csvImportId: string): Promise<CSVPreviewResult> => {
-    const response = await api.get(`/csv-processing/preview/${csvImportId}`);
+  previewCSV: async (datasetId: string, csvImportId: string): Promise<CSVPreviewResult> => {
+    const response = await api.get(`/csv-processing/dataset/${datasetId}/preview/${csvImportId}`);
     return response.data;
   },
 
   // Map CSV columns to project metadata fields
   mapColumns: async (
+    datasetId: string,
     csvImportId: string,
     columnMappings: ColumnMapping[],
   ): Promise<ColumnMappingResult> => {
     const response = await api.post(
-      `/csv-processing/map-columns/${csvImportId}`,
+      `/csv-processing/dataset/${datasetId}/map-columns/${csvImportId}`,
       {
         columnMappings,
       },
@@ -125,23 +126,24 @@ export const csvProcessingAPI = {
 
   // Validate and create assets from CSV
   validateAndCreateAssets: async (
+    datasetId: string,
     csvImportId: string,
   ): Promise<AssetCreationResult> => {
     const response = await api.post(
-      `/csv-processing/validate-and-create/${csvImportId}`,
+      `/csv-processing/dataset/${datasetId}/validate-and-create/${csvImportId}`,
     );
     return response.data;
   },
 
   // Get CSV import status
-  getCSVImportStatus: async (csvImportId: string): Promise<CSVImportStatus> => {
-    const response = await api.get(`/csv-processing/status/${csvImportId}`);
+  getCSVImportStatus: async (datasetId: string, csvImportId: string): Promise<CSVImportStatus> => {
+    const response = await api.get(`/csv-processing/dataset/${datasetId}/status/${csvImportId}`);
     return response.data;
   },
 
   // Get CSV data (including row data)
-  getCSVData: async (csvImportId: string) => {
-    const response = await api.get(`/csv-processing/data/${csvImportId}`);
+  getCSVData: async (datasetId: string, csvImportId: string) => {
+    const response = await api.get(`/csv-processing/dataset/${datasetId}/data/${csvImportId}`);
     return response.data;
   },
 

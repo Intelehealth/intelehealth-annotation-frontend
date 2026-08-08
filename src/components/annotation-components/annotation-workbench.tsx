@@ -36,6 +36,7 @@ import { useToast } from '@/components/ui/toast';
 import { exportToCsv, ExportData } from '@/lib/csv-export-helper';
 import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
 import { logger } from '@/lib/logger';
+import { AnnotationViewSwitcher, DocumentPreview, ViewMode } from './annotation-view-switcher';
 
 interface Task {
   id: string;
@@ -115,6 +116,7 @@ export function AnnotationWorkbench({
   const [pendingChanges, setPendingChanges] = useState<Record<string, any>>({});
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [datasetNewColumns, setDatasetNewColumns] = useState<any[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>('annotation');
 
   // Initialize ordered metadata fields when annotation config changes
   useEffect(() => {
@@ -141,7 +143,7 @@ export function AnnotationWorkbench({
 
         // Load CSV import data using csv-processing API
         logger.log('Loading CSV import data...');
-        const csvData = await csvProcessingAPI.getCSVData(csvImportId);
+        const csvData = await csvProcessingAPI.getCSVData(datasetId, csvImportId);
         logger.log('CSV import data loaded:', csvData);
         setCsvImport(csvData);
 
@@ -383,6 +385,7 @@ export function AnnotationWorkbench({
 
     try {
       const response = await CSVImportsAPI.patchCSVRowData(
+        datasetId,
         csvImportId,
         currentTask.rowIndex,
         dataToSave
@@ -996,6 +999,7 @@ export function AnnotationWorkbench({
       const fieldData = { [fieldName]: fieldValue };
 
       const response = await CSVImportsAPI.patchCSVRowData(
+        datasetId,
         csvImportId,
         currentTask.rowIndex,
         fieldData
@@ -1162,6 +1166,7 @@ export function AnnotationWorkbench({
       // Only save data if there's actual data to save
       if (hasActualData) {
         response = await CSVImportsAPI.patchCSVRowData(
+          datasetId,
           csvImportId,
           currentTask.rowIndex,
           dataToSave
@@ -1200,7 +1205,7 @@ export function AnnotationWorkbench({
 
       // Mark row as completed in backend
       try {
-        await CSVImportsAPI.markRowCompleted(csvImportId, currentTask.rowIndex);
+        await CSVImportsAPI.markRowCompleted(datasetId, csvImportId, currentTask.rowIndex);
         
         // Update progress tracking
         const completedCount = tasks.filter(t => t.status === 'completed' || t.rowIndex === currentTask.rowIndex).length;
@@ -1383,7 +1388,7 @@ export function AnnotationWorkbench({
       ));
       
       // Save to backend
-      await CSVImportsAPI.markRowCompleted(csvImportId, rowIndex);
+      await CSVImportsAPI.markRowCompleted(datasetId, csvImportId, rowIndex);
       
       // Update progress tracking
       const completedCount = tasks.filter(t => t.status === 'completed' || t.rowIndex === rowIndex).length;
@@ -1537,33 +1542,46 @@ export function AnnotationWorkbench({
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
+      {/* View Mode Switcher */}
+      <AnnotationViewSwitcher
+        datasetId={datasetId}
+        mode={viewMode}
+        onModeChange={setViewMode}
+      />
+
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Panel: Metadata Display */}
-        <MetadataDisplay
-          metadata={{ ...metadata, rowIndex: currentTask?.rowIndex }}
-          orderedMetadataFields={orderedMetadataFields}
-          draggedField={draggedField}
-          editingField={editingField}
-          expandedTextFields={expandedTextFields}
-          imageOverlay={imageOverlay}
-          videoOverlay={videoOverlay}
-          isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
-          onMetadataChange={setMetadata}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'metadata')}
-          onEditField={handleEditField}
-          onSaveField={handleSaveField}
-          onSaveIndividualField={handleSaveIndividualField}
-          onCancelEdit={handleCancelEdit}
-          onToggleTextExpansion={toggleTextExpansion}
-          onOpenImageOverlay={openImageOverlay}
-          onOpenVideoOverlay={openVideoOverlay}
-          onNavigateBack={handleNavigateBack}
-          onPanelDragOver={handleDragOver}
-          onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
-        />
+        {/* Left Panel: Metadata Display or Document Preview */}
+        {viewMode === 'document-view' ? (
+          <div className="w-1/2 overflow-hidden border-r border-gray-200">
+            <DocumentPreview currentRow={currentTask?.metadata} />
+          </div>
+        ) : (
+          <MetadataDisplay
+            metadata={{ ...metadata, rowIndex: currentTask?.rowIndex }}
+            orderedMetadataFields={orderedMetadataFields}
+            draggedField={draggedField}
+            editingField={editingField}
+            expandedTextFields={expandedTextFields}
+            imageOverlay={imageOverlay}
+            videoOverlay={videoOverlay}
+            isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
+            onMetadataChange={setMetadata}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'metadata')}
+            onEditField={handleEditField}
+            onSaveField={handleSaveField}
+            onSaveIndividualField={handleSaveIndividualField}
+            onCancelEdit={handleCancelEdit}
+            onToggleTextExpansion={toggleTextExpansion}
+            onOpenImageOverlay={openImageOverlay}
+            onOpenVideoOverlay={openVideoOverlay}
+            onNavigateBack={handleNavigateBack}
+            onPanelDragOver={handleDragOver}
+            onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
+          />
+        )}
 
         {/* Right Panel: New Column Data Entry */}
         <NewColumnDataPanel
@@ -1579,10 +1597,10 @@ export function AnnotationWorkbench({
           currentRowIndex={currentTask?.rowIndex}
           onPanelDragOver={handleDragOver}
           onDropFromMetadata={() => handleUnifiedDrop(null, '', 'annotation')}
-          draggedField={draggedField}
-          onAnnotationFieldDragStart={handleDragStart}
-          onAnnotationFieldDragOver={handleDragOver}
-          onAnnotationFieldDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation')}
+          draggedField={viewMode === 'document-view' ? null : draggedField}
+          onAnnotationFieldDragStart={viewMode === 'document-view' ? undefined : handleDragStart}
+          onAnnotationFieldDragOver={viewMode === 'document-view' ? undefined : handleDragOver}
+          onAnnotationFieldDrop={viewMode === 'document-view' ? undefined : (e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation')}
           onUpdateFieldConfig={handleUpdateFieldConfig}
           isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
           cloneId={datasetId}

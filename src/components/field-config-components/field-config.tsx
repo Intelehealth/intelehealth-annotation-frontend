@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { fieldSelectionAPI } from '@/lib/api/field-config';
-import { datasetsAPI } from '@/lib/api/datasets';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { fieldSelectionAPI } from "@/lib/api/field-config";
+import { datasetsAPI } from "@/lib/api/datasets";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Plus,
   Trash2,
@@ -26,25 +26,28 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { CSVColumnsDisplay } from './csv-columns-display';
-import { useToast } from '@/components/ui/toast';
-import { FieldGroup, VisibilityRule, BranchOption } from '@/types/feature1';
-import { FieldGroupEditor } from './field-group-editor';
-import { RecursiveFieldEditor } from './recursive-field-editor';
-import { LivePreviewTree } from './live-preview-tree';
-import { FieldTypeConfigurator } from './field-type-configurator';
-import { DecisionCardEngine, parseOptions } from '@/components/new-column-components/new-column-data-panel';
-import { ConditionalFieldRenderer } from '@/components/new-column-components/conditional-field-renderer';
-import { schemaRequestsAPI } from '@/lib/api/schema-requests';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CSVColumnsDisplay } from "./csv-columns-display";
+import { useToast } from "@/components/ui/toast";
+import { FieldGroup, VisibilityRule, BranchOption } from "@/types/feature1";
+import { FieldGroupEditor } from "./field-group-editor";
+import { RecursiveFieldEditor } from "./recursive-field-editor";
+import { LivePreviewTree } from "./live-preview-tree";
+import { FieldTypeConfigurator } from "./field-type-configurator";
+import {
+  DecisionCardEngine,
+  parseOptions,
+} from "@/components/new-column-components/new-column-data-panel";
+import { ConditionalFieldRenderer } from "@/components/new-column-components/conditional-field-renderer";
+import { schemaRequestsAPI } from "@/lib/api/schema-requests";
 
 function FieldLivePreview({ field }: { field: AnnotationField }) {
-  const [value, setValue] = useState<string>('');
+  const [value, setValue] = useState<string>("");
 
   // Sync value if field changes or reset selection
   useEffect(() => {
-    setValue('');
+    setValue("");
   }, [field.id, field.columnType]);
 
   const richOptions = useMemo(() => {
@@ -80,7 +83,7 @@ function FieldLivePreview({ field }: { field: AnnotationField }) {
           <ConditionalFieldRenderer
             field={field}
             formData={{ [field.fieldName]: value }}
-            onChange={(data) => setValue(data[field.fieldName] || '')}
+            onChange={(data) => setValue(data[field.fieldName] || "")}
           />
         ) : (
           <DecisionCardEngine
@@ -94,10 +97,14 @@ function FieldLivePreview({ field }: { field: AnnotationField }) {
 
       <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400 font-mono select-none">
         <span>STORED VALUE:</span>
-        <span className={cn(
-          "font-bold px-2 py-0.5 rounded border",
-          value ? "bg-teal-50 text-teal-700 border-teal-200" : "bg-gray-50 text-gray-400 border-gray-200"
-        )}>
+        <span
+          className={cn(
+            "font-bold px-2 py-0.5 rounded border",
+            value
+              ? "bg-teal-50 text-teal-700 border-teal-200"
+              : "bg-gray-50 text-gray-400 border-gray-200",
+          )}
+        >
           {value ? JSON.stringify(value) : '"" (empty)'}
         </span>
       </div>
@@ -108,7 +115,17 @@ function FieldLivePreview({ field }: { field: AnnotationField }) {
 interface NewColumn {
   id: string;
   columnName: string; // e.g., "Review Notes", "Quality Score"
-  columnType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
+  columnType:
+    | "text"
+    | "number"
+    | "select"
+    | "selectrange"
+    | "textarea"
+    | "rating"
+    | "multiselect"
+    | "checkbox"
+    | "radio"
+    | "date";
   isRequired: boolean;
   defaultValue?: string;
   options?: string[]; // For select type
@@ -140,7 +157,20 @@ interface AnnotationField {
   id: string;
   csvColumnName: string;
   fieldName: string;
-  fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'image' | 'audio' | 'video';
+  fieldType:
+    | "text"
+    | "number"
+    | "select"
+    | "selectrange"
+    | "textarea"
+    | "rating"
+    | "multiselect"
+    | "checkbox"
+    | "radio"
+    | "date"
+    | "image"
+    | "audio"
+    | "video";
   isRequired: boolean;
   // true if it needs annotation (shown on right), false if metadata (left)
   isAnnotationField: boolean;
@@ -149,7 +179,17 @@ interface AnnotationField {
   options?: string[];
   isNewColumn?: boolean; // true if this is a new column, not from CSV
   newColumnId?: string; // Reference to NewColumn if isNewColumn is true
-  columnType?: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
+  columnType?:
+    | "text"
+    | "number"
+    | "select"
+    | "selectrange"
+    | "textarea"
+    | "rating"
+    | "multiselect"
+    | "checkbox"
+    | "radio"
+    | "date";
   placeholder?: string;
   defaultValue?: string;
   maxLength?: number;
@@ -175,11 +215,10 @@ interface AnnotationField {
   branching?: any;
 }
 
-
 interface CSVColumn {
   name: string;
   sampleData: string;
-  dataType: 'string' | 'number' | 'date' | 'boolean';
+  dataType: "string" | "number" | "date" | "boolean";
 }
 
 interface FieldConfigProps {
@@ -188,7 +227,6 @@ interface FieldConfigProps {
   onNavigateToUpload?: () => void;
   onNavigateToOverview?: () => void;
 }
-
 
 export function FieldConfig({
   datasetId,
@@ -199,9 +237,10 @@ export function FieldConfig({
   const router = useRouter();
   const { showToast } = useToast();
   const [availableColumns, setAvailableColumns] = useState<{
-    csvColumns: { name: string; source: 'CSV'; csvImportId?: string }[];
-    manualColumns: { name: string; source: 'MANUAL' }[];
-  }>({ csvColumns: [], manualColumns: [] });
+    csvColumns: { name: string; source: "CSV"; csvImportId?: string }[];
+    manualColumns: { name: string; source: "MANUAL" }[];
+    documentColumns: { name: string; source: "DOCUMENT" }[];
+  }>({ csvColumns: [], manualColumns: [], documentColumns: [] });
   const [annotationFields, setAnnotationFields] = useState<AnnotationField[]>(
     [],
   );
@@ -215,14 +254,23 @@ export function FieldConfig({
   const [datasetLoadingError, setDatasetLoadingError] = useState<string | null>(
     null,
   );
-  const [activeTab, setActiveTab] = useState<'fields'>('fields');
-  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
-  const [columnValidationErrors, setColumnValidationErrors] = useState<Record<string, string>>({});
-  const [datasetInfo, setDatasetInfo] = useState<{ name: string; description: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<"fields">("fields");
+  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(
+    new Set(),
+  );
+  const [columnValidationErrors, setColumnValidationErrors] = useState<
+    Record<string, string>
+  >({});
+  const [datasetInfo, setDatasetInfo] = useState<{
+    name: string;
+    description: string;
+  } | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
-  const [syncChoices, setSyncChoices] = useState<Record<string, 'PUSH_ALL' | 'KEEP_LOCAL'>>({});
+  const [syncChoices, setSyncChoices] = useState<
+    Record<string, "PUSH_ALL" | "KEEP_LOCAL">
+  >({});
 
   const toggleRowExpanded = (rowId: string) => {
     setExpandedRows((prev) => {
@@ -252,7 +300,7 @@ export function FieldConfig({
       const dataset = await datasetsAPI.getById(datasetId);
 
       if (dataset) {
-        if (typeof dataset.totalCSVFiles === 'number') {
+        if (typeof dataset.totalCSVFiles === "number") {
           setTotalCSVFiles(dataset.totalCSVFiles);
         }
       }
@@ -260,37 +308,52 @@ export function FieldConfig({
       if (dataset && dataset.availableColumns) {
         const availableColumns = dataset.availableColumns;
         const csvColumns = availableColumns.filter(
-          (col) => col.source === 'CSV',
+          (col) => col.source === "CSV",
         );
         const manualColumns = availableColumns.filter(
-          (col) => col.source === 'MANUAL',
+          (col) => col.source === "MANUAL",
+        );
+        const documentColumns = availableColumns.filter(
+          (col) => col.source === "DOCUMENT",
         );
 
         setAvailableColumns({
           csvColumns: csvColumns.map((col: any) => ({
             name: col.name,
-            source: 'CSV' as const,
+            source: "CSV" as const,
             csvImportId: col.csvImportId,
           })),
           manualColumns: manualColumns.map((col: any) => ({
             name: col.name,
-            source: 'MANUAL' as const,
+            source: "MANUAL" as const,
+          })),
+          documentColumns: documentColumns.map((col: any) => ({
+            name: col.name,
+            source: "DOCUMENT" as const,
           })),
         });
       } else {
-        setAvailableColumns({ csvColumns: [], manualColumns: [] });
+        setAvailableColumns({
+          csvColumns: [],
+          manualColumns: [],
+          documentColumns: [],
+        });
       }
     } catch (error: any) {
-      console.error('Error loading dataset columns:', error);
-      console.error('Error details:', {
+      console.error("Error loading dataset columns:", error);
+      console.error("Error details:", {
         message: error.message,
         status: error.response?.status,
         data: error.response?.data,
       });
       setDatasetLoadingError(
-        'Failed to load dataset columns. Please try again.',
+        "Failed to load dataset columns. Please try again.",
       );
-      setAvailableColumns({ csvColumns: [], manualColumns: [] });
+      setAvailableColumns({
+        csvColumns: [],
+        manualColumns: [],
+        documentColumns: [],
+      });
     } finally {
       setLoading(false);
     }
@@ -307,14 +370,15 @@ export function FieldConfig({
           (field: any, index: number) => {
             const cleanField = {
               id: field.id || field.fieldName || `field-${index}`,
-              csvColumnName: field.csvColumnName || '',
-              fieldName: field.fieldName || '',
-              fieldType: field.fieldType || 'text',
+              csvColumnName: field.csvColumnName || "",
+              fieldName: field.fieldName || "",
+              fieldType: field.fieldType || "text",
               isRequired: Boolean(field.isRequired),
               // prefer explicit isAnnotationField, fallback to inverse of legacy isMetadataField
-              isAnnotationField: typeof field.isAnnotationField === 'boolean'
-                ? Boolean(field.isAnnotationField)
-                : !Boolean(field.isMetadataField),
+              isAnnotationField:
+                typeof field.isAnnotationField === "boolean"
+                  ? Boolean(field.isAnnotationField)
+                  : !Boolean(field.isMetadataField),
               isPrimaryKey: Boolean(field.isPrimaryKey),
               options: field.options || [],
               isNewColumn: Boolean(field.isNewColumn),
@@ -335,7 +399,7 @@ export function FieldConfig({
               maxRating: field.maxRating,
               allowHalf: field.allowHalf,
               rows: field.rows,
-              
+
               // NEW Redesign properties
               questionTitle: field.questionTitle,
               questionDescription: field.questionDescription,
@@ -359,9 +423,13 @@ export function FieldConfig({
         setFieldGroups(config.fieldGroups || []);
         setPendingRequests(config.pendingFieldRequests || []);
 
-        const progressStarted = config.completedRows > 0 || (config.rowAnnotations || []).some(
-          (row: any) => row.status !== 'pending' || (row.annotations && Object.keys(row.annotations).length > 0)
-        );
+        const progressStarted =
+          config.completedRows > 0 ||
+          (config.rowAnnotations || []).some(
+            (row: any) =>
+              row.status !== "pending" ||
+              (row.annotations && Object.keys(row.annotations).length > 0),
+          );
         // Update selected columns based on existing annotation fields
         const existingColumnNames = cleanFields
           .filter((field: AnnotationField) => !field.isNewColumn)
@@ -370,7 +438,7 @@ export function FieldConfig({
       }
       setHasChanges(false);
     } catch (error) {
-      console.error('Error loading field config:', error);
+      console.error("Error loading field config:", error);
     }
   };
 
@@ -378,21 +446,24 @@ export function FieldConfig({
     try {
       const dataset = await datasetsAPI.getById(datasetId);
       if (dataset) {
-        if (typeof dataset.totalCSVFiles === 'number') {
+        if (typeof dataset.totalCSVFiles === "number") {
           setTotalCSVFiles(dataset.totalCSVFiles);
         }
       }
       setDatasetInfo({
         name: dataset.name,
-        description: dataset.description || ''
+        description: dataset.description || "",
       });
     } catch (err: any) {
-      console.error('Error loading dataset info:', err);
+      console.error("Error loading dataset info:", err);
       setDatasetInfo(null);
     }
   };
 
-  const handleFieldChange = (fieldId: string, updates: Partial<AnnotationField>) => {
+  const handleFieldChange = (
+    fieldId: string,
+    updates: Partial<AnnotationField>,
+  ) => {
     // 1. Update annotationFields
     setAnnotationFields((currentFields) => {
       return currentFields.map((field) => {
@@ -406,7 +477,7 @@ export function FieldConfig({
     setHasChanges(true);
 
     // 2. If it is a new column, synchronize with newColumns list
-    const field = annotationFields.find(f => f.id === fieldId);
+    const field = annotationFields.find((f) => f.id === fieldId);
     if (field && field.isNewColumn && field.newColumnId) {
       setNewColumns((currentColumns) => {
         return currentColumns.map((col) => {
@@ -478,37 +549,46 @@ export function FieldConfig({
         });
       });
     }
-
   };
 
   const getUnifiedType = (field: AnnotationField) => {
     if (!field.isAnnotationField) {
-      if (field.fieldType === 'image') return 'image';
-      if (field.fieldType === 'audio') return 'audio';
-      if (field.fieldType === 'video') return 'video';
-      return 'text-metadata';
+      if (field.fieldType === "image") return "image";
+      if (field.fieldType === "audio") return "audio";
+      if (field.fieldType === "video") return "video";
+      return "text-metadata";
     }
-    return field.columnType || 'text';
+    return field.columnType || "text";
   };
 
   const handleUnifiedTypeChange = (field: AnnotationField, type: string) => {
     const updates: Partial<AnnotationField> = {};
-    if (type === 'image') {
-      updates.fieldType = 'image';
+    if (type === "image") {
+      updates.fieldType = "image";
       updates.isAnnotationField = false;
-    } else if (type === 'audio') {
-      updates.fieldType = 'audio';
+    } else if (type === "audio") {
+      updates.fieldType = "audio";
       updates.isAnnotationField = false;
-    } else if (type === 'video') {
-      updates.fieldType = 'video';
+    } else if (type === "video") {
+      updates.fieldType = "video";
       updates.isAnnotationField = false;
-    } else if (type === 'text-metadata') {
-      updates.fieldType = 'text';
+    } else if (type === "text-metadata") {
+      updates.fieldType = "text";
       updates.isAnnotationField = false;
     } else {
-      updates.fieldType = 'text';
+      updates.fieldType = "text";
       updates.isAnnotationField = true;
-      updates.columnType = type as 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
+      updates.columnType = type as
+        | "text"
+        | "number"
+        | "select"
+        | "selectrange"
+        | "textarea"
+        | "rating"
+        | "multiselect"
+        | "checkbox"
+        | "radio"
+        | "date";
     }
     handleFieldChange(field.id, updates);
   };
@@ -519,7 +599,6 @@ export function FieldConfig({
   ) => {
     handleFieldChange(id, updates);
   };
-
 
   // Toggle primary key ensuring exclusivity
   const togglePrimaryKey = (fieldId: string, makePrimary: boolean) => {
@@ -548,28 +627,27 @@ export function FieldConfig({
     setHasChanges(true);
   };
 
-
   // New Column Management
   const addNewColumn = () => {
     const newColumn: NewColumn = {
       id: Date.now().toString(),
-      columnName: '',
-      columnType: 'text',
+      columnName: "",
+      columnType: "text",
       isRequired: false,
-      defaultValue: '',
-      placeholder: '',
+      defaultValue: "",
+      placeholder: "",
       validation: {},
     };
-    
+
     // Add to newColumns array
     setNewColumns([...newColumns, newColumn]);
-    
+
     // Also add as an annotation field
     const newField: AnnotationField = {
-      id: Date.now().toString() + '_field',
-      csvColumnName: '',
-      fieldName: '',
-      fieldType: 'text',
+      id: Date.now().toString() + "_field",
+      csvColumnName: "",
+      fieldName: "",
+      fieldType: "text",
       isRequired: false,
       isAnnotationField: true,
       isPrimaryKey: false,
@@ -591,45 +669,66 @@ export function FieldConfig({
   };
 
   // Validation function to check for duplicate column names
-  const validateColumnName = useCallback((columnName: string, excludeId?: string): { isValid: boolean; error?: string } => {
-    if (!columnName || columnName.trim() === '') {
-      return { isValid: false, error: 'Column name is required' };
-    }
+  const validateColumnName = useCallback(
+    (
+      columnName: string,
+      excludeId?: string,
+    ): { isValid: boolean; error?: string } => {
+      if (!columnName || columnName.trim() === "") {
+        return { isValid: false, error: "Column name is required" };
+      }
 
-    const trimmedName = columnName.trim();
+      const trimmedName = columnName.trim();
 
-    // Check if the exact name exists
-    const exactMatch = availableColumns.csvColumns.find(col => col.name.toLowerCase() === trimmedName.toLowerCase());
-    
-    // Check for duplicates in new columns
-    const duplicateNewColumn = newColumns.find(col => 
-      col.id !== excludeId && col.columnName.toLowerCase() === trimmedName.toLowerCase()
-    );
-    
-    if (duplicateNewColumn) {
-      return { isValid: false, error: `Column name "${trimmedName}" already exists in new columns` };
-    }
+      // Check if the exact name exists
+      const exactMatch = availableColumns.csvColumns.find(
+        (col) => col.name.toLowerCase() === trimmedName.toLowerCase(),
+      );
 
-    // Check for duplicates in existing CSV columns
-    const duplicateCSVColumn = availableColumns.csvColumns.find(col => 
-      col.name.toLowerCase() === trimmedName.toLowerCase()
-    );
-    
-    if (duplicateCSVColumn) {
-      return { isValid: false, error: `Column name "${trimmedName}" already exists in CSV` };
-    }
+      // Check for duplicates in new columns
+      const duplicateNewColumn = newColumns.find(
+        (col) =>
+          col.id !== excludeId &&
+          col.columnName.toLowerCase() === trimmedName.toLowerCase(),
+      );
 
-    // Check for duplicates in annotation fields (for new columns)
-    const duplicateAnnotationField = annotationFields.find(field => 
-      !field.isNewColumn && field.csvColumnName.toLowerCase() === trimmedName.toLowerCase()
-    );
-    
-    if (duplicateAnnotationField) {
-      return { isValid: false, error: `Column name "${trimmedName}" already exists in annotation fields` };
-    }
+      if (duplicateNewColumn) {
+        return {
+          isValid: false,
+          error: `Column name "${trimmedName}" already exists in new columns`,
+        };
+      }
 
-    return { isValid: true };
-  }, [newColumns, availableColumns.csvColumns, annotationFields]);
+      // Check for duplicates in existing CSV columns
+      const duplicateCSVColumn = availableColumns.csvColumns.find(
+        (col) => col.name.toLowerCase() === trimmedName.toLowerCase(),
+      );
+
+      if (duplicateCSVColumn) {
+        return {
+          isValid: false,
+          error: `Column name "${trimmedName}" already exists in CSV`,
+        };
+      }
+
+      // Check for duplicates in annotation fields (for new columns)
+      const duplicateAnnotationField = annotationFields.find(
+        (field) =>
+          !field.isNewColumn &&
+          field.csvColumnName.toLowerCase() === trimmedName.toLowerCase(),
+      );
+
+      if (duplicateAnnotationField) {
+        return {
+          isValid: false,
+          error: `Column name "${trimmedName}" already exists in annotation fields`,
+        };
+      }
+
+      return { isValid: true };
+    },
+    [newColumns, availableColumns.csvColumns, annotationFields],
+  );
 
   // Removed debounced validation to prevent stale error states. We rely on immediate validation only.
 
@@ -656,7 +755,7 @@ export function FieldConfig({
       id: Date.now().toString(),
       csvColumnName: newColumn.columnName,
       fieldName: newColumn.columnName,
-      fieldType: 'text', // Default to text for new columns
+      fieldType: "text", // Default to text for new columns
       isRequired: newColumn.isRequired,
       isAnnotationField: true,
       isPrimaryKey: false,
@@ -671,9 +770,9 @@ export function FieldConfig({
   const handleSave = async () => {
     if (!datasetId) {
       showToast({
-        title: 'Error',
-        description: 'Dataset ID is required',
-        type: 'error',
+        title: "Error",
+        description: "Dataset ID is required",
+        type: "error",
       });
       return;
     }
@@ -681,21 +780,20 @@ export function FieldConfig({
     // Validate that at least one field is configured
     if (annotationFields.length === 0) {
       showToast({
-        title: 'Validation Error',
-        description:
-          'Please add at least one field before saving.',
-        type: 'error',
+        title: "Validation Error",
+        description: "Please add at least one field before saving.",
+        type: "error",
       });
       return;
     }
 
     // Ensure exactly one Primary Key is selected
-    const primaryCount = annotationFields.filter(f => f.isPrimaryKey).length;
+    const primaryCount = annotationFields.filter((f) => f.isPrimaryKey).length;
     if (primaryCount !== 1) {
       showToast({
-        title: 'Validation Error',
-        description: 'Please select exactly one Primary Key field.',
-        type: 'error',
+        title: "Validation Error",
+        description: "Please select exactly one Primary Key field.",
+        type: "error",
       });
       return;
     }
@@ -703,16 +801,16 @@ export function FieldConfig({
     // Check for validation errors
     if (Object.keys(columnValidationErrors).length > 0) {
       showToast({
-        title: 'Validation Error',
-        description: 'Please fix column name validation errors before saving.',
-        type: 'error',
+        title: "Validation Error",
+        description: "Please fix column name validation errors before saving.",
+        type: "error",
       });
       return;
     }
 
     // Validate all new column names before saving
     const validationErrors: string[] = [];
-    newColumns.forEach(column => {
+    newColumns.forEach((column) => {
       const validation = validateColumnName(column.columnName, column.id);
       if (!validation.isValid) {
         validationErrors.push(`${column.columnName}: ${validation.error}`);
@@ -720,25 +818,35 @@ export function FieldConfig({
     });
 
     // Validate selectrange fields require start and end
-    const allFields = [...annotationFields.filter(f => f.isNewColumn), ...newColumns];
+    const allFields = [
+      ...annotationFields.filter((f) => f.isNewColumn),
+      ...newColumns,
+    ];
     allFields.forEach((field: any) => {
-      if (field.columnType === 'selectrange' || field.fieldType === 'selectrange') {
+      if (
+        field.columnType === "selectrange" ||
+        field.fieldType === "selectrange"
+      ) {
         const start = field.rangeStart;
         const end = field.rangeEnd;
-        if (start === undefined || start === null || start === '') {
-          validationErrors.push(`${field.columnName || field.fieldName || 'Field'}: selectrange requires Range Start`);
+        if (start === undefined || start === null || start === "") {
+          validationErrors.push(
+            `${field.columnName || field.fieldName || "Field"}: selectrange requires Range Start`,
+          );
         }
-        if (end === undefined || end === null || end === '') {
-          validationErrors.push(`${field.columnName || field.fieldName || 'Field'}: selectrange requires Range End`);
+        if (end === undefined || end === null || end === "") {
+          validationErrors.push(
+            `${field.columnName || field.fieldName || "Field"}: selectrange requires Range End`,
+          );
         }
       }
     });
 
     if (validationErrors.length > 0) {
       showToast({
-        title: 'Validation Error',
-        description: `Please fix the following errors:\n${validationErrors.join('\n')}`,
-        type: 'error',
+        title: "Validation Error",
+        description: `Please fix the following errors:\n${validationErrors.join("\n")}`,
+        type: "error",
       });
       return;
     }
@@ -749,20 +857,40 @@ export function FieldConfig({
       const payload = {
         datasetId,
         annotationFields: annotationFields.map((field) => ({
-          id: field.id || field.fieldName || `field-${Math.random().toString(36).substr(2, 9)}`,
+          id:
+            field.id ||
+            field.fieldName ||
+            `field-${Math.random().toString(36).substr(2, 9)}`,
           csvColumnName: field.csvColumnName,
           fieldName: field.fieldName,
-          fieldType: field.fieldType === 'radio' || field.fieldType === 'rating' || field.fieldType === 'multiselect'
-            || field.fieldType === 'select' || field.fieldType === 'checkbox' || field.fieldType === 'selectrange'
-            || field.fieldType === 'textarea' || field.fieldType === 'number' || field.fieldType === 'date'
-            ? 'text' : (field.fieldType || 'text'),
+          fieldType:
+            field.fieldType === "radio" ||
+            field.fieldType === "rating" ||
+            field.fieldType === "multiselect" ||
+            field.fieldType === "select" ||
+            field.fieldType === "checkbox" ||
+            field.fieldType === "selectrange" ||
+            field.fieldType === "textarea" ||
+            field.fieldType === "number" ||
+            field.fieldType === "date"
+              ? "text"
+              : field.fieldType || "text",
           isRequired: field.isRequired,
           isAnnotationField: field.isAnnotationField,
           isPrimaryKey: field.isPrimaryKey,
-          options: Array.isArray(field.options) ? field.options.map(o => o.trim()).filter(Boolean) : field.options,
+          options: Array.isArray(field.options)
+            ? field.options.map((o) => o.trim()).filter(Boolean)
+            : field.options,
           isNewColumn: field.isNewColumn,
           newColumnId: field.newColumnId,
-          columnType: field.columnType || (field.fieldType !== 'text' && field.fieldType !== 'image' && field.fieldType !== 'audio' && field.fieldType !== 'video' ? field.fieldType : undefined),
+          columnType:
+            field.columnType ||
+            (field.fieldType !== "text" &&
+            field.fieldType !== "image" &&
+            field.fieldType !== "audio" &&
+            field.fieldType !== "video"
+              ? field.fieldType
+              : undefined),
           placeholder: field.placeholder,
           defaultValue: field.defaultValue,
           maxLength: field.maxLength,
@@ -783,7 +911,9 @@ export function FieldConfig({
           helpText: field.helpText,
           section: field.section,
           visibilityRule: field.visibilityRule,
-          branching: field.branching ? structuredClone(field.branching) : undefined,
+          branching: field.branching
+            ? structuredClone(field.branching)
+            : undefined,
         })),
         annotationLabels: [],
         newColumns: newColumns.map((column) => {
@@ -793,7 +923,9 @@ export function FieldConfig({
             columnType: column.columnType,
             isRequired: column.isRequired,
             defaultValue: column.defaultValue,
-            options: Array.isArray(column.options) ? column.options.map(o => o.trim()).filter(Boolean) : column.options,
+            options: Array.isArray(column.options)
+              ? column.options.map((o) => o.trim()).filter(Boolean)
+              : column.options,
             placeholder: column.placeholder,
             maxLength: column.maxLength,
             min: column.min,
@@ -809,7 +941,9 @@ export function FieldConfig({
             allowHalf: column.allowHalf,
             rows: column.rows,
             validation: column.validation,
-            branching: column.branching ? structuredClone(column.branching) : undefined,
+            branching: column.branching
+              ? structuredClone(column.branching)
+              : undefined,
           };
           return mapped;
         }),
@@ -823,7 +957,9 @@ export function FieldConfig({
         for (const option of branching.options) {
           if (option.childFields && option.childFields.length > 0) {
             for (const child of option.childFields) {
-              const childDepth = child.branching ? getBranchingDepth(child.branching) : 0;
+              const childDepth = child.branching
+                ? getBranchingDepth(child.branching)
+                : 0;
               if (childDepth > maxChildDepth) {
                 maxChildDepth = childDepth;
               }
@@ -840,13 +976,15 @@ export function FieldConfig({
           const childDetails = children.map((c: any) => ({
             fieldName: c.fieldName || c.columnName,
             hasBranching: !!c.branching?.enabled,
-            nested: c.branching ? getOptionWiseChildCount(c.branching, depth + 1) : []
+            nested: c.branching
+              ? getOptionWiseChildCount(c.branching, depth + 1)
+              : [],
           }));
           return {
             optionValue: option.value,
             depth,
             childCount: children.length,
-            childDetails
+            childDetails,
           };
         });
       };
@@ -855,14 +993,14 @@ export function FieldConfig({
 
       setHasChanges(false);
       showToast({
-        title: 'Success',
-        description: 'Field configuration saved successfully!',
-        type: 'success',
+        title: "Success",
+        description: "Field configuration saved successfully!",
+        type: "success",
       });
 
       // Dispatch event to notify other components that field config was saved
       window.dispatchEvent(
-        new CustomEvent('fieldConfigSaved', {
+        new CustomEvent("fieldConfigSaved", {
           detail: { datasetId },
         }),
       );
@@ -874,30 +1012,31 @@ export function FieldConfig({
         router.push(`/dataset/${datasetId}`);
       }
     } catch (error: any) {
-      console.error('Error saving field configuration:', error);
-      
+      console.error("Error saving field configuration:", error);
+
       // Extract validation errors from backend response
-      let errorMessage = 'Failed to save field configuration. Please try again.';
-      
+      let errorMessage =
+        "Failed to save field configuration. Please try again.";
+
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       // If it's a validation error, parse and show specific errors
-      if (errorMessage.includes('Validation errors:')) {
-        const validationErrors = errorMessage.split('\n').slice(1); // Remove "Validation errors:" header
+      if (errorMessage.includes("Validation errors:")) {
+        const validationErrors = errorMessage.split("\n").slice(1); // Remove "Validation errors:" header
         showToast({
-          title: 'Validation Error',
-          description: validationErrors.join('\n'),
-          type: 'error',
+          title: "Validation Error",
+          description: validationErrors.join("\n"),
+          type: "error",
         });
       } else {
         showToast({
-          title: 'Error',
+          title: "Error",
           description: errorMessage,
-          type: 'error',
+          type: "error",
         });
       }
     } finally {
@@ -907,123 +1046,143 @@ export function FieldConfig({
 
   const getSuggestedFieldName = (csvColumnName: string) => {
     const suggestions: Record<string, string> = {
-      customer_name: 'Customer Name',
-      email: 'Email',
-      phone: 'Phone',
-      message: 'Message',
-      rating: 'Rating',
-      timestamp: 'Timestamp',
-      sentiment: 'Sentiment',
-      category: 'Category',
-      priority: 'Priority',
-      status: 'Status',
+      customer_name: "Customer Name",
+      email: "Email",
+      phone: "Phone",
+      message: "Message",
+      rating: "Rating",
+      timestamp: "Timestamp",
+      sentiment: "Sentiment",
+      category: "Category",
+      priority: "Priority",
+      status: "Status",
     };
     return (
       suggestions[csvColumnName] ||
-      csvColumnName.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+      csvColumnName.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
     );
   };
 
   // Get all available column names from dataset schema
   const getAllAvailableColumnNames = useCallback(() => {
-    const csvColumnNames = availableColumns.csvColumns.map(col => col.name.toLowerCase());
-    const manualColumnNames = availableColumns.manualColumns.map(col => col.name.toLowerCase());
+    const csvColumnNames = availableColumns.csvColumns.map((col) =>
+      col.name.toLowerCase(),
+    );
+    const manualColumnNames = availableColumns.manualColumns.map((col) =>
+      col.name.toLowerCase(),
+    );
     return [...csvColumnNames, ...manualColumnNames];
   }, [availableColumns]);
 
   // Check if a column name is available in the dataset
-  const isColumnNameAvailable = useCallback((columnName: string) => {
-    const availableNames = getAllAvailableColumnNames();
-    return !availableNames.includes(columnName.toLowerCase());
-  }, [getAllAvailableColumnNames]);
+  const isColumnNameAvailable = useCallback(
+    (columnName: string) => {
+      const availableNames = getAllAvailableColumnNames();
+      return !availableNames.includes(columnName.toLowerCase());
+    },
+    [getAllAvailableColumnNames],
+  );
 
   // Handle column selection from CSV display
   const handleColumnClick = (columnName: string) => {
     // Check if column is already selected
     if (selectedColumns.has(columnName)) {
       // Remove from selection and annotation fields
-      setSelectedColumns(prev => {
+      setSelectedColumns((prev) => {
         const newSet = new Set(prev);
         newSet.delete(columnName);
         return newSet;
       });
-      
+
       // Remove from annotation fields
-      setAnnotationFields(prev => 
-        prev.filter(field => field.csvColumnName !== columnName)
+      setAnnotationFields((prev) =>
+        prev.filter((field) => field.csvColumnName !== columnName),
       );
     } else {
       // Add to selection
-      setSelectedColumns(prev => new Set([...prev, columnName]));
-      
+      setSelectedColumns((prev) => new Set([...prev, columnName]));
+
       // Add to annotation fields
       const newField: AnnotationField = {
         id: Date.now().toString(),
         csvColumnName: columnName,
         fieldName: getSuggestedFieldName(columnName),
-        fieldType: 'text',
+        fieldType: "text",
         isRequired: false,
         isAnnotationField: false,
         isPrimaryKey: false,
         options: [],
       };
-      
-      setAnnotationFields(prev => [...prev, newField]);
+
+      setAnnotationFields((prev) => [...prev, newField]);
     }
-    
+
     setHasChanges(true);
   };
 
   const handleSelectAll = () => {
-    const csvCols = availableColumns.csvColumns.map(col => col.name);
-    setSelectedColumns(new Set(csvCols));
-    setAnnotationFields(prev => {
-      const existingCsvCols = new Set(prev.filter(f => !f.isNewColumn).map(f => f.csvColumnName));
-      const fieldsToAdd = csvCols
-        .filter(columnName => !existingCsvCols.has(columnName))
-        .map(columnName => ({
+    const csvCols = availableColumns.csvColumns.map((col) => col.name);
+    const docCols = availableColumns.documentColumns.map((col) => col.name);
+    const allCols = [...csvCols, ...docCols];
+    setSelectedColumns(new Set(allCols));
+    setAnnotationFields((prev) => {
+      const existingCsvCols = new Set(
+        prev.filter((f) => !f.isNewColumn).map((f) => f.csvColumnName),
+      );
+      const fieldsToAdd = allCols
+        .filter((columnName) => !existingCsvCols.has(columnName))
+        .map((columnName) => ({
           id: `${Date.now()}-${columnName}`,
           csvColumnName: columnName,
           fieldName: getSuggestedFieldName(columnName),
-          fieldType: 'text' as const,
+          fieldType: "text" as const,
           isRequired: false,
           isAnnotationField: false,
           isPrimaryKey: false,
           options: [],
         }));
-      return [...prev.filter(f => f.isNewColumn || existingCsvCols.has(f.csvColumnName)), ...fieldsToAdd];
+      return [
+        ...prev.filter(
+          (f) => f.isNewColumn || existingCsvCols.has(f.csvColumnName),
+        ),
+        ...fieldsToAdd,
+      ];
     });
     setHasChanges(true);
   };
 
   const handleClearAll = () => {
     setSelectedColumns(new Set());
-    setAnnotationFields(prev => prev.filter(f => f.isNewColumn));
+    setAnnotationFields((prev) => prev.filter((f) => f.isNewColumn));
     setHasChanges(true);
   };
 
   const handleInvertSelection = () => {
-    const csvCols = availableColumns.csvColumns.map(col => col.name);
+    const csvCols = availableColumns.csvColumns.map((col) => col.name);
+    const docCols = availableColumns.documentColumns.map((col) => col.name);
+    const allCols = [...csvCols, ...docCols];
     const newSelected = new Set<string>();
-    csvCols.forEach(col => {
+    allCols.forEach((col) => {
       if (!selectedColumns.has(col)) {
         newSelected.add(col);
       }
     });
     setSelectedColumns(newSelected);
-    setAnnotationFields(prev => {
-      const keptNewFields = prev.filter(f => f.isNewColumn);
-      const csvFieldsMap = new Map(prev.filter(f => !f.isNewColumn).map(f => [f.csvColumnName, f]));
-      const newCsvFields = csvCols
-        .filter(col => newSelected.has(col))
-        .map(columnName => {
+    setAnnotationFields((prev) => {
+      const keptNewFields = prev.filter((f) => f.isNewColumn);
+      const csvFieldsMap = new Map(
+        prev.filter((f) => !f.isNewColumn).map((f) => [f.csvColumnName, f]),
+      );
+      const newCsvFields = allCols
+        .filter((col) => newSelected.has(col))
+        .map((columnName) => {
           const existing = csvFieldsMap.get(columnName);
           if (existing) return existing;
           return {
             id: `${Date.now()}-${columnName}`,
             csvColumnName: columnName,
             fieldName: getSuggestedFieldName(columnName),
-            fieldType: 'text' as const,
+            fieldType: "text" as const,
             isRequired: false,
             isAnnotationField: false,
             isPrimaryKey: false,
@@ -1036,29 +1195,57 @@ export function FieldConfig({
   };
 
   const handleApproveRequest = async (requestId: string) => {
-    const choice = syncChoices[requestId] || 'PUSH_ALL';
-    const note = reviewNotes[requestId] || '';
+    const choice = syncChoices[requestId] || "PUSH_ALL";
+    const note = reviewNotes[requestId] || "";
     try {
       await schemaRequestsAPI.approve(requestId, { choice, reviewNote: note });
-      showToast({ title: 'Request Approved', description: 'Field change has been applied.', type: 'success' });
+      showToast({
+        title: "Request Approved",
+        description: "Field change has been applied.",
+        type: "success",
+      });
       setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
-      setReviewNotes((prev) => { const n = { ...prev }; delete n[requestId]; return n; });
-      setSyncChoices((prev) => { const n = { ...prev }; delete n[requestId]; return n; });
+      setReviewNotes((prev) => {
+        const n = { ...prev };
+        delete n[requestId];
+        return n;
+      });
+      setSyncChoices((prev) => {
+        const n = { ...prev };
+        delete n[requestId];
+        return n;
+      });
       loadExistingFieldConfig();
     } catch (err: any) {
-      showToast({ title: 'Approval Failed', description: err?.response?.data?.message || 'Failed to approve.', type: 'error' });
+      showToast({
+        title: "Approval Failed",
+        description: err?.response?.data?.message || "Failed to approve.",
+        type: "error",
+      });
     }
   };
 
   const handleRejectRequest = async (requestId: string) => {
-    const note = reviewNotes[requestId] || '';
+    const note = reviewNotes[requestId] || "";
     try {
       await schemaRequestsAPI.reject(requestId, { reviewNote: note });
-      showToast({ title: 'Request Rejected', description: 'Field request has been discarded.', type: 'success' });
+      showToast({
+        title: "Request Rejected",
+        description: "Field request has been discarded.",
+        type: "success",
+      });
       setPendingRequests((prev) => prev.filter((r) => r.id !== requestId));
-      setReviewNotes((prev) => { const n = { ...prev }; delete n[requestId]; return n; });
+      setReviewNotes((prev) => {
+        const n = { ...prev };
+        delete n[requestId];
+        return n;
+      });
     } catch (err: any) {
-      showToast({ title: 'Rejection Failed', description: err?.response?.data?.message || 'Failed to reject.', type: 'error' });
+      showToast({
+        title: "Rejection Failed",
+        description: err?.response?.data?.message || "Failed to reject.",
+        type: "error",
+      });
     }
   };
 
@@ -1067,14 +1254,12 @@ export function FieldConfig({
       {/* Header */}
       <div className="mb-4">
         <h1 className="text-3xl font-bold text-gray-900">
-          {datasetInfo?.name || 'Field Configuration'}
+          {datasetInfo?.name || "Field Configuration"}
         </h1>
         <p className="text-gray-600 mt-1">
           Configure CSV annotation fields and data mapping
         </p>
       </div>
-
-
 
       {datasetLoadingError && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-md flex items-center space-x-2">
@@ -1092,7 +1277,8 @@ export function FieldConfig({
               <span>Pending Field Requests ({pendingRequests.length})</span>
             </CardTitle>
             <CardDescription className="text-xs text-amber-700">
-              Annotators have requested changes to the field configuration. Review, approve, or reject below.
+              Annotators have requested changes to the field configuration.
+              Review, approve, or reject below.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0 divide-y divide-gray-100">
@@ -1100,41 +1286,52 @@ export function FieldConfig({
               const requestId = req.id;
               const annotatorName = req.requestedBy
                 ? `${req.requestedBy.firstName} ${req.requestedBy.lastName}`
-                : 'Unknown';
-              const currentSync = syncChoices[requestId] || 'PUSH_ALL';
+                : "Unknown";
+              const currentSync = syncChoices[requestId] || "PUSH_ALL";
 
               return (
-                <div key={requestId} className={`p-4 ${req.targetFieldMissing ? 'bg-red-50' : ''}`}>
+                <div
+                  key={requestId}
+                  className={`p-4 ${req.targetFieldMissing ? "bg-red-50" : ""}`}
+                >
                   {req.targetFieldMissing && (
                     <div className="mb-2 flex items-center gap-1.5 text-xs text-red-700 bg-red-100 px-2 py-1 rounded">
                       <AlertTriangle className="h-3.5 w-3.5" />
-                      <span className="font-semibold">Warning:</span> Target field no longer exists in configuration
+                      <span className="font-semibold">Warning:</span> Target
+                      field no longer exists in configuration
                     </div>
                   )}
                   <div className="flex flex-col md:flex-row gap-4">
                     {/* Left: Info */}
                     <div className="flex-1 space-y-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">{req.type}</span>
+                        <span className="text-xs font-bold bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">
+                          {req.type}
+                        </span>
                         <span className="text-sm font-semibold text-gray-900">
-                          {req.type === 'ADD_FIELD' && req.field?.fieldName}
-                          {req.type === 'ADD_GROUP' && req.field?.groupName}
-                          {req.type === 'RENAME_FIELD' && `${req.fieldName} → ${req.newFieldName || req.newQuestionTitle}`}
-                          {req.type === 'DELETE_FIELD' && req.fieldName}
-                          {req.type === 'UPDATE_FIELD' && req.fieldName}
+                          {req.type === "ADD_FIELD" && req.field?.fieldName}
+                          {req.type === "ADD_GROUP" && req.field?.groupName}
+                          {req.type === "RENAME_FIELD" &&
+                            `${req.fieldName} → ${req.newFieldName || req.newQuestionTitle}`}
+                          {req.type === "DELETE_FIELD" && req.fieldName}
+                          {req.type === "UPDATE_FIELD" && req.fieldName}
                         </span>
                       </div>
                       <div className="text-xs text-gray-500">
-                        <span className="font-medium">Requested by:</span> {annotatorName}
+                        <span className="font-medium">Requested by:</span>{" "}
+                        {annotatorName}
                       </div>
                       <div className="text-xs text-gray-400">
                         {new Date(req.createdAt).toLocaleString()}
                       </div>
                       {req.field?.columnType && (
                         <div className="text-xs text-gray-500">
-                          <span className="font-medium">Type:</span> {req.field.columnType}
+                          <span className="font-medium">Type:</span>{" "}
+                          {req.field.columnType}
                           {req.field.options?.length > 0 && (
-                            <span className="ml-2">Options: {req.field.options.join(', ')}</span>
+                            <span className="ml-2">
+                              Options: {req.field.options.join(", ")}
+                            </span>
                           )}
                         </div>
                       )}
@@ -1145,22 +1342,32 @@ export function FieldConfig({
                       <div className="grid grid-cols-2 gap-1.5">
                         <button
                           type="button"
-                          onClick={() => setSyncChoices((prev) => ({ ...prev, [requestId]: 'PUSH_ALL' }))}
+                          onClick={() =>
+                            setSyncChoices((prev) => ({
+                              ...prev,
+                              [requestId]: "PUSH_ALL",
+                            }))
+                          }
                           className={`px-2 py-1.5 text-xs font-semibold rounded border text-center transition-all ${
-                            currentSync === 'PUSH_ALL'
-                              ? 'bg-teal-50 border-teal-500 text-teal-700'
-                              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                            currentSync === "PUSH_ALL"
+                              ? "bg-teal-50 border-teal-500 text-teal-700"
+                              : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
                           }`}
                         >
                           All Clones
                         </button>
                         <button
                           type="button"
-                          onClick={() => setSyncChoices((prev) => ({ ...prev, [requestId]: 'KEEP_LOCAL' }))}
+                          onClick={() =>
+                            setSyncChoices((prev) => ({
+                              ...prev,
+                              [requestId]: "KEEP_LOCAL",
+                            }))
+                          }
                           className={`px-2 py-1.5 text-xs font-semibold rounded border text-center transition-all ${
-                            currentSync === 'KEEP_LOCAL'
-                              ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                            currentSync === "KEEP_LOCAL"
+                              ? "bg-indigo-50 border-indigo-500 text-indigo-700"
+                              : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
                           }`}
                         >
                           Keep Local
@@ -1168,8 +1375,13 @@ export function FieldConfig({
                       </div>
                       <input
                         placeholder="Review note (optional)..."
-                        value={reviewNotes[requestId] || ''}
-                        onChange={(e) => setReviewNotes((prev) => ({ ...prev, [requestId]: e.target.value }))}
+                        value={reviewNotes[requestId] || ""}
+                        onChange={(e) =>
+                          setReviewNotes((prev) => ({
+                            ...prev,
+                            [requestId]: e.target.value,
+                          }))
+                        }
                         className="w-full h-7 text-xs px-2 border border-gray-200 rounded bg-white"
                       />
                       <div className="flex gap-1.5">
@@ -1197,10 +1409,12 @@ export function FieldConfig({
 
       {/* Available Columns Display */}
       {(availableColumns.csvColumns.length > 0 ||
-        availableColumns.manualColumns.length > 0) && (
+        availableColumns.manualColumns.length > 0 ||
+        availableColumns.documentColumns.length > 0) && (
         <CSVColumnsDisplay
           csvColumns={availableColumns.csvColumns}
           manualColumns={availableColumns.manualColumns}
+          documentColumns={availableColumns.documentColumns}
           selectedColumns={selectedColumns}
           onColumnClick={handleColumnClick}
           onSelectAll={handleSelectAll}
@@ -1248,14 +1462,16 @@ export function FieldConfig({
       {!loading &&
         !datasetLoadingError &&
         availableColumns.csvColumns.length === 0 &&
-        availableColumns.manualColumns.length === 0 && (
+        availableColumns.manualColumns.length === 0 &&
+        availableColumns.documentColumns.length === 0 &&
+        annotationFields.length === 0 && (
           <Card>
             <CardContent className="p-8">
               <div className="text-center py-8 text-gray-500">
                 <FileText className="h-16 w-16 mx-auto mb-4 text-gray-300" />
                 <p className="text-lg font-medium mb-2">No columns found</p>
                 <p className="text-sm mb-4">
-                  Please upload a CSV file first to configure annotation fields
+                  Upload a CSV or document file first, or add fields manually below.
                 </p>
                 <Button
                   onClick={() => {
@@ -1275,9 +1491,7 @@ export function FieldConfig({
         )}
 
       {/* Configuration Tabs */}
-      {(availableColumns.csvColumns.length > 0 ||
-        availableColumns.manualColumns.length > 0) && (
-        <div className="space-y-6">
+      <div className="space-y-6">
           {/* Configured Repeatable Field Groups */}
           <Card className="mb-6">
             <CardHeader className="py-4">
@@ -1323,7 +1537,8 @@ export function FieldConfig({
                           </span>
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          Fields: {group.fields.map((f) => f.fieldName).join(', ')}
+                          Fields:{" "}
+                          {group.fields.map((f) => f.fieldName).join(", ")}
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -1343,8 +1558,16 @@ export function FieldConfig({
                           size="sm"
                           disabled={false}
                           onClick={() => {
-                            if (window.confirm("Delete Group?\nThis action cannot be undone.")) {
-                              setFieldGroups(fieldGroups.filter((g) => g.groupId !== group.groupId));
+                            if (
+                              window.confirm(
+                                "Delete Group?\nThis action cannot be undone.",
+                              )
+                            ) {
+                              setFieldGroups(
+                                fieldGroups.filter(
+                                  (g) => g.groupId !== group.groupId,
+                                ),
+                              );
                               setHasChanges(true);
                             }
                           }}
@@ -1371,16 +1594,22 @@ export function FieldConfig({
                 existingGroup={editingGroup}
                 existingColumnNames={
                   new Set([
-                    ...availableColumns.csvColumns.map(c => c.name.toLowerCase()),
-                    ...availableColumns.manualColumns.map(c => c.name.toLowerCase()),
-                    ...newColumns.map(c => c.columnName.toLowerCase()),
-                    ...annotationFields.map(f => f.fieldName.toLowerCase()),
+                    ...availableColumns.csvColumns.map((c) =>
+                      c.name.toLowerCase(),
+                    ),
+                    ...availableColumns.manualColumns.map((c) =>
+                      c.name.toLowerCase(),
+                    ),
+                    ...newColumns.map((c) => c.columnName.toLowerCase()),
+                    ...annotationFields.map((f) => f.fieldName.toLowerCase()),
                   ])
                 }
                 onSave={(group) => {
                   if (editingGroup) {
                     setFieldGroups(
-                      fieldGroups.map(g => (g.groupId === editingGroup.groupId ? group : g))
+                      fieldGroups.map((g) =>
+                        g.groupId === editingGroup.groupId ? group : g,
+                      ),
                     );
                   } else {
                     setFieldGroups([...fieldGroups, group]);
@@ -1413,287 +1642,353 @@ export function FieldConfig({
               </div>
             </CardHeader>
             <CardContent className="p-4">
-                  {annotationFields.length > 0 ? (
-                    <div className="space-y-4">
-                      {annotationFields.map((field) => {
-                        const newColumn = field.isNewColumn ? newColumns.find(col => col.id === field.newColumnId) : null;
-                        const unifiedTypes = [
-                          { value: 'text', label: 'Text Input' },
-                          { value: 'textarea', label: 'Long Text' },
-                          { value: 'number', label: 'Numeric Input' },
-                          { value: 'select', label: 'Dropdown' },
-                          { value: 'selectrange', label: 'Numeric Range Select' },
-                          { value: 'radio', label: 'Radio Options' },
-                          { value: 'checkbox', label: 'Checkbox Toggle' },
-                          { value: 'multiselect', label: 'Multiple Select Checkboxes' },
-                          { value: 'date', label: 'Date Picker' },
-                          { value: 'rating', label: 'Star Rating' },
-                          { value: 'image', label: 'Image' },
-                          { value: 'audio', label: 'Audio' },
-                          { value: 'video', label: 'Video' },
-                        ];
+              {annotationFields.length > 0 ? (
+                <div className="space-y-4">
+                  {annotationFields.map((field) => {
+                    const newColumn = field.isNewColumn
+                      ? newColumns.find((col) => col.id === field.newColumnId)
+                      : null;
+                    const unifiedTypes = [
+                      { value: "text", label: "Text Input" },
+                      { value: "textarea", label: "Long Text" },
+                      { value: "number", label: "Numeric Input" },
+                      { value: "select", label: "Dropdown" },
+                      { value: "selectrange", label: "Numeric Range Select" },
+                      { value: "radio", label: "Radio Options" },
+                      { value: "checkbox", label: "Checkbox Toggle" },
+                      {
+                        value: "multiselect",
+                        label: "Multiple Select Checkboxes",
+                      },
+                      { value: "date", label: "Date Picker" },
+                      { value: "rating", label: "Star Rating" },
+                      { value: "image", label: "Image" },
+                      { value: "audio", label: "Audio" },
+                      { value: "video", label: "Video" },
+                    ];
 
-                        const metadataTypes = [
-                          { value: 'text-metadata', label: 'Metadata Display' },
-                        ];
+                    const metadataTypes = [
+                      { value: "text-metadata", label: "Metadata Display" },
+                    ];
 
-                        const options = field.isNewColumn ? unifiedTypes : [...unifiedTypes, ...metadataTypes];
-                        const currentUnifiedType = getUnifiedType(field);
-                        const isInputType = unifiedTypes.some(opt => opt.value === currentUnifiedType);
-                        const isTypeDisabled = Boolean(field.isPrimaryKey);
+                    const options = field.isNewColumn
+                      ? unifiedTypes
+                      : [...unifiedTypes, ...metadataTypes];
+                    const currentUnifiedType = getUnifiedType(field);
+                    const isInputType = unifiedTypes.some(
+                      (opt) => opt.value === currentUnifiedType,
+                    );
+                    const isTypeDisabled = Boolean(field.isPrimaryKey);
 
-                        return (
-                          <Card 
-                            key={field.id} 
-                            className={cn(
-                              "border border-gray-200 shadow-sm overflow-hidden bg-white transition-all duration-200",
-                              field.isNewColumn ? "hover:border-purple-200" : "hover:border-blue-200"
-                            )}
-                          >
-                            <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                              {/* Left Part: Name & Selection */}
-                              <div className="flex-1 min-w-0">
-                                {field.isNewColumn ? (
-                                  <div className="space-y-1 max-w-md">
-                                    <Input
-                                      placeholder="Column name"
-                                      value={newColumn?.columnName || ''}
-                                      disabled={false}
-                                      onChange={(e) => {
-                                        const columnName = e.target.value;
-                                        handleFieldChange(field.id, {
-                                          fieldName: columnName,
-                                          csvColumnName: columnName,
-                                        });
-
-                                        if (columnName.trim() === '') {
-                                          setColumnValidationErrors(prev => {
-                                            const newErrors = { ...prev };
-                                            delete newErrors[field.newColumnId!];
-                                            return newErrors;
-                                          });
-                                          return;
-                                        }
-
-                                        const validation = validateColumnName(columnName, field.newColumnId);
-                                        if (!validation.isValid) {
-                                          setColumnValidationErrors(prev => ({
-                                            ...prev,
-                                            [field.newColumnId!]: validation.error || ''
-                                          }));
-                                        } else {
-                                          setColumnValidationErrors(prev => {
-                                            const newErrors = { ...prev };
-                                            delete newErrors[field.newColumnId!];
-                                            return newErrors;
-                                          });
-                                        }
-                                      }}
-                                      className={cn(
-                                        "h-9 text-sm bg-white transition-colors",
-                                        columnValidationErrors[field.newColumnId!]
-                                          ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                                          : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                                      )}
-                                    />
-                                    {columnValidationErrors[field.newColumnId!] && (
-                                      <div className="flex items-center space-x-1 mt-1">
-                                        <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                                        <p className="text-xs text-red-500">
-                                          {columnValidationErrors[field.newColumnId!]}
-                                        </p>
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center space-x-2">
-                                    <span className="font-semibold text-gray-800 text-sm truncate max-w-[250px]">
-                                      {field.csvColumnName}
-                                    </span>
-                                    <span className="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded uppercase font-semibold">
-                                      CSV Column
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Middle Part: Type Dropdown, Primary checkbox, action buttons */}
-                              <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
-                                <div className="w-[180px]">
-                                  <select
-                                    value={currentUnifiedType}
-                                    onChange={(e) => handleUnifiedTypeChange(field, e.target.value)}
-                                    disabled={isTypeDisabled}
-                                    className="w-full h-9 px-3 border border-gray-300 bg-white rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                  >
-                                    {options.map((opt) => (
-                                      <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-
-                                {!field.isNewColumn && (
-                                  <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
-                                    <input
-                                      type="checkbox"
-                                      id={`pk-${field.id}`}
-                                      checked={Boolean(field.isPrimaryKey)}
-                                      onChange={(e) => togglePrimaryKey(field.id, e.target.checked)}
-                                      disabled={false}
-                                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
-                                    />
-                                    <Label htmlFor={`pk-${field.id}`} className="text-xs text-gray-600 cursor-pointer font-medium select-none">
-                                      Primary Key
-                                    </Label>
-                                  </div>
-                                )}
-
-                                {isInputType && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => toggleRowExpanded(field.id)}
-                                    className="h-9 text-xs font-semibold flex items-center space-x-1 border-gray-300 text-gray-700 hover:bg-gray-50"
-                                  >
-                                    <span>Configure</span>
-                                    {expandedRows.has(field.id) ? (
-                                      <ChevronUp className="h-4 w-4" />
-                                    ) : (
-                                      <ChevronDown className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                )}
-
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
+                    return (
+                      <Card
+                        key={field.id}
+                        className={cn(
+                          "border border-gray-200 shadow-sm overflow-hidden bg-white transition-all duration-200",
+                          field.isNewColumn
+                            ? "hover:border-purple-200"
+                            : "hover:border-blue-200",
+                        )}
+                      >
+                        <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          {/* Left Part: Name & Selection */}
+                          <div className="flex-1 min-w-0">
+                            {field.isNewColumn ? (
+                              <div className="space-y-1 max-w-md">
+                                <Input
+                                  placeholder="Column name"
+                                  value={newColumn?.columnName || ""}
                                   disabled={false}
-                                  onClick={() => {
-                                    if (field.isNewColumn) {
-                                      removeNewColumn(field.newColumnId!);
+                                  onChange={(e) => {
+                                    const columnName = e.target.value;
+                                    handleFieldChange(field.id, {
+                                      fieldName: columnName,
+                                      csvColumnName: columnName,
+                                    });
+
+                                    if (columnName.trim() === "") {
+                                      setColumnValidationErrors((prev) => {
+                                        const newErrors = { ...prev };
+                                        delete newErrors[field.newColumnId!];
+                                        return newErrors;
+                                      });
+                                      return;
+                                    }
+
+                                    const validation = validateColumnName(
+                                      columnName,
+                                      field.newColumnId,
+                                    );
+                                    if (!validation.isValid) {
+                                      setColumnValidationErrors((prev) => ({
+                                        ...prev,
+                                        [field.newColumnId!]:
+                                          validation.error || "",
+                                      }));
                                     } else {
-                                      // Uncheck CSV column selection
-                                      setSelectedColumns(prev => {
-                                        const newSet = new Set(prev);
-                                        newSet.delete(field.csvColumnName);
-                                        return newSet;
+                                      setColumnValidationErrors((prev) => {
+                                        const newErrors = { ...prev };
+                                        delete newErrors[field.newColumnId!];
+                                        return newErrors;
                                       });
                                     }
-                                    removeAnnotationField(field.id);
                                   }}
-                                  className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                  className={cn(
+                                    "h-9 text-sm bg-white transition-colors",
+                                    columnValidationErrors[field.newColumnId!]
+                                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                                      : "border-gray-300 focus:border-blue-500 focus:ring-blue-500",
+                                  )}
+                                />
+                                {columnValidationErrors[field.newColumnId!] && (
+                                  <div className="flex items-center space-x-1 mt-1">
+                                    <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                                    <p className="text-xs text-red-500">
+                                      {
+                                        columnValidationErrors[
+                                          field.newColumnId!
+                                        ]
+                                      }
+                                    </p>
+                                  </div>
+                                )}
                               </div>
-                            </div>
-
-                            {/* Expanded Config Panel */}
-                            {expandedRows.has(field.id) && isInputType && (
-                              <div className="px-4 pb-4 pt-3 border-t border-gray-100 bg-gray-50/50">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                  {/* LEFT: Configuration */}
-                                  <div className="space-y-4">
-                                    <FieldTypeConfigurator
-                                      type={currentUnifiedType}
-                                      field={field}
-                                      onChange={(updates) => handleFieldChange(field.id, updates)}
-                                    />
-                                    {/* Recursive Branching Editor for choice types */}
-                                    {['radio', 'multiselect', 'select', 'rating', 'checkbox'].includes(currentUnifiedType) && (
-                                      <div className="pt-4 border-t border-gray-200">
-                                        <RecursiveFieldEditor
-                                          field={field}
-                                          depth={0}
-                                          onChange={(updated) => handleFieldChange(field.id, updated)}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                  {/* RIGHT: Live Preview Tree */}
-                                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                      <span>👁</span> Live Workflow Tree
-                                    </h4>
-                                    <LivePreviewTree fields={[field]} />
-                                    {!['radio', 'multiselect', 'select', 'rating', 'checkbox'].includes(currentUnifiedType) && (
-                                      <div className="text-xs text-gray-400 italic mt-4 text-center">
-                                        Branching is only available for choice-based fields (Radio, Multi-Select, Dropdown, Rating).
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
+                            ) : (
+                              <div className="flex items-center space-x-2">
+                                <span className="font-semibold text-gray-800 text-sm truncate max-w-[250px]">
+                                  {field.csvColumnName}
+                                </span>
+                                <span className="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded uppercase font-semibold">
+                                  CSV Column
+                                </span>
                               </div>
                             )}
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <Database className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                      <p className="text-base font-medium mb-1">
-                        Please select columns from above
-                      </p>
-                      <p className="text-sm">
-                        Click on columns in the "Select Columns" section to add them here
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              
-                {/* Inline validation errors */}
-                {(() => {
-                  const selectrangeErrors = [...annotationFields.filter(f => f.isNewColumn), ...newColumns]
-                    .filter((f: any) => (f.columnType === 'selectrange' || f.fieldType === 'selectrange'))
-                    .filter((f: any) => !f.rangeStart || !f.rangeEnd)
-                    .map((f: any) => f.columnName || f.fieldName || 'Unnamed field');
-                  
-                  if (selectrangeErrors.length > 0) {
-                    return (
-                      <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                        <p className="text-xs text-amber-700 font-medium flex items-center gap-2">
-                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                          {selectrangeErrors.length} selectrange field{selectrangeErrors.length !== 1 ? 's' : ''} require Range Start and Range End
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
+                          </div>
 
-                {/* Fixed Footer with Save Button */}
-                <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
-                  <div className="flex justify-between">
-                    <Button
-                      onClick={addNewColumn}
-                      disabled={false}
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700 h-8 px-3 text-sm"
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1.5" />
-                      Add New Field
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleSave}
-                      disabled={!hasChanges || loading || (() => {
-                        const hasErrors = [...annotationFields.filter(f => f.isNewColumn), ...newColumns]
-                          .some((f: any) => (f.columnType === 'selectrange' || f.fieldType === 'selectrange') && (!f.rangeStart || !f.rangeEnd));
-                        return hasErrors;
-                      })()}
-                      className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 h-8 px-3 text-sm"
-                    >
-                     <Save className="h-3.5 w-3.5 mr-1.5" />
-                     Save Configuration
-                   </Button>
-                 </div>
-               </div>
-            </Card>
+                          {/* Middle Part: Type Dropdown, Primary checkbox, action buttons */}
+                          <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
+                            <div className="w-[180px]">
+                              <select
+                                value={currentUnifiedType}
+                                onChange={(e) =>
+                                  handleUnifiedTypeChange(field, e.target.value)
+                                }
+                                disabled={isTypeDisabled}
+                                className="w-full h-9 px-3 border border-gray-300 bg-white rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                {options.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {!field.isNewColumn && (
+                              <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
+                                <input
+                                  type="checkbox"
+                                  id={`pk-${field.id}`}
+                                  checked={Boolean(field.isPrimaryKey)}
+                                  onChange={(e) =>
+                                    togglePrimaryKey(field.id, e.target.checked)
+                                  }
+                                  disabled={false}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
+                                />
+                                <Label
+                                  htmlFor={`pk-${field.id}`}
+                                  className="text-xs text-gray-600 cursor-pointer font-medium select-none"
+                                >
+                                  Primary Key
+                                </Label>
+                              </div>
+                            )}
+
+                            {isInputType && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => toggleRowExpanded(field.id)}
+                                className="h-9 text-xs font-semibold flex items-center space-x-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+                              >
+                                <span>Configure</span>
+                                {expandedRows.has(field.id) ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={false}
+                              onClick={() => {
+                                if (field.isNewColumn) {
+                                  removeNewColumn(field.newColumnId!);
+                                } else {
+                                  // Uncheck CSV column selection
+                                  setSelectedColumns((prev) => {
+                                    const newSet = new Set(prev);
+                                    newSet.delete(field.csvColumnName);
+                                    return newSet;
+                                  });
+                                }
+                                removeAnnotationField(field.id);
+                              }}
+                              className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Expanded Config Panel */}
+                        {expandedRows.has(field.id) && isInputType && (
+                          <div className="px-4 pb-4 pt-3 border-t border-gray-100 bg-gray-50/50">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              {/* LEFT: Configuration */}
+                              <div className="space-y-4">
+                                <FieldTypeConfigurator
+                                  type={currentUnifiedType}
+                                  field={field}
+                                  onChange={(updates) =>
+                                    handleFieldChange(field.id, updates)
+                                  }
+                                />
+                                {/* Recursive Branching Editor for choice types */}
+                                {[
+                                  "radio",
+                                  "multiselect",
+                                  "select",
+                                  "rating",
+                                  "checkbox",
+                                ].includes(currentUnifiedType) && (
+                                  <div className="pt-4 border-t border-gray-200">
+                                    <RecursiveFieldEditor
+                                      field={field}
+                                      depth={0}
+                                      onChange={(updated) =>
+                                        handleFieldChange(field.id, updated)
+                                      }
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              {/* RIGHT: Live Preview Tree */}
+                              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                  <span>👁</span> Live Workflow Tree
+                                </h4>
+                                <LivePreviewTree fields={[field]} />
+                                {![
+                                  "radio",
+                                  "multiselect",
+                                  "select",
+                                  "rating",
+                                  "checkbox",
+                                ].includes(currentUnifiedType) && (
+                                  <div className="text-xs text-gray-400 italic mt-4 text-center">
+                                    Branching is only available for choice-based
+                                    fields (Radio, Multi-Select, Dropdown,
+                                    Rating).
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Database className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-base font-medium mb-1">
+                    Please select columns from above
+                  </p>
+                  <p className="text-sm">
+                    Click on columns in the "Select Columns" section to add them
+                    here
+                  </p>
+                </div>
+              )}
+            </CardContent>
+
+            {/* Inline validation errors */}
+            {(() => {
+              const selectrangeErrors = [
+                ...annotationFields.filter((f) => f.isNewColumn),
+                ...newColumns,
+              ]
+                .filter(
+                  (f: any) =>
+                    f.columnType === "selectrange" ||
+                    f.fieldType === "selectrange",
+                )
+                .filter((f: any) => !f.rangeStart || !f.rangeEnd)
+                .map(
+                  (f: any) => f.columnName || f.fieldName || "Unnamed field",
+                );
+
+              if (selectrangeErrors.length > 0) {
+                return (
+                  <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                    <p className="text-xs text-amber-700 font-medium flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      {selectrangeErrors.length} selectrange field
+                      {selectrangeErrors.length !== 1 ? "s" : ""} require Range
+                      Start and Range End
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Fixed Footer with Save Button */}
+            <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="flex justify-between">
+                <Button
+                  onClick={addNewColumn}
+                  disabled={false}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 h-8 px-3 text-sm"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Add New Field
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleSave}
+                  disabled={
+                    !hasChanges ||
+                    loading ||
+                    (() => {
+                      const hasErrors = [
+                        ...annotationFields.filter((f) => f.isNewColumn),
+                        ...newColumns,
+                      ].some(
+                        (f: any) =>
+                          (f.columnType === "selectrange" ||
+                            f.fieldType === "selectrange") &&
+                          (!f.rangeStart || !f.rangeEnd),
+                      );
+                      return hasErrors;
+                    })()
+                  }
+                  className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 h-8 px-3 text-sm"
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  Save Configuration
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
-      )}
-    </div>
+      </div>
   );
 }

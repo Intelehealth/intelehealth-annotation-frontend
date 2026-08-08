@@ -123,14 +123,14 @@ export interface PatchAnnotationResponse {
 
 export class CSVImportsAPI {
   // Get CSV import by ID with full data including rowData
-  static async findOne(id: string): Promise<CSVImport> {
-    const response = await jsonApi.get(`/csv-processing/data/${id}`);
+  static async findOne(datasetId: string, id: string): Promise<CSVImport> {
+    const response = await jsonApi.get(`/csv-processing/dataset/${datasetId}/data/${id}`);
     return response.data;
   }
 
   // Get CSV import status (same as findOne since we're using the status endpoint)
-  static async getStatus(id: string): Promise<CSVImport> {
-    return this.findOne(id);
+  static async getStatus(datasetId: string, id: string): Promise<CSVImport> {
+    return this.findOne(datasetId, id);
   }
 
   // Get CSV columns
@@ -221,12 +221,13 @@ export class CSVImportsAPI {
 
   // Direct CSV row data update method
   static async patchCSVRowData(
+    datasetId: string,
     csvImportId: string,
     rowIndex: number,
     updatedData: Record<string, any>,
   ): Promise<PatchAnnotationResponse> {
     const response = await jsonApi.patch(
-      `/csv-processing/data/${csvImportId}/row/${rowIndex}`,
+      `/csv-processing/dataset/${datasetId}/data/${csvImportId}/row/${rowIndex}`,
       { data: updatedData },
     );
     return response.data;
@@ -248,10 +249,11 @@ export class CSVImportsAPI {
 
   // Helper: Mark row as completed
   static async markRowCompleted(
+    datasetId: string,
     csvImportId: string,
     rowIndex: number
   ): Promise<PatchAnnotationResponse> {
-    return this.patchCSVRowData(csvImportId, rowIndex, {
+    return this.patchCSVRowData(datasetId, csvImportId, rowIndex, {
       processed: true,
       completed: true,
       completedAt: new Date().toISOString()
