@@ -121,23 +121,30 @@ export function MetadataDisplay({
       }}
     >
       {/* Navigation Header */}
-      <div className="p-4 pb-2">
+<div className="p-3 sm:p-4 pb-2">
+          <Button
+            onClick={onNavigateBack}
+            className="bg-black hover:bg-gray-800 text-white font-medium px-4 py-2 justify-center"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dataset
+          </Button>
       </div>
 
       {/* Data Fields Header */}
-      <div className="px-4 pb-4 border-b border-gray-100">
-        <h2 className="text-lg font-semibold text-gray-900">
+      <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-b border-gray-100 min-w-0">
+        <h2 className="text-lg font-semibold text-gray-900 flex items-center whitespace-nowrap">
           {datasetName && (
-            <span className="text-2xl">{datasetName} - </span>
+            <span className="text-lg sm:text-2xl">{datasetName} - </span>
           )}
           Data Fields
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-500 mt-1 break-words">
           {isAdmin ? 'Drag fields to reorder • Drop to annotation panel' : 'View metadata (admin can configure layout)'}
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 min-w-0 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
         {orderedMetadataFields.map((field, idx) => {
           // Use DragDropHelper to determine if field can be dragged
           const dragValidation = DragDropHelper.canDragField(field, 'metadata');
@@ -156,15 +163,15 @@ export function MetadataDisplay({
               onDrop(e, field.csvColumnName);
             }}
             className={cn(
-              'p-4 border border-gray-200 rounded-lg bg-gray-50 transition-all duration-200',
+              'p-3 sm:p-4 border border-gray-200 rounded-lg bg-gray-50 transition-all duration-200',
               draggedField === field.csvColumnName && 'opacity-50 bg-blue-50 border-blue-300',
               isDraggable ? 'hover:shadow-md hover:bg-gray-100 cursor-move' : 'cursor-default'
             )}
           >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <GripVertical className="h-4 w-4 text-gray-400" />
-                <Label className="text-sm font-medium text-gray-700">
+            <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+              <div className="flex items-center space-x-2 min-w-0">
+                <GripVertical className="h-4 w-4 text-gray-400 shrink-0" />
+                <Label className="text-sm font-medium text-gray-700 break-all min-w-0">
                   {field.fieldName}
                   {field.isRequired && (
                     <span className="text-red-500 ml-1">*</span>
@@ -172,7 +179,7 @@ export function MetadataDisplay({
                 </Label>
               </div>
               {field.isPrimaryKey && (
-                <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded shrink-0">
                   Primary Key
                 </div>
               )}
@@ -184,7 +191,7 @@ export function MetadataDisplay({
                   {/* Text Fields */}
                   {field.fieldType === 'text' && (
                     <div className={`p-3 border border-gray-200 rounded-md ${field.isPrimaryKey ? 'bg-gray-100' : 'bg-white'}`}>
-                      <div className={`text-sm whitespace-pre-wrap ${field.isPrimaryKey ? 'text-gray-600 font-medium' : 'text-gray-800'}`}>
+                      <div className={`text-sm whitespace-pre-wrap break-all ${field.isPrimaryKey ? 'text-gray-600 font-medium' : 'text-gray-800'}`}>
                         {(() => {
                           const text = formatTextContent(metadata?.[field.csvColumnName], field.csvColumnName);
                           const isExpanded = expandedTextFields.has(field.csvColumnName);
@@ -278,7 +285,7 @@ export function MetadataDisplay({
 
                   {/* Default display for other field types */}
                   {!['text', 'image', 'audio', 'video'].includes(field.fieldType) && (
-                    <div className="p-3 border border-gray-200 rounded-md bg-white text-sm text-gray-800 whitespace-pre-wrap">
+                    <div className="p-3 border border-gray-200 rounded-md bg-white text-sm text-gray-800 whitespace-pre-wrap break-all">
                       {formatTextContent(metadata?.[field.csvColumnName], field.csvColumnName)}
                     </div>
                   )}

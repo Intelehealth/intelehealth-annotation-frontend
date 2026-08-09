@@ -20,7 +20,6 @@ import {
   BarChart3,
   Target,
   FileText,
-  Menu,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,9 +31,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import type { AnnotationTask } from '@/types/feature1';
 import { computeTaskStatus } from '@/types/feature1';
-import { motion, type Variants } from 'framer-motion';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Sidebar } from '@/components/sidebar';
+import { motion } from 'framer-motion';
 import { Separator } from '@/components/ui/separator';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -53,7 +50,7 @@ const itemVariants: Variants = {
   hidden: { opacity: 0, y: 24, scale: 0.97 },
   visible: {
     opacity: 1, y: 0, scale: 1,
-    transition: { type: 'spring', stiffness: 100, damping: 18 },
+    transition: { type: 'spring' as const, stiffness: 100, damping: 18 },
   },
 };
 
@@ -77,25 +74,15 @@ function TopNav({ title, onRefresh, refreshing, children }: {
       )}
     >
       <div className="flex items-center justify-between px-4 md:px-6 h-16 max-w-7xl mx-auto">
-        <div className="flex items-center gap-3">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72">
-              <Sidebar forceCollapsed={false} />
-            </SheetContent>
-          </Sheet>
+        <div className="flex items-center gap-3 min-w-0">
           <div className="hidden sm:block">
-            <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+            <h1 className="text-lg font-semibold text-foreground whitespace-nowrap">{title}</h1>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {children}
           {onRefresh && (
-            <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing} className="h-9 gap-1.5 text-sm">
+            <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing} className="h-9 gap-1.5 text-sm flex-shrink-0">
               <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
@@ -408,7 +395,7 @@ function AdminDashboard({ user }: { user: any }) {
 
       {/* KPI Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="Total Datasets" value={totalDatasets} icon={Database} sub="Active datasets in workspace" color="blue" empty={totalDatasets === 0} />
+           <StatCard label="Total Datasets" value={totalDatasets} icon={Database} sub="Active datasets" color="blue" empty={totalDatasets === 0} />
           <StatCard label="Total Users" value={totalUsers} icon={Users} sub="Total registered users" color="indigo" empty={totalUsers === 0} />
           <StatCard label="Active Users" value={activeUsers} icon={CheckCircle} sub="Can login and annotate" color="emerald" empty={activeUsers === 0} />
           <StatCard label="Pending Users" value={pendingUsers} icon={Clock} sub="Pending invitations" color="amber" empty={pendingUsers === 0} />

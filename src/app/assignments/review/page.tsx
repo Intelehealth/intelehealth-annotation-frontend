@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { datasetsAPI } from '@/lib/api/datasets';
 import { Sidebar } from '@/components/sidebar';
+import { MobileNav } from '@/components/mobile-nav';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -190,7 +191,7 @@ export default function ReviewQueuePage() {
   if (authLoading || loading && assignments.length === 0 && changeRequests.length === 0) {
     return (
       <div className="flex h-screen bg-gray-50 overflow-hidden">
-        <Sidebar />
+        <Sidebar className="hidden lg:flex" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="h-10 w-10 text-blue-600 animate-spin mx-auto mb-4" />
@@ -220,20 +221,23 @@ export default function ReviewQueuePage() {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar />
+      <Sidebar className="hidden lg:flex" />
 
       <div className="flex-1 flex flex-col overflow-y-auto">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-5 flex-shrink-0">
+        <header className="bg-white border-b border-gray-200 px-4 py-5 flex-shrink-0 md:px-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <ClipboardList className="h-6 w-6 text-blue-600" />
-                Admin Review Queue
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Review submitted annotator tasks and manage pending structural change requests.
-              </p>
+            <div className="flex items-center gap-3">
+              <MobileNav />
+              <div>
+                <h1 className="text-lg md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <ClipboardList className="h-6 w-6 text-blue-600 flex-shrink-0" />
+                  Admin Review Queue
+                </h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  Review submitted annotator tasks and manage pending structural change requests.
+                </p>
+              </div>
             </div>
             <Button
               onClick={fetchData}

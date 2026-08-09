@@ -1541,7 +1541,7 @@ export function AnnotationWorkbench({
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+<div className="flex flex-col h-full w-full min-w-0 overflow-hidden bg-gray-50">
       {/* View Mode Switcher */}
       <AnnotationViewSwitcher
         datasetId={datasetId}
@@ -1550,45 +1550,47 @@ export function AnnotationWorkbench({
       />
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 min-w-0 overflow-y-auto lg:overflow-hidden">
         {/* Left Panel: Metadata Display or Document Preview */}
         {viewMode === 'document-view' ? (
-          <div className="w-1/2 overflow-hidden border-r border-gray-200">
+          <div className="w-full lg:w-1/2 overflow-y-auto lg:overflow-hidden border-b lg:border-r border-gray-200">
             <DocumentPreview currentRow={currentTask?.metadata} />
           </div>
         ) : (
-          <MetadataDisplay
-            metadata={{ ...metadata, rowIndex: currentTask?.rowIndex }}
-            orderedMetadataFields={orderedMetadataFields}
-            draggedField={draggedField}
-            editingField={editingField}
-            expandedTextFields={expandedTextFields}
-            imageOverlay={imageOverlay}
-            videoOverlay={videoOverlay}
-            isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
-            onMetadataChange={setMetadata}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'metadata')}
-            onEditField={handleEditField}
-            onSaveField={handleSaveField}
-            onSaveIndividualField={handleSaveIndividualField}
-            onCancelEdit={handleCancelEdit}
-            onToggleTextExpansion={toggleTextExpansion}
-            onOpenImageOverlay={openImageOverlay}
-            onOpenVideoOverlay={openVideoOverlay}
-            onNavigateBack={handleNavigateBack}
-            onPanelDragOver={handleDragOver}
-            onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
-          />
+          <div className="w-full min-w-0 lg:h-full lg:w-auto lg:overflow-hidden flex flex-col">
+            <MetadataDisplay
+              metadata={{ ...metadata, rowIndex: currentTask?.rowIndex }}
+              orderedMetadataFields={orderedMetadataFields}
+              draggedField={draggedField}
+              editingField={editingField}
+              expandedTextFields={expandedTextFields}
+              imageOverlay={imageOverlay}
+              videoOverlay={videoOverlay}
+              isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
+              onMetadataChange={setMetadata}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'metadata')}
+              onEditField={handleEditField}
+              onSaveField={handleSaveField}
+              onSaveIndividualField={handleSaveIndividualField}
+              onCancelEdit={handleCancelEdit}
+              onToggleTextExpansion={toggleTextExpansion}
+              onOpenImageOverlay={openImageOverlay}
+              onOpenVideoOverlay={openVideoOverlay}
+              onNavigateBack={handleNavigateBack}
+              onPanelDragOver={handleDragOver}
+              onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
+            />
+          </div>
         )}
 
         {/* Right Panel: New Column Data Entry */}
+        <div className="w-full min-w-0 lg:h-full lg:flex-1 lg:overflow-hidden flex flex-col">
         <NewColumnDataPanel
           annotationConfig={annotationConfig}
           newColumnData={newColumnData}
           onNewColumnChange={handleNewColumnChange}
-          onSaveAllNewColumnData={saveAllNewColumnData}
           onExportSelectedColumns={exportSelectedColumnsToCSV}
           onExportAllColumns={exportAllColumnsToCSV}
           isSaving={isSaving}
@@ -1608,6 +1610,7 @@ export function AnnotationWorkbench({
           onImageClick={openImageOverlay}
           onVideoClick={openVideoOverlay}
         />
+        </div>
               </div>
 
       {/* Fixed Footer: Row Navigation */}
@@ -1617,6 +1620,8 @@ export function AnnotationWorkbench({
         onNavigateTask={navigateTask}
         onJumpToRow={jumpToRow}
         onMarkAsCompleted={handleMarkAsCompleted}
+        onSaveAllNewColumnData={saveAllNewColumnData}
+        isSaving={isSaving}
       />
 
       {/* Image Overlay */}

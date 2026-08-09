@@ -94,8 +94,8 @@ export function CSVColumnsDisplay({
                 <FileText className="h-4 w-4 mr-2 text-blue-600" />
                 CSV Columns ({csvColumns.length})
               </h4>
-              <div className="overflow-x-auto">
-                <div className="grid grid-cols-10 gap-2 min-w-max">
+              <div className="w-full">
+                <div className="flex flex-wrap gap-2 gap-y-2 items-start w-full">
                   {csvColumns.map((column) => {
                     const isSelected = selectedColumns.has(column.name);
                     return (
@@ -126,8 +126,8 @@ export function CSVColumnsDisplay({
                 <Plus className="h-4 w-4 mr-2 text-green-600" />
                 Manual Columns ({manualColumns.length})
               </h4>
-              <div className="overflow-x-auto">
-                <div className="grid grid-cols-10 gap-2 min-w-max">
+              <div className="w-full">
+                <div className="flex flex-wrap gap-2 gap-y-2 items-start w-full">
                   {manualColumns.map((column) => {
                     const isSelected = selectedColumns.has(column.name);
                     return (

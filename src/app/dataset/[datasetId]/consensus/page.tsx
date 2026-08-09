@@ -917,8 +917,8 @@ export default function ReviewConsensusPage() {
     );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f7f8fb] text-slate-900">
-      <Sidebar />
+<div className="flex h-screen overflow-hidden bg-[#f7f8fb] text-slate-900">
+      <Sidebar className="hidden lg:flex" />
       <main className="min-w-0 flex-1 overflow-y-auto">
         <TopNav onRefresh={() => loadData(false)} refreshing={refreshing}>
              <Button

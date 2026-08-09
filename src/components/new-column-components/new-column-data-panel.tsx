@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, GripVertical, ChevronDown, ChevronRight, Settings, Plus, Trash2, Edit3, Wrench, Lock } from 'lucide-react';
+import { GripVertical, ChevronDown, ChevronRight, Settings, Plus, Trash2, Edit3, Wrench, Lock } from 'lucide-react';
 import { AnnotationField, AnnotationConfig } from '@/lib/api/csv-imports';
 import { cn } from '@/lib/utils';
 import { DragDropHelper } from '@/lib/drag-drop-helper';
@@ -35,7 +35,6 @@ interface NewColumnDataPanelProps {
   annotationConfig: AnnotationConfig | null;
   newColumnData: NewColumnData;
   onNewColumnChange: (fieldName: string, value: string) => void;
-  onSaveAllNewColumnData: () => void;
   onExportSelectedColumns: () => void;
   onExportAllColumns: () => void;
   isSaving: boolean;
@@ -651,7 +650,6 @@ export function NewColumnDataPanel({
   annotationConfig,
   newColumnData,
   onNewColumnChange,
-  onSaveAllNewColumnData,
   onExportSelectedColumns,
   onExportAllColumns,
   isSaving,
@@ -1314,7 +1312,7 @@ export function NewColumnDataPanel({
           }
         }}
         className={cn(
-          'p-4 border border-gray-200 rounded-lg bg-gray-50 transition-all duration-200 relative',
+          'p-3 sm:p-4 border border-gray-200 rounded-lg bg-gray-50 transition-all duration-200 relative',
           isFocused
             ? 'border-teal-500 bg-teal-50/10 shadow-md'
             : isRequestedField
@@ -1325,10 +1323,10 @@ export function NewColumnDataPanel({
         )}
       >
         {/* Question Header */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-2">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-center space-x-2 min-w-0">
             {canDragCard && <GripVertical className="h-4 w-4 text-gray-400 shrink-0" />}
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-gray-700 break-all min-w-0">
               {group ? getCleanFieldLabel(field.fieldName, group.groupName, groupInstanceIndex!) : (field.questionTitle || field.fieldName)}
               {field.isRequired && <span className="text-red-500 ml-1 font-bold">*</span>}
             </span>
@@ -1349,7 +1347,7 @@ export function NewColumnDataPanel({
                   });
                 }
               }}
-              className="h-7 px-2 text-xs border border-gray-200 hover:bg-gray-100 flex items-center gap-1 bg-white"
+              className="h-7 px-2 text-xs border border-gray-200 hover:bg-gray-100 flex items-center gap-1 bg-white shrink-0"
             >
               <Settings className="h-3.5 w-3.5 text-gray-500" />
               <span>{isAdmin ? (isEditingField(field.fieldName) ? 'Done' : 'Configure') : 'Request Change'}</span>
@@ -1545,7 +1543,7 @@ export function NewColumnDataPanel({
                       src={url.trim()}
                       alt={`Image ${i + 1}`}
                       draggable={false}
-                      className="h-20 w-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                      className="h-16 w-16 sm:h-20 sm:w-20 max-w-full object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={(e) => { e.stopPropagation(); onImageClick?.(urls, i); }}
                     />
                   );
@@ -1591,31 +1589,31 @@ export function NewColumnDataPanel({
 
         {/* Admin action bar */}
         {isAdmin && onUpdateFieldConfig && !field.isDataFieldLink && (
-          <div className="flex items-center gap-3 mt-3 pt-2 border-t border-gray-200">
+          <div className="flex flex-wrap items-center gap-2 mt-3 pt-2 border-t border-gray-200">
             <button
               onClick={(e) => { e.stopPropagation(); toggleEditingField(field.fieldName); }}
-              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
+              className="flex-1 sm:flex-none justify-center text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
             >
               <Edit3 className="h-3.5 w-3.5" /> Edit
             </button>
-            <span className="text-gray-300">|</span>
+            <span className="text-gray-300 hidden sm:inline">|</span>
             <button
               onClick={(e) => { e.stopPropagation(); handleDuplicateField(field); }}
-              className="text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1 font-medium"
+              className="flex-1 sm:flex-none justify-center text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1 font-medium"
             >
               <Plus className="h-3.5 w-3.5" /> Duplicate
             </button>
-            <span className="text-gray-300">|</span>
+            <span className="text-gray-300 hidden sm:inline">|</span>
             <button
               onClick={(e) => { e.stopPropagation(); handleDeleteField(field.id || field.fieldName); }}
-              className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 font-medium"
+              className="flex-1 sm:flex-none justify-center text-xs text-red-600 hover:text-red-800 flex items-center gap-1 font-medium"
             >
               <Trash2 className="h-3.5 w-3.5" /> Delete
             </button>
-            <span className="text-gray-300">|</span>
+            <span className="text-gray-300 hidden sm:inline">|</span>
             <button
               onClick={(e) => { e.stopPropagation(); toggleEditingField(field.fieldName); }}
-              className="text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1 font-medium ml-auto"
+              className="flex-1 sm:flex-none justify-center text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1 font-medium sm:ml-auto"
             >
               <Settings className="h-3.5 w-3.5" /> Configure
             </button>
@@ -1624,43 +1622,43 @@ export function NewColumnDataPanel({
 
         {/* Annotator locked action bar */}
         {!isAdmin && !field.isDataFieldLink && (
-          <div className="flex items-center gap-3 mt-3 pt-2 border-t border-gray-200">
+          <div className="flex flex-wrap items-center gap-2 mt-3 pt-2 border-t border-gray-200">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowPermissionRequest({ fieldId: field.id || field.fieldName, action: 'EDIT', fieldName: field.fieldName });
               }}
-              className="text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium"
+              className="flex-1 sm:flex-none justify-center text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium"
             >
               <Lock className="h-3 w-3" /> Edit
             </button>
-            <span className="text-gray-300">|</span>
+            <span className="text-gray-300 hidden sm:inline">|</span>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowPermissionRequest({ fieldId: field.id || field.fieldName, action: 'DUPLICATE', fieldName: field.fieldName });
               }}
-              className="text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium"
+              className="flex-1 sm:flex-none justify-center text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium"
             >
               <Lock className="h-3 w-3" /> Duplicate
             </button>
-            <span className="text-gray-300">|</span>
+            <span className="text-gray-300 hidden sm:inline">|</span>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowPermissionRequest({ fieldId: field.id || field.fieldName, action: 'DELETE', fieldName: field.fieldName });
               }}
-              className="text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium"
+              className="flex-1 sm:flex-none justify-center text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium"
             >
               <Lock className="h-3 w-3" /> Delete
             </button>
-            <span className="text-gray-300">|</span>
+            <span className="text-gray-300 hidden sm:inline">|</span>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowPermissionRequest({ fieldId: field.id || field.fieldName, action: 'CONFIGURE', fieldName: field.fieldName });
               }}
-              className="text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium ml-auto"
+              className="flex-1 sm:flex-none justify-center text-xs text-gray-400 cursor-pointer flex items-center gap-1 font-medium sm:ml-auto"
             >
               <Lock className="h-3 w-3" /> Configure
             </button>
@@ -1694,13 +1692,21 @@ export function NewColumnDataPanel({
       onDrop={e => { e.preventDefault(); if (onDropFromMetadata) onDropFromMetadata(); }}
     >
 
+      {/* Section divider: Data Fields → Annotation Workbench (mobile & tablet only) */}
+      <div className="lg:hidden relative my-8 px-4 sm:px-5" aria-hidden="true">
+        <div className="h-0.5 w-full bg-gray-400" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-2 w-14 rounded-full bg-gray-500" />
+      </div>
+
       {/* ── Header ── */}
-      <div className="px-5 py-4 border-b border-gray-100 bg-white">
+      <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 bg-white">
         <div className="h-10 hidden sm:block" /> {/* spacer for nav */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Annotation Workbench</h2>
-            <div className="flex items-center gap-3 mt-1">
+        <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xl sm:text-2xl lg:text-base font-bold text-slate-900">
+              Annotation Workbench
+            </h2>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
               {currentRowIndex !== undefined && (
                 <span className="text-xs text-slate-500 font-mono">
                   Case {currentRowIndex + 1}
@@ -1722,17 +1728,17 @@ export function NewColumnDataPanel({
               </span>
             </div>
           </div>
-          <div className="flex items-center space-x-2 shrink-0">
+          <div className="flex flex-col lg:flex-row lg:items-center flex-wrap gap-2 w-full lg:w-auto shrink-0">
             {onUpdateFieldConfig && (
-              <>
+              <div className="flex flex-1 lg:flex-none gap-2 w-full lg:w-auto lg:min-w-0">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   onClick={handleAddNewQuestion}
-                  className="border-teal-200 text-teal-700 hover:bg-teal-50 text-xs font-semibold h-8"
+                  className="border-teal-200 text-teal-700 hover:bg-teal-50 text-xs font-semibold h-8 flex-1 lg:flex-none justify-center min-w-0"
                 >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  <Plus className="h-3.5 w-3.5 mr-1 shrink-0" />
                   Add New Question
                 </Button>
                 <Button
@@ -1740,19 +1746,19 @@ export function NewColumnDataPanel({
                   size="sm"
                   variant="outline"
                   onClick={handleAddRepeatGroup}
-                  className="border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-semibold h-8"
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-semibold h-8 flex-1 lg:flex-none justify-center min-w-0"
                 >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  <Plus className="h-3.5 w-3.5 mr-1 shrink-0" />
                   Add Repeat Group
                 </Button>
-              </>
+              </div>
             )}
             <Button
               type="button"
               size="sm"
               onClick={onExportAllColumns}
               disabled={isSaving}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs h-8 px-3 cursor-pointer transition-colors shadow-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs h-8 px-3 cursor-pointer transition-colors shadow-sm w-full lg:w-auto justify-center"
             >
               Download CSV
             </Button>
@@ -1761,10 +1767,10 @@ export function NewColumnDataPanel({
       </div>
 
       {/* ── Main split content ── */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-w-0">
 
         {/* Questions column */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5 scroll-smooth">
+        <div className="flex-1 min-w-0 overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5 scroll-smooth">
 
           {/* Empty state */}
           {totalVisible === 0 && (
@@ -1834,38 +1840,38 @@ export function NewColumnDataPanel({
                         tabIndex={0}
                         onClick={() => toggleAccordion(instance.key)}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAccordion(instance.key); } }}
-                        className="w-full flex items-center justify-between p-4 cursor-pointer focus:outline-none text-left"
+                        className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-4 cursor-pointer focus:outline-none text-left"
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0 flex-wrap">
                           <GripVertical className="h-4 w-4 text-gray-400 shrink-0" />
-                          <span className="font-semibold text-gray-800 text-sm truncate">
+                          <span className="font-semibold text-gray-800 text-sm break-all min-w-0">
                             {instance.title}
                           </span>
                           {total > 0 && (
-                            <span className="text-xs text-gray-500 font-mono">
+                            <span className="text-xs text-gray-500 font-mono whitespace-nowrap">
                               ({answered}/{total})
                             </span>
                           )}
                         </div>
                         
-                        <div className="flex items-center space-x-3 shrink-0">
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
                           <StatusPill status={status} />
                           {onUpdateFieldConfig && isAdmin && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <button
                                 onClick={(e) => { e.stopPropagation(); toggleEditingGroup(group.groupId); }}
-                                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
+                                className="flex-1 sm:flex-none justify-center text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
                               >
                                 <Edit3 className="h-3.5 w-3.5" /> Edit
                               </button>
-                              <span className="text-gray-300 text-xs">|</span>
+                              <span className="text-gray-300 text-xs hidden sm:inline">|</span>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleDuplicateGroup(group); }}
-                                className="text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1 font-medium"
+                                className="flex-1 sm:flex-none justify-center text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1 font-medium"
                               >
                                 <Plus className="h-3.5 w-3.5" /> Duplicate
                               </button>
-                              <span className="text-gray-300 text-xs">|</span>
+                              <span className="text-gray-300 text-xs hidden sm:inline">|</span>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1875,14 +1881,14 @@ export function NewColumnDataPanel({
                                     title: `repeat group "${group.groupTitle || group.groupName}"`,
                                   });
                                 }}
-                                className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 font-medium"
+                                className="flex-1 sm:flex-none justify-center text-xs text-red-600 hover:text-red-800 flex items-center gap-1 font-medium"
                               >
                                 <Trash2 className="h-3.5 w-3.5" /> Delete
                               </button>
-                              <span className="text-gray-300 text-xs">|</span>
+                              <span className="text-gray-300 text-xs hidden sm:inline">|</span>
                               <button
                                 onClick={(e) => { e.stopPropagation(); toggleEditingGroup(group.groupId); }}
-                                className={`text-xs flex items-center gap-1 font-medium ${editingGroups.has(group.groupId) ? 'text-green-600 hover:text-green-800' : 'text-gray-600 hover:text-gray-800'}`}
+                                className={`flex-1 sm:flex-none justify-center text-xs flex items-center gap-1 font-medium ${editingGroups.has(group.groupId) ? 'text-green-600 hover:text-green-800' : 'text-gray-600 hover:text-gray-800'}`}
                               >
                                 <Settings className="h-3.5 w-3.5" /> {editingGroups.has(group.groupId) ? 'Done' : 'Configure'}
                               </button>
@@ -1916,10 +1922,10 @@ export function NewColumnDataPanel({
 
                       {/* Expanded child cards */}
                       {isOpen && (
-                        <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-white rounded-b-lg space-y-4">
+                        <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-2 border-t border-gray-100 bg-white rounded-b-lg space-y-4">
                           {onUpdateFieldConfig && editingGroups.has(group.groupId) && (
                             <div className="p-4 bg-purple-50/50 border border-purple-100 rounded-xl space-y-3 mb-4 text-left">
-                              <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-purple-100 pb-2">
                                 <span className="text-xs font-bold text-purple-800 uppercase tracking-wider">
                                   Repeat Group Configuration
                                 </span>
@@ -1963,7 +1969,7 @@ export function NewColumnDataPanel({
                                 </div>
                               </div>
 
-                              <div className="border-t border-purple-100 pt-3 flex justify-between items-center">
+                              <div className="border-t border-purple-100 pt-3 flex flex-wrap items-center justify-between gap-2">
                                 <span className="text-xs font-medium text-gray-600">
                                   Child Fields ({group.fields?.length || 0})
                                 </span>
@@ -1982,8 +1988,8 @@ export function NewColumnDataPanel({
 
                               {group.fields && group.fields.map((childField: any, childIdx: number) => (
                                 <div key={childField.id || childIdx} className="mt-3 p-3 bg-white border border-gray-200 rounded-lg space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-gray-500 uppercase">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-xs font-bold text-gray-500 uppercase break-all min-w-0">
                                       Child Field: {childField.fieldName || `Field #${childIdx + 1}`}
                                     </span>
                                     <Button
@@ -2181,7 +2187,7 @@ export function NewColumnDataPanel({
             </DialogDescription>
           </DialogHeader>
           {requestConfigForm && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4 text-left">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mt-4 text-left">
               {/* LEFT COLUMN: Configuration Editor */}
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2348,11 +2354,11 @@ export function NewColumnDataPanel({
                 }}
                 onCancel={() => setShowRequestGroupConfig(null)}
               />
-              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+              <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs px-3" onClick={() => submitRequestGroupChange('DELETE_FIELD')}>
                   Propose Delete Group
                 </Button>
-                <div className="space-y-1 w-2/3 text-left">
+                <div className="space-y-1 w-full sm:w-2/3 text-left">
                   <Label className="text-slate-600 font-semibold text-xs">Message / Reason for Admin</Label>
                   <Input
                     placeholder="Provide context for this request..."
@@ -2401,18 +2407,6 @@ export function NewColumnDataPanel({
         </DialogContent>
       </Dialog>
 
-      {/* ── Save controls ── */}
-      <div className="p-4 border-t border-gray-100 bg-slate-50 flex items-center justify-end">
-        <Button
-          size="sm"
-          onClick={onSaveAllNewColumnData}
-          disabled={isSaving}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 h-9 transition-colors shadow-sm"
-        >
-          <CheckCircle className="h-4 w-4 mr-2" />
-          {isSaving ? 'Saving…' : 'Save and Continue'}
-        </Button>
-      </div>
     </div>
   );
 }

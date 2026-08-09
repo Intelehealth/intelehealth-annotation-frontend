@@ -32,6 +32,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
+import { Brand } from '@/components/brand';
 
 function timeAgo(dateStr: string): string {
   const now = new Date();
@@ -157,13 +158,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <div className={cn('flex items-center space-x-3', effectiveCollapsed && 'hidden')}>
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-              <Database className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">DataAnnotate</h2>
-              <p className="text-xs text-gray-500">Annotation platform</p>
-            </div>
+            <Brand size="lg" />
           </div>
           {!forceCollapsed && (
             <Button
