@@ -2,6 +2,15 @@ import { jsonApi } from '../api';
 
 export type RagDocumentStatus = 'INDEXED' | 'READY' | 'PROCESSING' | 'FAILED';
 
+export interface CsvPreviewResult {
+  columns: string[];
+  rows: string[][];
+  totalRows: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface RagDocumentInfo {
   id: string;
   fileName: string;
@@ -67,9 +76,17 @@ export const ragAPI = {
     return res.data;
   },
 
-  async csvPreview(datasetId: string, csvImportId: string): Promise<{ columns: string[]; rows: string[][]; totalRows: number }> {
+  async csvPreview(
+    datasetId: string,
+    csvImportId: string,
+    opts?: { page?: number; pageSize?: number },
+  ): Promise<CsvPreviewResult> {
+    const params = new URLSearchParams();
+    if (opts?.page != null) params.set('page', String(opts.page));
+    if (opts?.pageSize != null) params.set('pageSize', String(opts.pageSize));
+    const qs = params.toString();
     const res = await jsonApi.get(
-      `/rag/datasets/${datasetId}/imports/${csvImportId}/preview`,
+      `/rag/datasets/${datasetId}/imports/${csvImportId}/preview${qs ? `?${qs}` : ''}`,
     );
     return res.data;
   },

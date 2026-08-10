@@ -1,24 +1,30 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import * as pdfjs from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import type * as PDFJS from 'pdfjs-dist';
 import { Loader2, Minus, Plus, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 
-// pdf.js requires workerSrc to be a string. The `?url` import is not guaranteed
-// to serialize to a string in every bundler, so resolve defensively and only
-// assign inside the browser (never at module eval).
+// pdf.js v6 evaluates `new DOMMatrix()` at module load, which Node (used by
+// Next for SSR) does not provide. Import it lazily on the client only so the
+// module is never evaluated on the server.
+let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
+
+function loadPdfJs(): Promise<typeof import('pdfjs-dist')> {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import('pdfjs-dist');
+  }
+  return pdfjsPromise;
+}
+
+// The worker is served as a static asset from the public dir (Turbopack can't
+// serialize the ESM worker via `?url`), and is only assigned in the browser.
 let workerConfigured = false;
 
 function resolveWorkerUrl(): string {
-  // Preferred: the webpack-bundled worker (`?url` yields a real asset string).
-  const fromUrlImport = (pdfWorkerUrl as unknown as string) || '';
-  if (typeof fromUrlImport === 'string' && fromUrlImport) return fromUrlImport;
-  // Fallback: a guaranteed-valid worker URL (browser fetches it once).
-  return 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+  return '/lib/pdf.worker.min.mjs';
 }
 
-function ensurePdfWorker() {
+function ensurePdfWorker(pdfjs: typeof import('pdfjs-dist')) {
   if (workerConfigured || typeof window === 'undefined') return;
   workerConfigured = true;
   const url = resolveWorkerUrl();
@@ -47,8 +53,8 @@ export function PdfPreview({
   onZoomChange,
 }: PdfPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const docRef = useRef<pdfjs.PDFDocumentProxy | null>(null);
-  const renderTaskRef = useRef<pdfjs.RenderTask | null>(null);
+  const docRef = useRef<PDFJS.PDFDocumentProxy | null>(null);
+  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +62,6 @@ export function PdfPreview({
   const clampPage = (p: number) => Math.min(Math.max(1, p), Math.max(1, numPages));
 
   useEffect(() => {
-    ensurePdfWorker();
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -68,9 +73,12 @@ export function PdfPreview({
       .catch(() => {})
       .finally(() => {
         if (cancelled) return;
-        pdfjs
-          .getDocument(url)
-          .promise.then((doc) => {
+        loadPdfJs()
+          .then((pdfjs) => {
+            ensurePdfWorker(pdfjs);
+            return pdfjs.getDocument(url).promise;
+          })
+          .then((doc) => {
             if (cancelled) return;
             docRef.current = doc;
             setNumPages(doc.numPages || 0);

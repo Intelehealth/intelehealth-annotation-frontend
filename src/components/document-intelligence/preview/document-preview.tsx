@@ -101,21 +101,11 @@ export function DocumentPreview({
     setCsvRows(null);
     setBuffer(null);
 
-    // CSV imports store real rows in the backend (not a blob) — render the HTML
-    // table from those real rows so no content endpoint is needed.
+    // CSV imports store real rows in the backend (not a blob) — render the Excel
+    // grid from those real rows, fetching each page on demand from the backend.
     if (document.source === 'CSV' && datasetId) {
-      ragAPI
-        .csvPreview(datasetId, document.id)
-        .then((p) => {
-          const combined: string[][] = [p.columns || [], ...((p.rows || []) as string[][])];
-          setCsvRows(combined);
-          setKind('csv');
-        })
-        .catch(() => {
-          setError('The CSV rows could not be loaded.');
-          setKind('unsupported');
-        })
-        .finally(() => setLoading(false));
+      setKind('csv');
+      setLoading(false);
       return;
     }
 
@@ -168,12 +158,14 @@ export function DocumentPreview({
         </div>
       );
     }
-    if (!document || !url) return null;
+    if (!document) return null;
+    if (!url && kind !== 'csv') return null;
+    const contentUrl = url as string | null;
     switch (kind) {
       case 'pdf':
         return (
           <PdfPreview
-            url={url}
+            url={contentUrl!}
             currentPage={currentPage}
             zoom={zoom}
             onPageChange={onPageChange}
@@ -181,21 +173,28 @@ export function DocumentPreview({
           />
         );
       case 'image':
-        return <ImagePreview url={url} name={document.fileName} zoom={zoom} onZoomChange={onZoomChange} />;
+        return <ImagePreview url={contentUrl!} name={document.fileName} zoom={zoom} onZoomChange={onZoomChange} />;
       case 'svg':
-        return <SvgPreview url={url} name={document.fileName} />;
+        return <SvgPreview url={contentUrl!} name={document.fileName} />;
       case 'csv':
-        return csvRows
-          ? <CsvTablePreview rows={csvRows} focusRow={focusRow} />
-          : csvText !== null
-            ? <CsvTablePreview text={csvText} focusRow={focusRow} />
-            : null;
+        return document.source === 'CSV' && datasetId ? (
+          <CsvTablePreview
+            fetchPage={(page, pageSize) =>
+              ragAPI.csvPreview(datasetId, document.id, { page, pageSize })
+            }
+            focusRow={focusRow}
+          />
+        ) : csvRows ? (
+          <CsvTablePreview rows={csvRows} focusRow={focusRow} />
+        ) : csvText !== null ? (
+          <CsvTablePreview text={csvText} focusRow={focusRow} />
+        ) : null;
       case 'spreadsheet':
         return buffer ? <SpreadsheetPreview buffer={buffer} /> : null;
       case 'zip':
-        return <ZipPreview fileName={document.fileName} size={document.size} downloadUrl={url} />;
+        return <ZipPreview fileName={document.fileName} size={document.size} downloadUrl={contentUrl!} />;
       default:
-        return <UnsupportedPreview fileName={document.fileName} downloadUrl={url} />;
+        return <UnsupportedPreview fileName={document.fileName} downloadUrl={contentUrl!} />;
     }
   };
 

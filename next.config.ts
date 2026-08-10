@@ -6,9 +6,6 @@ const nextConfig: NextConfig = {
   // while a production build is writing `.next` can leave webpack-runtime.js
   // pointing at a vendor chunk that no longer exists.
   distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
