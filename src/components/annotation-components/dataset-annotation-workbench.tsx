@@ -86,6 +86,33 @@ interface VideoOverlayState {
   currentIndex: number;
 }
 
+/**
+ * Names of the server-generated expanded instances of repeat-group child
+ * fields (e.g. "group_field_1"). These live in the workbench field list for
+ * rendering but must never be sent back in annotationFields — the backend
+ * regenerates them from fieldGroups.
+ */
+function getExpandedGroupFieldNames(groups: any[]): Set<string> {
+  const names = new Set<string>();
+  for (const group of groups || []) {
+    const rc = group.repeatCount || 0;
+    for (let i = 1; i <= rc; i++) {
+      for (const child of (group.fields || [])) {
+        const crc = child.repeatCount || 1;
+        for (let j = 1; j <= crc; j++) {
+          names.add(
+            (crc > 1
+              ? `${group.groupName}_${child.fieldName}_${j}_${i}`
+              : `${group.groupName}_${child.fieldName}_${i}`
+            ).toLowerCase()
+          );
+        }
+      }
+    }
+  }
+  return names;
+}
+
 interface DatasetAnnotationWorkbenchProps {
   datasetId: string;
   /** Feature 1: When set, all API reads/writes are scoped to this annotation task. */
@@ -718,8 +745,20 @@ export function DatasetAnnotationWorkbench({
           isAnnotationField: Boolean(f.isAnnotationField),
         }));
 
+        // Strip expanded group-generated fields before saving. Match against
+        // both the previous and updated groups so instances expanded under an
+        // old group name/repeatCount are stripped too.
+        const effectiveGroups = updatedGroups !== undefined ? updatedGroups : (annotationConfig.fieldGroups || []);
+        const groupFieldNames = getExpandedGroupFieldNames([
+          ...(annotationConfig.fieldGroups || []),
+          ...effectiveGroups,
+        ]);
+        const filteredFields = normalized.filter(
+          (f: any) => !groupFieldNames.has((f.fieldName || '').toLowerCase())
+        );
+
         // Detect duplicate fieldNames before sending
-        const annotationFieldNames = normalized.filter((f: any) => f.isAnnotationField).map((f: any) => f.fieldName?.toLowerCase());
+        const annotationFieldNames = filteredFields.filter((f: any) => f.isAnnotationField).map((f: any) => f.fieldName?.toLowerCase());
         const dupAnnotationFieldNames = annotationFieldNames.filter((n: string, i: number) => annotationFieldNames.indexOf(n) !== i);
         if (dupAnnotationFieldNames.length > 0) {
           showToast({
@@ -732,10 +771,10 @@ export function DatasetAnnotationWorkbench({
 
         await fieldSelectionAPI.saveDatasetFieldConfig({
           datasetId,
-          annotationFields: normalized,
+          annotationFields: filteredFields,
           annotationLabels: annotationConfig.annotationLabels || [],
           newColumns: datasetNewColumns || [],
-          fieldGroups: updatedGroups !== undefined ? updatedGroups : (annotationConfig.fieldGroups || []),
+          fieldGroups: effectiveGroups,
         });
         showToast({
           type: 'success',
@@ -1010,23 +1049,7 @@ export function DatasetAnnotationWorkbench({
             isAnnotationField: Boolean(f.isAnnotationField),
           }));
           // Strip expanded group-generated fields from annotationFields before saving
-          const groupFieldNames = new Set<string>();
-          for (const group of (annotationConfig.fieldGroups || [])) {
-            const rc = group.repeatCount || 0;
-            for (let i = 1; i <= rc; i++) {
-              for (const child of (group.fields || [])) {
-                const crc = child.repeatCount || 1;
-                for (let j = 1; j <= crc; j++) {
-                  groupFieldNames.add(
-                    (crc > 1
-                      ? `${group.groupName}_${child.fieldName}_${j}_${i}`
-                      : `${group.groupName}_${child.fieldName}_${i}`
-                    ).toLowerCase()
-                  );
-                }
-              }
-            }
-          }
+          const groupFieldNames = getExpandedGroupFieldNames(annotationConfig.fieldGroups || []);
           const filteredFields = normalizedFields.filter(
             (f: any) => !groupFieldNames.has((f.fieldName || '').toLowerCase())
           );

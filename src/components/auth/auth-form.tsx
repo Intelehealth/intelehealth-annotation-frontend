@@ -3,7 +3,7 @@
 import type React from "react"
 import { useMemo, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react"
+import { ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 import { Brand } from "@/components/brand"
@@ -43,10 +43,6 @@ export function AuthForm() {
   const [agreeToTerms, setAgreeToTerms] = useState(false)
 
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-
-  const strength = useMemo(() => scorePassword(password), [password])
 
   useEffect(() => {
     const modeParam = searchParams.get("mode")
@@ -79,12 +75,16 @@ export function AuthForm() {
   const {
     register: signupRegister,
     handleSubmit: handleSignupSubmit,
+    watch: watchSignup,
     formState: { errors: signupErrors },
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
     defaultValues: { firstName: "", lastName: "", email: "", password: "", confirmPassword: "" },
     shouldUnregister: false,
   })
+
+  const signupPassword = watchSignup("password")
+  const strength = useMemo(() => scorePassword(signupPassword || ""), [signupPassword])
 
   async function onLogin(data: LoginFormData) {
     setSubmitting(true)
@@ -131,8 +131,8 @@ export function AuthForm() {
     const result = await signup({
       email: data.email,
       password: data.password,
-      firstName: "",
-      lastName: "",
+      firstName: data.firstName,
+      lastName: data.lastName,
     })
     if (!result.success) {
       setError(result.error || "Signup failed")
@@ -281,6 +281,31 @@ export function AuthForm() {
         </form>
       ) : (
         <form onSubmit={handleSignupSubmit(onSignup)} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              id="signup-first-name"
+              label="First name"
+              icon={<User className="h-4 w-4" />}
+              type="text"
+              placeholder="Jane"
+              autoComplete="given-name"
+              register={signupRegister("firstName")}
+              error={signupErrors.firstName?.message}
+              delay="280ms"
+            />
+            <Field
+              id="signup-last-name"
+              label="Last name"
+              icon={<User className="h-4 w-4" />}
+              type="text"
+              placeholder="Doe"
+              autoComplete="family-name"
+              register={signupRegister("lastName")}
+              error={signupErrors.lastName?.message}
+              delay="280ms"
+            />
+          </div>
+
           <Field
             id="signup-email"
             label="Email"
@@ -321,7 +346,7 @@ export function AuthForm() {
             {signupErrors.password && (
               <p className="mt-1.5 text-xs text-red-600">{signupErrors.password.message}</p>
             )}
-            {password.length > 0 && (
+            {(signupPassword?.length ?? 0) > 0 && (
               <div className="mt-2.5">
                 <div className="flex gap-1.5">
                   {[0, 1, 2, 3].map((i) => (

@@ -53,11 +53,11 @@ export function MagneticButton({
 
   if (href) {
     return (
-      <Link href={href} className={`inline-block ${className}`}>
+      <Link href={href} className="inline-block">
         {content}
       </Link>
     )
   }
 
-  return <div className={className} onClick={onClick}>{content}</div>
+  return <div onClick={onClick}>{content}</div>
 }

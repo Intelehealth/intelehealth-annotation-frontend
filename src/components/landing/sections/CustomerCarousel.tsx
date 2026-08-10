@@ -47,7 +47,7 @@ export function CustomerCarousel() {
                 <motion.div
                   key={`${customer.id}-${i}`}
                   whileHover={{ scale: 1.05, y: -5 }}
-                  className="relative flex-shrink-0 w-[min(18rem,80vw)] sm:w-80 bg-gray-900 border border-gray-800 rounded-xl p-5 sm:p-6 group hover:border-gray-700 transition-all duration-500 ease-out cursor-pointer"
+                  className="flex-shrink-0 w-80 bg-gray-900 border border-gray-800 rounded-xl p-6 group hover:border-gray-700 transition-all duration-500 ease-out cursor-pointer"
                   data-cursor="pointer"
                 >
                   {/* mix-blend-multiply overlay like Scale.com */}

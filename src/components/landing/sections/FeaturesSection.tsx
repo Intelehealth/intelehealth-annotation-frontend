@@ -37,7 +37,7 @@ export function FeaturesSection() {
       <div className="container mx-auto">
         <TextReveal
           text="Built for the future of AI"
-          className="text-3xl sm:text-4xl md:text-6xl font-bold text-white mb-16 text-center"
+          className="text-5xl md:text-6xl font-bold text-white mb-16 text-center"
           as="h2"
         />
 
@@ -99,8 +99,8 @@ export function FeaturesSection() {
 
         <SlideUp delay={0.4}>
           <div className="mt-16 text-center">
-            <MagneticButton href="/dashboard" strength={0.4} className="w-full sm:w-auto">
-              <span className="inline-flex items-center justify-center w-full sm:w-auto min-h-[44px] px-8 py-4 text-lg font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all duration-300 group">
+            <MagneticButton href="/dashboard" strength={0.4}>
+              <span className="inline-flex items-center justify-center px-8 py-4 text-lg font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all duration-300 group">
                 <span className="transition-transform duration-300 group-hover:scale-90">
                   Start Annotating
                 </span>

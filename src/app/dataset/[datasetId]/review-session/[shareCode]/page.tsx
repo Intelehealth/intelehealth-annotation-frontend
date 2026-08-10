@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/sidebar';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { consensusAPI } from '@/lib/api/consensus';
+import { CollaborativeReviewGrid } from '@/components/consensus/collaborative-review-grid';
 import { TopNav } from '@/components/top-nav';
 import { motion } from 'framer-motion';
 import {
@@ -238,6 +239,7 @@ export default function CollaborativeReviewSessionPage() {
 
   const tiedRows: any[] = session.tiedRows || [];
   const allResolved = tiedRows.length === 0;
+  const isCollaborative = session.reviewMode === 'COLLABORATIVE';
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -287,9 +289,11 @@ export default function CollaborativeReviewSessionPage() {
             <span className="flex items-center gap-1 text-xs text-gray-600">
               <Users className="h-3.5 w-3.5" /> {session.participants?.length || 0} participants · {onlineCount} online
             </span>
-            <span className="flex items-center gap-1 text-xs text-gray-600">
-              <Scale className="h-3.5 w-3.5" /> {tiedRows.length} field(s) still tied
-            </span>
+            {!isCollaborative && (
+              <span className="flex items-center gap-1 text-xs text-gray-600">
+                <Scale className="h-3.5 w-3.5" /> {tiedRows.length} field(s) still tied
+              </span>
+            )}
             {isExpired && (
               <span className="flex items-center gap-1 text-xs text-red-600 font-medium">
                 <Clock className="h-3.5 w-3.5" /> Expired
@@ -299,7 +303,7 @@ export default function CollaborativeReviewSessionPage() {
               {isAdmin && isExpired && (
                 <Button size="sm" variant="outline" onClick={handleReopen} className="h-7 text-xs border-amber-300 text-amber-700">Reopen</Button>
               )}
-              {isAdmin && allResolved && session.status === 'ACTIVE' && (
+              {isAdmin && !isCollaborative && allResolved && session.status === 'ACTIVE' && (
                 <Button size="sm" onClick={handleFinishAndMerge} disabled={merging} className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white">
                   {merging ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1" />} Complete &amp; Merge
                 </Button>
@@ -326,14 +330,25 @@ export default function CollaborativeReviewSessionPage() {
             })}
           </div>
 
-          {allResolved && session.status === 'ACTIVE' && (
+          {/* Collaborative mode: single shared final-answer per row/question */}
+          {isCollaborative && (
+            <CollaborativeReviewGrid
+              sessionId={session._id}
+              datasetId={datasetId}
+              isAdmin={isAdmin}
+              sessionStatus={session.status}
+              onSessionChanged={load}
+            />
+          )}
+
+          {!isCollaborative && allResolved && session.status === 'ACTIVE' && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" /> All tied fields have been resolved. An admin can now Complete &amp; Merge this session.
             </div>
           )}
 
-          {/* Per-tied-field cards */}
-          {tiedRows.map((tie: any) => {
+          {/* Per-tied-field cards (legacy tie-vote mode) */}
+          {!isCollaborative && tiedRows.map((tie: any) => {
             const key = `${tie.rowIndex}:${tie.fieldName}`;
             const tally = voteTallyFor(tie.rowIndex, tie.fieldName);
             const lock = lockFor(tie.rowIndex, tie.fieldName);
