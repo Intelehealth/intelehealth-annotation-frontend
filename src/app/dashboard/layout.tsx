@@ -1,10 +1,9 @@
 "use client";
 
-import { Sidebar } from "@/components/sidebar";
+import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
   children,
@@ -32,12 +31,5 @@ export default function DashboardLayout({
     return null;
   }
 
-  return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar className="hidden lg:flex" />
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }

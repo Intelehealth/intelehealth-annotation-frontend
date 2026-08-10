@@ -8,7 +8,7 @@ import type {
   CloneGroup,
 } from "@/types/feature1";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 // ─── Existing types (unchanged) ────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ export interface DatasetResponse {
   assignedAnnotatorId?: string;
   availableColumns?: Array<{
     name: string;
-    source: "CSV" | "MANUAL";
+    source: "CSV" | "MANUAL" | "DOCUMENT";
     csvImportId?: string;
   }>;
   totalCSVFiles?: number;

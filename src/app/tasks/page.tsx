@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { datasetsAPI } from '@/lib/api/datasets';
+import { consensusAPI } from '@/lib/api/consensus';
 import { Sidebar } from '@/components/sidebar';
 import { TopNav } from '@/components/top-nav';
 import { motion } from 'framer-motion';
@@ -235,6 +236,7 @@ export default function MyTasksPage() {
   const [tasks, setTasks] = useState<AnnotationTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reviewRequests, setReviewRequests] = useState<any[]>([]);
 
   const isInvited = user?.invitedByAdmin !== false;
 
@@ -259,8 +261,12 @@ export default function MyTasksPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await datasetsAPI.getMyTasks();
+      const [data, requests] = await Promise.all([
+        datasetsAPI.getMyTasks(),
+        consensusAPI.getMyReviewRequests().catch(() => []),
+      ]);
       setTasks(data);
+      setReviewRequests(requests);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to load your tasks. Please try again.');
     } finally {
@@ -285,6 +291,12 @@ export default function MyTasksPage() {
     router.push(`/dataset/${task._id}/annotation?taskId=${task.taskId || ''}`);
   };
 
+  const handleOpenReviewRequest = (request: any) => {
+    if (!request.cloneDatasetId) return;
+    const task = tasks.find((candidate) => candidate._id === request.cloneDatasetId);
+    router.push(`/dataset/${request.cloneDatasetId}/annotation?taskId=${task?.taskId || ''}&reviewRequestId=${request.reviewRequestId}&rowIndex=${request.rowIndex}`);
+  };
+
   if (authLoading) {
     return (
       <div className="flex h-screen bg-gray-50 items-center justify-center">
@@ -298,9 +310,10 @@ export default function MyTasksPage() {
   if (!isInvited) {
     return (
       <div className="flex h-screen bg-gray-50">
-        <Sidebar />
+        <Sidebar className="hidden lg:flex" />
 
         <main className="flex-1 overflow-auto">
+          <TopNav />
           <div className="p-6 max-w-5xl mx-auto">
             {/* Header */}
             <div className="flex items-start justify-between mb-6">
@@ -342,7 +355,7 @@ export default function MyTasksPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar className="hidden lg:flex" />
       <main className="flex-1 overflow-auto">
         <TopNav />
         <motion.div
@@ -373,6 +386,34 @@ export default function MyTasksPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3].map((n) => <SkeletonCard key={n} />)}
             </div>
+          )}
+
+          {!loading && !error && reviewRequests.length > 0 && (
+            <section className="mb-6 rounded-2xl border border-violet-100 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">Review Requests</h2>
+                  <p className="mt-1 text-xs text-gray-500">Rows returned by an admin for re-annotation.</p>
+                </div>
+                <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-semibold text-violet-700">{reviewRequests.length} pending</span>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {reviewRequests.map((request) => (
+                  <div key={request.reviewRequestId} className="rounded-xl border border-violet-100 bg-violet-50/40 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="inline-flex rounded-md border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">Review Requested</span>
+                        <h3 className="mt-2 text-sm font-semibold text-gray-900">{request.datasetName || 'Dataset'} · Row {Number(request.rowIndex) + 1}</h3>
+                      </div>
+                      <span className="text-[10px] font-medium text-gray-500">Due {new Date(request.deadlineAt).toLocaleString()}</span>
+                    </div>
+                    <div className="mt-3 grid gap-2 text-xs text-gray-600 sm:grid-cols-2"><div><span className="block text-[10px] font-semibold uppercase text-gray-400">Reason</span>{request.reason}</div><div><span className="block text-[10px] font-semibold uppercase text-gray-400">Status</span>{request.status}</div></div>
+                    <p className="mt-3 rounded-lg bg-white/80 p-2.5 text-xs text-gray-700">{request.comment}</p>
+                    <div className="mt-3 flex justify-end"><Button size="sm" onClick={() => handleOpenReviewRequest(request)} className="bg-violet-600 text-white hover:bg-violet-700">Open Review</Button></div>
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
 
           {/* Error state */}

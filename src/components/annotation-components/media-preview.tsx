@@ -69,7 +69,7 @@ export function AudioPreview({ url: rawUrl, index, className }: MediaPreviewProp
             onDragStart={(e) => e.preventDefault()}
             onLoadedMetadata={() => setStatus('ready')}
             onError={() => setStatus('error')}
-            className={cn('w-full h-10', status === 'loading' && 'opacity-0')}
+            className={cn('w-full max-w-full h-10', status === 'loading' && 'opacity-0')}
             src={url}
           >
             Your browser does not support the audio element.
@@ -133,7 +133,7 @@ export function VideoPreview({ url: rawUrl, index, onExpand, className }: MediaP
             onDragStart={(e) => e.preventDefault()}
             onLoadedMetadata={() => setStatus('ready')}
             onError={() => setStatus('error')}
-            className={cn('w-full max-h-56 rounded-lg bg-black', status === 'loading' && 'hidden')}
+            className={cn('w-full max-w-full max-h-56 rounded-lg bg-black', status === 'loading' && 'hidden')}
             src={url}
           >
             Your browser does not support the video element.

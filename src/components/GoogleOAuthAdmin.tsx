@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+import { API_BASE_URL, isBackendReachable } from '@/lib/api';
 
 interface GoogleOAuthAdminProps {
   disabled?: boolean;
@@ -12,14 +14,23 @@ export default function GoogleOAuthAdmin({
   disabled = false,
   className = '',
 }: GoogleOAuthAdminProps) {
-  const handleGoogleAdminAuth = () => {
+  const [error, setError] = useState('');
+
+  const handleGoogleAdminAuth = async () => {
+    setError('');
     try {
+      const reachable = await isBackendReachable();
+      if (!reachable) {
+        setError(
+          `Cannot reach the backend at ${API_BASE_URL}. Please make sure the server is running and try again.`,
+        );
+        return;
+      }
       // Redirect to backend Google Admin OAuth endpoint
-      const backendUrl =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      window.location.href = `${backendUrl}/auth/google/admin`;
+      window.location.href = `${API_BASE_URL}/auth/google/admin`;
     } catch (error) {
       console.error('Google Admin OAuth error:', error);
+      setError('Unable to start Google authentication. Please try again.');
     }
   };
 
@@ -41,6 +52,11 @@ export default function GoogleOAuthAdmin({
         />
         Continue with Google (Admin)
       </Button>
+      {error && (
+        <p role="alert" className="mt-2 text-xs font-medium text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

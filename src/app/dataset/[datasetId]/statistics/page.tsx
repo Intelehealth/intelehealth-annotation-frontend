@@ -119,7 +119,7 @@ export default function StatisticsPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar className="hidden lg:flex" />
       <div className="flex-1 flex flex-col overflow-auto">
         <TopNav />
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="p-4 md:p-6 max-w-7xl mx-auto w-full space-y-4">
@@ -467,7 +467,7 @@ export default function StatisticsPage() {
                         {health.components && Object.entries(health.components).map(([key, val]) => (
                           <div key={key} className="flex justify-between">
                             <span className="text-xs text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                            <span className="text-sm font-bold">{typeof val === 'number' ? Math.round(val as number) : val}</span>
+<span className="text-sm font-bold">{typeof val === 'number' ? Math.round(val as number) : String(val)}</span>
                           </div>
                         ))}
                       </CardContent>

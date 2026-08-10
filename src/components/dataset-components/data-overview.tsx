@@ -10,6 +10,7 @@ import {
   Upload,
   Database,
   FileText,
+  Image as ImageIcon,
   Calendar,
   BarChart3,
   Loader2,
@@ -29,6 +30,7 @@ import { CSVImport, CSVImportsAPI } from '@/lib/api/csv-imports';
 import { DatasetMergedRowsAPI, AnnotationProgress } from '@/lib/api/dataset-merged-rows';
 import { fieldSelectionAPI } from '@/lib/api/field-config';
 import { datasetsAPI } from '@/lib/api/datasets';
+import { processingAPI, DocumentAssetResponse } from '@/lib/api/processing';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/toast';
 import { exportSelectedColumnsToCSV, exportAllColumnsToCSV } from '@/lib/dataset-export-helper';
@@ -49,6 +51,8 @@ export function DataOverview({
   const router = useRouter();
   const { user } = useAuth();
   const [csvImports, setCsvImports] = useState<CSVImport[]>([]);
+  const [documents, setDocuments] = useState<DocumentAssetResponse[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasFieldConfig, setHasFieldConfig] = useState<boolean | null>(null);
@@ -69,6 +73,7 @@ export function DataOverview({
 
   useEffect(() => {
     loadCSVImports();
+    loadDocuments();
     checkFieldConfiguration();
     checkMergedRows();
     checkAnnotationProgress();
@@ -93,32 +98,6 @@ export function DataOverview({
     }
   };
 
-  // Generate consensus — called from clone panel button
-  const handleGenerateConsensus = async () => {
-    if (!datasetId) return;
-    try {
-      setIsGeneratingConsensus(true);
-      const result = await datasetsAPI.generateConsensus(datasetId);
-      showToast({
-        title: 'Consensus generated!',
-        description: `${result.reviewsCreated} rows compared. Redirecting to review…`,
-        type: 'success',
-      });
-      router.push(`/dataset/${datasetId}/generate-consensus`);
-    } catch (err: any) {
-      const msg: string = err?.response?.data?.message || err?.message || 'Failed to generate consensus.';
-      showToast({
-        title: 'Consensus generation failed',
-        description: msg,
-        type: 'error',
-      });
-    } finally {
-      setIsGeneratingConsensus(false);
-    }
-  };
-
-
-
   const loadCSVImports = async () => {
     try {
       setLoading(true);
@@ -133,6 +112,23 @@ export function DataOverview({
       setError('Failed to load CSV imports');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load document-based sources (images, PDFs, office docs, links, generic).
+  // These are the backing data for non-CSV datasets and must be treated as
+  // "uploaded data" so the overview never shows an empty state for them.
+  const loadDocuments = async () => {
+    try {
+      setDocumentsLoading(true);
+      const data = await processingAPI.listDocuments(datasetId);
+      console.log('Document sources loaded:', data);
+      setDocuments(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Error loading document sources:', err);
+      setDocuments([]);
+    } finally {
+      setDocumentsLoading(false);
     }
   };
 
@@ -383,13 +379,27 @@ export function DataOverview({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  // A dataset has real uploaded data if it has CSV imports, document-based
+  // sources (images, PDFs, office, links, generic), and/or merged annotation rows.
+  const hasUploadedData =
+    csvImports.length > 0 ||
+    documents.length > 0 ||
+    hasMergedRows === true;
+
+  // Don't flash an empty state while we're still discovering whether data exists.
+  const stillAssessing =
+    loading ||
+    documentsLoading ||
+    checkingMergedRows ||
+    hasMergedRows === null;
+
   // Initial View (No Uploaded Data)
-  if (!loading && csvImports.length === 0) {
+  if (!stillAssessing && !hasUploadedData) {
     return (
-      <div className={cn('space-y-6', className)}>
+      <div className={cn('space-y-6 overflow-x-hidden', className)}>
         {/* Header with Upload and Configure Fields Buttons */}
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col md:flex-row items-start gap-4 md:items-center md:justify-between min-w-0">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900">
               {datasetInfo?.name || 'Data Overview'}
             </h1>
@@ -397,22 +407,24 @@ export function DataOverview({
               {'Data Overview - Manage and monitor your uploaded data files'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
             <Button
               onClick={onNavigateToFieldConfig}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
             >
-              <Settings className="h-4 w-4" />
-              Configure Fields
+              <Settings className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate text-sm">Configure Fields</span>
             </Button>
-            <ExportDropdown
-              options={exportOptions}
-              disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
-            />
+            <div className="flex-1 min-w-0 md:w-auto md:flex-none">
+              <ExportDropdown
+                options={exportOptions}
+                disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+              />
+            </div>
             <Button
               onClick={handleStartDatasetAnnotation}
               disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
             >
               {checkingConfig || checkingAnnotationProgress ? (
                 <>
@@ -421,8 +433,8 @@ export function DataOverview({
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4" />
-                  {annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}
+                  <Play className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
                 </>
               )}
             </Button>
@@ -500,11 +512,11 @@ export function DataOverview({
   }
 
   // Loading State
-  if (loading) {
+  if (stillAssessing) {
     return (
-      <div className={cn('space-y-6', className)}>
-        <div className="flex items-center justify-between">
-          <div>
+      <div className={cn('space-y-6 overflow-x-hidden', className)}>
+        <div className="flex flex-col md:flex-row items-start gap-4 md:items-center md:justify-between min-w-0">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900">
               {datasetInfo?.name || 'Data Overview'}
             </h1>
@@ -512,22 +524,24 @@ export function DataOverview({
               {'Data Overview - Manage and monitor your uploaded data files'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
             <Button
               onClick={onNavigateToFieldConfig}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
             >
-              <Settings className="h-4 w-4" />
-              Configure Fields
+              <Settings className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate text-sm">Configure Fields</span>
             </Button>
-            <ExportDropdown
-              options={exportOptions}
-              disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
-            />
+            <div className="flex-1 min-w-0 md:w-auto md:flex-none">
+              <ExportDropdown
+                options={exportOptions}
+                disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+              />
+            </div>
             <Button
               onClick={handleStartDatasetAnnotation}
               disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
             >
               {checkingConfig || checkingAnnotationProgress ? (
                 <>
@@ -536,8 +550,8 @@ export function DataOverview({
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4" />
-                  {annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}
+                  <Play className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
                 </>
               )}
             </Button>
@@ -555,9 +569,9 @@ export function DataOverview({
   // Error State
   if (error) {
     return (
-      <div className={cn('space-y-6', className)}>
-        <div className="flex items-center justify-between">
-          <div>
+      <div className={cn('space-y-6 overflow-x-hidden', className)}>
+        <div className="flex flex-col md:flex-row items-start gap-4 md:items-center md:justify-between min-w-0">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900">
               {datasetInfo?.name || 'Data Overview'}
             </h1>
@@ -565,22 +579,24 @@ export function DataOverview({
               {'Data Overview - Manage and monitor your uploaded data files'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
             <Button
               onClick={onNavigateToFieldConfig}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
             >
-              <Settings className="h-4 w-4" />
-              Configure Fields
+              <Settings className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate text-sm">Configure Fields</span>
             </Button>
-            <ExportDropdown
-              options={exportOptions}
-              disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
-            />
+            <div className="flex-1 min-w-0 md:w-auto md:flex-none">
+              <ExportDropdown
+                options={exportOptions}
+                disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+              />
+            </div>
             <Button
               onClick={handleStartDatasetAnnotation}
               disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
             >
               {checkingConfig || checkingAnnotationProgress ? (
                 <>
@@ -589,8 +605,8 @@ export function DataOverview({
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4" />
-                  {annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}
+                  <Play className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
                 </>
               )}
             </Button>
@@ -622,33 +638,35 @@ export function DataOverview({
 
   // View with Existing Data
   return (
-    <div className={cn('space-y-6', className)}>
+    <div className={cn('space-y-6 overflow-x-hidden', className)}>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {datasetInfo?.name || 'Data Overview'}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            {"Data Overview - Manage and monitor your uploaded data files"}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col md:flex-row items-start gap-4 md:items-center md:justify-between min-w-0">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-gray-900">
+              {datasetInfo?.name || 'Data Overview'}
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {"Data Overview - Manage and monitor your uploaded data files"}
+            </p>
+          </div>
+          <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
           <Button
             onClick={onNavigateToFieldConfig}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+            className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white border-blue-600 md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
           >
-            <Settings className="h-4 w-4" />
-            Configure Fields
+            <Settings className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate text-sm">Configure Fields</span>
           </Button>
-          <ExportDropdown
-            options={exportOptions}
-            disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
-          />
+          <div className="flex-1 min-w-0 md:w-auto md:flex-none">
+            <ExportDropdown
+              options={exportOptions}
+              disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+            />
+          </div>
           <Button
             onClick={handleStartDatasetAnnotation}
             disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
           >
             {checkingConfig || checkingAnnotationProgress ? (
               <>
@@ -657,8 +675,8 @@ export function DataOverview({
               </>
             ) : (
               <>
-                <Play className="h-4 w-4" />
-                {annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}
+                <Play className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
               </>
             )}
           </Button>
@@ -668,14 +686,14 @@ export function DataOverview({
       {/* CSV Imports List */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-600" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 min-w-0">
+            <CardTitle className="flex items-center gap-2 min-w-0">
+              <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" />
               Uploaded Files
             </CardTitle>
             <Button
               onClick={onNavigateToUpload}
-              className="flex items-center gap-2 bg-black hover:bg-gray-800 text-white"
+              className="mt-3 sm:mt-0 w-full md:w-auto justify-center flex items-center gap-2 bg-black hover:bg-gray-800 text-white"
             >
               <Upload className="h-4 w-4" />
               Upload Data
@@ -683,40 +701,89 @@ export function DataOverview({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {csvImports.map((csvImport) => (
-              <div
-                key={csvImport._id}
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-medium text-gray-900 truncate">
-                      {csvImport.originalFileName}
-                    </h4>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <span>{csvImport.totalRows} rows</span>
-                      <span>•</span>
-                      <span>
-                        {csvImport.metadata?.totalColumns || 0} columns
-                      </span>
-                      <span>•</span>
-                      <span>{formatFileSize(csvImport.fileSize)}</span>
+<div className="space-y-6">
+            {/* CSV / Excel imports */}
+            {csvImports.length === 0 ? null : (
+              <div className="space-y-4">
+                {csvImports.map((csvImport) => (
+                  <div
+                    key={csvImport._id}
+                    className="w-full min-w-0 flex items-center justify-between gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
+                  >
+                    <div className="flex items-center space-x-4 min-w-0">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <FileText className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-medium text-gray-900 break-all">
+                          {csvImport.originalFileName}
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 min-w-0">
+                          <span>{csvImport.totalRows} rows</span>
+                          <span>•</span>
+                          <span>
+                            {csvImport.metadata?.totalColumns || 0} columns
+                          </span>
+                          <span>•</span>
+                          <span>{formatFileSize(csvImport.fileSize)}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Calendar className="h-3 w-3 text-gray-400" />
+                          <span className="text-xs text-gray-500">
+                            Uploaded {formatDate(csvImport.createdAt)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Calendar className="h-3 w-3 text-gray-400" />
-                      <span className="text-xs text-gray-500">
-                        Uploaded {formatDate(csvImport.createdAt)}
-                      </span>
-                    </div>
                   </div>
-                </div>
-
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* Document-based sources (images, PDFs, office, links, generic) */}
+            {documents.length === 0 ? null : (
+              <div className="space-y-4">
+                {documents.map((document) => (
+                  <div
+                    key={document._id}
+                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <ImageIcon className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-medium text-gray-900 truncate">
+                          {document.originalFileName}
+                        </h4>
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <span>{document.fileType}</span>
+                          <span>•</span>
+                          <span>{formatFileSize(document.fileSize)}</span>
+                          <span>•</span>
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium',
+                              document.status === 'COMPLETED'
+                                ? 'bg-green-50 text-green-700 border-green-200'
+                                : 'bg-gray-50 text-gray-600 border-gray-200',
+                            )}
+                          >
+                            {document.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Calendar className="h-3 w-3 text-gray-400" />
+                          <span className="text-xs text-gray-500">
+                            Uploaded {formatDate(document.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           
           {/* Configure Fields Button - Centered - Only show when fields are not configured */}

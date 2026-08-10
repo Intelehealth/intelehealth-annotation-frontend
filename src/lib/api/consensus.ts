@@ -70,8 +70,79 @@ export const consensusAPI = {
 
   // ─── Round-based review (Phase 2 Items 6-9) ──────────────────────────────────
 
-  async requestReview(datasetId: string): Promise<{ message: string; roundNumber: number }> {
-    const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/request-review`, {}, { headers: jsonHeaders() });
+  async requestReview(datasetId: string, body?: {
+    rowIndex?: number;
+    fieldNames?: string[];
+    annotatorIds?: string[];
+    reason?: string;
+    comment?: string;
+    deadlineAt?: string;
+    timezone?: string;
+  }): Promise<any> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/request-review`, body || {}, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  async getMyReviewRequests(): Promise<any[]> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/review-requests/mine`, { headers: authHeaders() });
+    return res.data;
+  },
+
+  async getReviewRequest(requestId: string): Promise<any> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/review-requests/${requestId}`, { headers: authHeaders() });
+    return res.data;
+  },
+
+  async resubmitReviewRequest(requestId: string): Promise<any> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/review-requests/${requestId}/resubmit`, {}, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  async approveReview(datasetId: string, reviewId: string, finalAnswer: string): Promise<any> {
+    const res = await axios.post(
+      `${API_BASE_URL}/consensus/${datasetId}/reviews/${reviewId}/approve`,
+      { finalAnswer },
+      { headers: jsonHeaders() },
+    );
+    return res.data;
+  },
+
+  async addToLlmTraining(datasetId: string, reviewId: string): Promise<any> {
+    const res = await axios.post(
+      `${API_BASE_URL}/consensus/${datasetId}/reviews/${reviewId}/training-example`,
+      {},
+      { headers: jsonHeaders() },
+    );
+    return res.data;
+  },
+
+  async addReviewComment(datasetId: string, reviewId: string, text: string): Promise<any> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/reviews/${reviewId}/comments`, { text }, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  async addReviewAdminNote(datasetId: string, reviewId: string, text: string): Promise<any> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/reviews/${reviewId}/admin-notes`, { text }, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  async editReviewComment(datasetId: string, reviewId: string, noteId: string, text: string): Promise<any> {
+    const res = await axios.patch(`${API_BASE_URL}/consensus/${datasetId}/reviews/${reviewId}/comments/${noteId}`, { text }, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  async deleteReviewComment(datasetId: string, reviewId: string, noteId: string): Promise<any> {
+    const res = await axios.delete(`${API_BASE_URL}/consensus/${datasetId}/reviews/${reviewId}/comments/${noteId}`, { headers: authHeaders() });
+    return res.data;
+  },
+
+  async editReviewAdminNote(datasetId: string, reviewId: string, noteId: string, text: string): Promise<any> {
+    const res = await axios.patch(`${API_BASE_URL}/consensus/${datasetId}/reviews/${reviewId}/admin-notes/${noteId}`, { text }, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  async deleteReviewAdminNote(datasetId: string, reviewId: string, noteId: string): Promise<any> {
+    const res = await axios.delete(`${API_BASE_URL}/consensus/${datasetId}/reviews/${reviewId}/admin-notes/${noteId}`, { headers: authHeaders() });
     return res.data;
   },
 

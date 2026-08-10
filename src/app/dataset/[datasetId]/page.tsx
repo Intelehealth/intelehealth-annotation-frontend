@@ -1,24 +1,25 @@
-'use client';
+"use client";
 
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { datasetsAPI, DatasetResponse } from '@/lib/api/datasets';
-import { Button } from '@/components/ui/button';
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { datasetsAPI, DatasetResponse } from "@/lib/api/datasets";
+import { fieldSelectionAPI } from "@/lib/api/field-config";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card';
-import { DataOverview } from '@/components/dataset-components/data-overview';
-import { DatasetUploadComponent } from '@/components/upload-components/dataset-upload-component';
-import { FieldConfig } from '@/components/field-config-components/field-config';
-import { DatasetSettings } from '@/components/dataset-components/dataset-settings';
-import { Sidebar } from '@/components/sidebar';
-import { TopNav } from '@/components/top-nav';
-import { motion } from 'framer-motion';
+} from "@/components/ui/card";
+import { DataOverview } from "@/components/dataset-components/data-overview";
+import { DatasetUploadComponent } from "@/components/upload-components/dataset-upload-component";
+import { FieldConfig } from "@/components/field-config-components/field-config";
+import { DatasetSettings } from "@/components/dataset-components/dataset-settings";
+import { Sidebar } from "@/components/sidebar";
+import { TopNav } from "@/components/top-nav";
+import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Database,
@@ -28,7 +29,7 @@ import {
   AudioLines,
   Loader2,
   Upload,
-} from 'lucide-react';
+} from "lucide-react";
 
 const datasetTypeIcons = {
   text: FileText,
@@ -45,7 +46,7 @@ export default function DatasetDetailPage() {
   const [dataset, setDataset] = useState<DatasetResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState("overview");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const datasetId = params.datasetId as string;
@@ -53,21 +54,22 @@ export default function DatasetDetailPage() {
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
-        router.push('/login');
-      } else if (user?.role?.toUpperCase() === 'ADMIN') {
-        // Admin can access
-      } else if (user?.invitedByAdmin === false) {
-        // Non-invited user can access their personal datasets
-      } else if (user?.role?.toUpperCase() === 'ANNOTATOR') {
-        router.push('/tasks');
+        router.push("/login");
       }
+      // Allow both ADMIN and ANNOTATOR to view dataset detail page
+      // Annotators can view but not modify
     }
   }, [user, isAuthenticated, isLoading, router]);
 
   // Handle tab query parameter
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam && ['overview', 'upload', 'field-configuration', 'settings'].includes(tabParam)) {
+    const tabParam = searchParams.get("tab");
+    if (
+      tabParam &&
+      ["overview", "upload", "field-configuration", "settings"].includes(
+        tabParam,
+      )
+    ) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -85,17 +87,17 @@ export default function DatasetDetailPage() {
       const data = await datasetsAPI.getById(datasetId);
       setDataset(data);
     } catch (err) {
-      setError('Failed to load dataset');
+      setError("Failed to load dataset");
     } finally {
       setLoading(false);
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -115,24 +117,24 @@ export default function DatasetDetailPage() {
     }
 
     switch (activeTab) {
-      case 'overview':
+      case "overview":
         return (
           <DataOverview
             key={refreshTrigger} // This will force re-render when refreshTrigger changes
             datasetId={datasetId}
-            onNavigateToUpload={() => setActiveTab('upload')}
-            onNavigateToFieldConfig={() => setActiveTab('field-configuration')}
+            onNavigateToUpload={() => setActiveTab("upload")}
+            onNavigateToFieldConfig={() => setActiveTab("field-configuration")}
           />
         );
 
-      case 'upload':
+      case "upload":
         return (
           <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">
-                {dataset.name}
+                  {dataset.name}
                 </h1>
                 <p className="text-gray-600 mt-1">
                   Add new files to this dataset.
@@ -160,22 +162,45 @@ export default function DatasetDetailPage() {
                     // Let CSVUploadComponent handle the redirection logic
                     // No automatic tab switching here to avoid conflicts
                   }}
+                  onSourceUploaded={() => {
+                    setRefreshTrigger((previous) => previous + 1);
+                  }}
+                  onDocumentCompleted={async () => {
+                    // Deterministically open Field Configuration after the
+                    // first document finishes processing, only when the dataset
+                    // has no field configuration yet (driven by API state, not
+                    // a timer).
+                    try {
+                      const check =
+                        await fieldSelectionAPI.checkDatasetFieldConfig(
+                          datasetId,
+                        );
+                      if (!check?.hasConfig) {
+                        setActiveTab("field-configuration");
+                        router.push(
+                          `/dataset/${datasetId}?tab=field-configuration`,
+                        );
+                      }
+                    } catch {
+                      // ignore: stay on the upload tab if the check fails
+                    }
+                  }}
                 />
               </CardContent>
             </Card>
           </div>
         );
 
-      case 'field-configuration':
+      case "field-configuration":
         return (
           <FieldConfig
             datasetId={datasetId}
-            onNavigateToUpload={() => setActiveTab('upload')}
-            onNavigateToOverview={() => setActiveTab('overview')}
+            onNavigateToUpload={() => setActiveTab("upload")}
+            onNavigateToOverview={() => setActiveTab("overview")}
           />
         );
 
-      case 'settings':
+      case "settings":
         return <DatasetSettings datasetId={datasetId} />;
 
       default:
@@ -248,7 +273,7 @@ export default function DatasetDetailPage() {
           <p className="text-gray-600 mb-4">
             The dataset you're looking for doesn't exist.
           </p>
-          <Button onClick={() => router.push('/dataset')}>
+          <Button onClick={() => router.push("/dataset")}>
             Back to Datasets
           </Button>
         </div>
@@ -258,14 +283,14 @@ export default function DatasetDetailPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
+      <Sidebar className="hidden lg:flex" />
+      <main className="flex-1 overflow-x-hidden overflow-y-auto min-w-0">
         <TopNav />
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="p-4 md:p-6"
+          className="p-4 md:p-6 min-w-0 overflow-x-hidden"
         >
           {renderContent()}
         </motion.div>

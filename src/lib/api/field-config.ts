@@ -43,16 +43,16 @@ export const fieldSelectionAPI = {
   },
 
   // Get CSV columns for a specific CSV import
-  getCSVColumns: async (csvImportId: string) => {
+  getCSVColumns: async (datasetId: string, csvImportId: string) => {
     const response = await jsonApi.get(
-      `/csv-processing/columns/${csvImportId}`,
+      `/csv-processing/dataset/${datasetId}/columns/${csvImportId}`,
     );
     return response.data;
   },
 
   // Get CSV import status (includes columns)
-  getCSVImportStatus: async (csvImportId: string) => {
-    const response = await jsonApi.get(`/csv-processing/status/${csvImportId}`);
+  getCSVImportStatus: async (datasetId: string, csvImportId: string) => {
+    const response = await jsonApi.get(`/csv-processing/dataset/${datasetId}/status/${csvImportId}`);
     return response.data;
   },
 

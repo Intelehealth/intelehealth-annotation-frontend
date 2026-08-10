@@ -7,6 +7,9 @@ export interface NotificationResponse {
   message: string;
   isRead: boolean;
   createdAt: string;
+  type?: string;
+  metadata?: Record<string, any>;
+  relatedEntityId?: string;
 }
 
 export const notificationsAPI = {

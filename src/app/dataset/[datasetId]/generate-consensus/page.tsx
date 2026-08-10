@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from '@/components/sidebar';
+import { MobileNav } from '@/components/mobile-nav';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { consensusAPI } from '@/lib/api/consensus';
@@ -827,17 +828,18 @@ export default function GenerateConsensusPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <main className="flex-1 flex flex-col">
+      <Sidebar className="hidden lg:flex" />
+      <main className="flex-1 flex flex-col min-w-0">
         {/* STICKY TOP */}
-        <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm px-3 md:px-6 py-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+            <MobileNav />
             <Button variant="ghost" size="sm" onClick={() => router.push(`/dataset/${datasetId}`)}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
-            <Scale className="h-5 w-5 text-indigo-600" />
-            <h1 className="text-xl font-bold text-gray-950">Generate Consensus</h1>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{stats.total} fields</span>
+            <Scale className="h-5 w-5 text-indigo-600 flex-shrink-0" />
+            <h1 className="text-base md:text-xl font-bold text-gray-950 truncate">Generate Consensus</h1>
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap">{stats.total} fields</span>
           </div>
-          <div className="flex items-center gap-2 relative">
+          <div className="flex items-center gap-2 relative flex-wrap">
             <Button size="sm" variant="outline" onClick={() => router.push(`/dataset/${datasetId}/consensus`)}><Scale className="h-4 w-4 mr-1" /> Review</Button>
             <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generating}>
               <RefreshCw className={cn('h-4 w-4 mr-1', generating && 'animate-spin')} /> Generate
@@ -892,7 +894,7 @@ export default function GenerateConsensusPage() {
 
             {!loading && stats.total === 0 && annotationConfig && (
               <div className="space-y-4">
-                <div className="grid grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                   <div className="p-4 rounded-xl bg-white border border-gray-200 shadow-sm"><p className="text-2xl font-bold text-gray-900">{stats.total}</p><p className="text-xs text-gray-500 mt-1">Total</p></div>
                   <div className="p-4 rounded-xl bg-indigo-50/40 border border-indigo-100 shadow-sm"><p className="text-2xl font-bold text-indigo-600">{stats.suggestedAgreement || 0}</p><p className="text-xs text-indigo-600 mt-1">Suggested Agreement</p></div>
                   <div className="p-4 rounded-xl bg-red-50/40 border border-red-100 shadow-sm"><p className="text-2xl font-bold text-red-600">{stats.conflict || 0}</p><p className="text-xs text-red-600 mt-1">Conflict</p></div>
@@ -918,7 +920,7 @@ export default function GenerateConsensusPage() {
             {!loading && stats.total > 0 && reviews.length > 0 && (
               <>
                 {/* SUMMARY CARDS */}
-                <div className="grid grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   <StatCard title="Total Records" value={reviews.length} color="gray" />
                   <StatCard title="Total Conflicts" value={stats.conflict} color="red" />
                   <StatCard title="Resolved" value={stats.resolved} color="green" />

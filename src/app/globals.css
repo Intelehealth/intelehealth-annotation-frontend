@@ -116,11 +116,58 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-  }
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overflow-x: clip;
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    overflow-x: clip;
+    min-height: 100dvh;
+    text-rendering: optimizeLegibility;
+  }
+  @media screen and (max-width: 767px) {
+    body {
+      font-size: 16px;
+    }
+  }
+}
+
+/* ─── Responsive foundation ──────────────────────────────────────────────── */
+/* Prevent media and rich content from overflowing the viewport */
+img,
+video,
+canvas,
+svg,
+iframe {
+  max-width: 100%;
+}
+
+/* Allow flex/grid children to shrink instead of forcing horizontal overflow */
+.flex > *,
+.grid > * {
+  min-width: 0;
+}
+
+/* Tables scroll horizontally on small screens instead of breaking layout */
+.table-responsive,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+}
+
+/* Consistent reduced-motion for mobile interactions */
+@media (hover: none) {
+  input[type='range'],
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card-3d-inner:hover {
+    transform: none;
   }
 }
 
@@ -179,4 +226,113 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
+}
+
+/* ===== Auth page animations (from integrated login/signup design) ===== */
+
+@keyframes float-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer-line {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-float-up {
+  animation: float-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.text-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted-foreground) 0%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-line 4s linear infinite;
+}
+
+/* ===== Landing Page Styles (integrated) ===== */
+
+/* Smooth cursor and interactions */
+.landing-page * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.landing-page ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.landing-page ::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+.landing-page ::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 4px;
+}
+
+.landing-page ::-webkit-scrollbar-thumb:hover {
+  background: #525252;
+}
+
+.landing-page ::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: white;
+}
+
+.group-hover-scale {
+  transition: transform 1000ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group-hover-scale:hover {
+  transform: scale(1.05);
+}
+
+.magnetic-btn {
+  display: inline-block;
+  will-change: transform;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-in-out forwards;
 }

@@ -19,8 +19,17 @@ export default function AuthCallbackPage() {
         const error = urlParams.get('error');
 
         if (error === 'oauth_failed') {
+          const reason = urlParams.get('reason');
+          const messages: Record<string, string> = {
+            email_missing: 'Google did not return an email address for your account.',
+            name_missing: 'Google did not return your name.',
+            account_disabled: 'This account has been disabled. Please contact an administrator.',
+            oauth_token_exchange:
+              'Google could not verify your credentials. Check your OAuth Client ID, Client Secret, and Authorized redirect URI.',
+            oauth_error: 'OAuth authentication failed. Please try again.',
+          };
           setStatus('error');
-          setMessage('OAuth authentication failed. Please try again.');
+          setMessage(messages[reason || 'oauth_error'] || messages.oauth_error);
           setTimeout(() => router.push('/login'), 3000);
           return;
         }

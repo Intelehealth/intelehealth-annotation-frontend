@@ -1,10 +1,37 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// Most API calls go directly to the backend (absolute). The multipart document
+// upload is made same-origin (see processing.ts, baseURL override) and proxied
+// by next.config.ts `/processing` rewrite to avoid cross-origin upload blocks.
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+// Lightweight reachability probe used before redirecting to external OAuth
+// flows. This prevents the browser from navigating to a dead backend URL
+// (e.g. a wrong port) and instead surfaces a clear error to the user.
+export async function isBackendReachable(timeoutMs = 4000): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(`${API_BASE_URL}/health`, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
+  // Global default so no request silently hangs forever. Individual calls may
+  // override with their own `timeout` (e.g. the 120s upload timeout for large
+  // files). A hung request (e.g. a stuck auth refresh) now fails fast instead
+  // of surfacing as a spurious "Upload timed out".
+  timeout: 60000,
   // Removed default Content-Type header to allow browser to set it automatically
   // This is especially important for FormData uploads
 });
@@ -12,6 +39,7 @@ const api = axios.create({
 // Helper method for JSON requests
 export const jsonApi = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -66,6 +94,10 @@ async function refreshAccessToken(): Promise<string | null> {
       try {
         const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refreshToken: storedRefreshToken,
+        }, {
+          // Hard timeout so a hanging refresh can never silently hold an
+          // original request (e.g. a large upload) hostage.
+          timeout: 10000,
         });
         localStorage.setItem('accessToken', res.data.accessToken);
         if (res.data.refreshToken) {
@@ -102,8 +134,13 @@ async function handleUnauthorized(error: any, instance: typeof api) {
 
   const newAccessToken = await refreshAccessToken();
   if (!newAccessToken) {
+    // Refresh failed (expired/invalid refresh token, or the refresh call timed
+    // out). Fail the original request fast and clearly so the UI can show
+    // "Session expired" instead of hanging into a bogus timeout.
     forceLogout();
-    return Promise.reject(error);
+    const authError = new Error('Session expired. Please sign in again.');
+    (authError as any).response = { status: 401, data: { message: 'Session expired. Please sign in again.' } };
+    return Promise.reject(authError);
   }
 
   originalRequest._retriedAfterRefresh = true;

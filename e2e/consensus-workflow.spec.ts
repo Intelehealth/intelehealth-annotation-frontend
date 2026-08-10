@@ -4,12 +4,21 @@ const API = 'http://localhost:4000';
 const ADMIN_EMAIL = 'bhooomikasshetty20@gmail.com';
 const ADMIN_PASSWORD = 'strpass123';
 
-async function loginApi(request: APIRequestContext) {
+let cachedAdminSession: { accessToken: string; user: any } | null = null;
+
+async function loginSession(request: APIRequestContext) {
+  if (cachedAdminSession) return cachedAdminSession;
   const response = await request.post(`${API}/auth/login`, {
     data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
   });
   expect(response.ok()).toBeTruthy();
-  return (await response.json()).accessToken as string;
+  const body = await response.json();
+  cachedAdminSession = { accessToken: body.accessToken as string, user: body.user };
+  return cachedAdminSession;
+}
+
+async function loginApi(request: APIRequestContext) {
+  return (await loginSession(request)).accessToken;
 }
 
 async function firstParentDataset(request: APIRequestContext, token: string) {
@@ -23,12 +32,11 @@ async function firstParentDataset(request: APIRequestContext, token: string) {
   return dataset;
 }
 
-async function loginPage(page: Page) {
-  await page.goto('/login');
-  await page.fill('input[type="email"]', ADMIN_EMAIL);
-  await page.fill('input[type="password"]', ADMIN_PASSWORD);
-  await page.click('button[type="submit"]');
-  await page.waitForURL(/dashboard/, { timeout: 15000 });
+async function loginPage(page: Page, session: { accessToken: string; user: any }) {
+  await page.addInitScript(({ accessToken, user }) => {
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('user', JSON.stringify(user));
+  }, session);
 }
 
 test.describe('Review Consensus backend contract', () => {
@@ -110,15 +118,34 @@ test.describe('Review Consensus backend contract', () => {
 
 test.describe('Review Consensus page', () => {
   test('renders live progress and expandable answer comparison', async ({ page, request }) => {
-    const token = await loginApi(request);
+    const session = await loginSession(request);
+    const token = session.accessToken;
     const dataset = await firstParentDataset(request, token);
-    await loginPage(page);
+    await loginPage(page, session);
     await page.goto(`/dataset/${dataset._id}/consensus`);
 
     await expect(page.getByText('Review Consensus').first()).toBeVisible();
-    await expect(page.getByText('Annotator Progress')).toBeVisible();
-    await expect(page.getByText('Questions')).toBeVisible();
-    await expect(page.getByText('Answers')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Review Again' })).toBeVisible();
+    await expect(page.getByText('Total Rows')).toBeVisible();
+    await expect(page.getByText('Review Requested')).toBeVisible();
+    await expect(page.getByText('Annotator Progress').first()).toBeVisible();
+    await expect(page.getByText('Consensus Table')).toBeVisible();
+    await expect(page.getByText('Question')).toBeVisible();
+    await expect(page.getByText('Annotator Answers')).toBeVisible();
+
+    const expandButton = page.getByRole('button', { name: /Expand Row/ }).first();
+    if (await expandButton.count()) {
+      await expandButton.click();
+      await expect(page.getByText('Annotator Comparison').first()).toBeVisible();
+      await expect(page.getByText('Document Preview').first()).toBeVisible();
+      await expect(page.getByRole('button', { name: /Collapse Row/ }).first()).toBeVisible();
+    }
+
+    const reviewButton = page.getByRole('button', { name: 'Review', exact: true }).first();
+    if (await reviewButton.count()) {
+      await reviewButton.click();
+      await expect(page.getByText('Document Preview', { exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Approve' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Review Again' })).toBeVisible();
+    }
   });
 });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   AlertCircle,
+  ArrowLeft,
   Image as ImageIcon,
   AudioLines,
   Loader2,
@@ -30,6 +31,7 @@ import {
 } from '@/lib/api/csv-imports';
 import { fieldSelectionAPI } from '@/lib/api/field-config';
 import { datasetsAPI } from '@/lib/api/datasets';
+import { consensusAPI } from '@/lib/api/consensus';
 import { RowFooter, NewColumnDataPanel } from '@/components/new-column-components';
 import { MetadataDisplay } from './metadata-display';
 import { ImageOverlay, VideoOverlay } from './media-overlays';
@@ -41,6 +43,11 @@ import { ResizablePanels } from '@/components/ui/resizable-panels';
 import { logger } from '@/lib/logger';
 import { TopNav } from '@/components/top-nav';
 import { motion } from 'framer-motion';
+import { AnnotationViewSwitcher, ViewMode } from './annotation-view-switcher';
+import {
+  DocumentViewProvider,
+  DocumentIntelligencePage,
+} from '@/components/document-intelligence';
 
 interface Task {
   id: string;
@@ -51,6 +58,7 @@ interface Task {
   status: 'pending' | 'in_progress' | 'completed' | 'needs_review';
   assignedTo?: string;
   metadata?: Record<string, any>;
+  documentId?: string | null;
   csvInfo?: {
     csvImportId: string;
     fileName: string;
@@ -113,6 +121,7 @@ interface DatasetAnnotationWorkbenchProps {
   mode?: 'annotation' | 'inspect';
   /** Sprint B: return URL after inspection */
   returnTo?: string;
+  reviewRequestId?: string;
 }
 
 export function DatasetAnnotationWorkbench({
@@ -120,10 +129,12 @@ export function DatasetAnnotationWorkbench({
   taskId,
   mode = 'annotation',
   returnTo,
+  reviewRequestId,
 }: DatasetAnnotationWorkbenchProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [metadata, setMetadata] = useState<Record<string, any>>({});
@@ -142,6 +153,7 @@ export function DatasetAnnotationWorkbench({
   const [datasetNewColumns, setDatasetNewColumns] = useState<any[]>([]);
   const [datasetData, setDatasetData] = useState<DatasetMergedRowsData | null>(null);
   const [orderedMetadataFields, setOrderedMetadataFields] = useState<AnnotationField[]>([]);
+  const [reviewRequest, setReviewRequest] = useState<any>(null);
 
   const isInspectMode = mode === 'inspect';
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -169,6 +181,9 @@ export function DatasetAnnotationWorkbench({
     completionTime: string;
   } | null>(null);
   const [datasetName, setDatasetName] = useState<string>('');
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    (searchParams.get('view') as ViewMode) || 'annotation'
+  );
 
   // Initialize ordered metadata fields when annotation config changes
   useEffect(() => {
@@ -187,6 +202,33 @@ export function DatasetAnnotationWorkbench({
       setOrderedMetadataFields(metadataFields);
     }
   }, [annotationConfig]);
+
+  useEffect(() => {
+    if (!reviewRequestId) {
+      setReviewRequest(null);
+      return;
+    }
+    consensusAPI.getReviewRequest(reviewRequestId).then(setReviewRequest).catch(() => setReviewRequest(null));
+  }, [reviewRequestId]);
+
+  useEffect(() => {
+    if (!reviewRequest || !tasks.length) return;
+    const requestedIndex = tasks.findIndex((task) => task.rowIndex === Number(reviewRequest.rowIndex));
+    if (requestedIndex >= 0) setCurrentTaskIndex(requestedIndex);
+  }, [reviewRequest, tasks]);
+
+  useEffect(() => {
+    if (!reviewRequest?.fieldNames?.length) return;
+    const timer = window.setTimeout(() => {
+      const firstRequestedField = reviewRequest.fieldNames.find((fieldName: string) =>
+        document.getElementById(`card-${fieldName}`),
+      );
+      if (firstRequestedField) {
+        document.getElementById(`card-${firstRequestedField}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [reviewRequest, currentTaskIndex]);
 
   // Load dataset data and annotation config
   useEffect(() => {
@@ -321,6 +363,7 @@ export function DatasetAnnotationWorkbench({
             filePath: `/dataset/${datasetId}/row/${row.rowIndex}`,
             status: row.completed ? 'completed' : 'pending',
             metadata: row.data || {},
+            documentId: row.documentId || null,
             csvInfo: row.csvInfo || null,
             createdAt: new Date(mergedData.createdAt),
             updatedAt: new Date(mergedData.lastUpdatedAt),
@@ -1370,6 +1413,15 @@ export function DatasetAnnotationWorkbench({
       try {
         await DatasetMergedRowsAPI.markRowCompleted(datasetId, currentTask.rowIndex, taskId);  // Feature 1
 
+        if (reviewRequestId) {
+          const resubmission = await consensusAPI.resubmitReviewRequest(reviewRequestId);
+          setReviewRequest((current: any) => ({
+            ...current,
+            status: resubmission.requestStatus || current?.status,
+            submittedAt: resubmission.submittedAt || current?.submittedAt,
+          }));
+        }
+
         // Always update local datasetData.completed flag so CSV export shows TRUE
         if (datasetData && datasetData.mergedRows) {
           const completedRow = datasetData.mergedRows.find(row => row.rowIndex === currentTask.rowIndex);
@@ -1386,7 +1438,14 @@ export function DatasetAnnotationWorkbench({
         logger.log(`Row ${currentTask.rowIndex} marked as completed and saved to backend`);
       } catch (completionError) {
         console.error('Error marking row as completed in backend:', completionError);
-        // Don't show error toast for completion failure, as the main action (save data) succeeded
+        showToast({
+          type: 'error',
+          title: reviewRequestId ? 'Re-submission failed' : 'Completion failed',
+          description: reviewRequestId
+            ? 'The row was saved, but the review request could not be submitted. Please retry.'
+            : 'The row could not be marked as completed. Please retry.',
+        });
+        return;
       }
 
       setLastSavedTime(new Date());
@@ -1698,74 +1757,118 @@ export function DatasetAnnotationWorkbench({
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="flex flex-col h-full w-full min-w-0 bg-gray-50">
       {/* Inspection Banner */}
       {isInspectMode && (
-        <div className="bg-blue-600 text-white px-6 py-2 flex items-center justify-between shadow-md z-10">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold uppercase tracking-wider">🔍 Inspection Mode</span>
-            <span className="text-blue-100 text-sm">Viewing clone — Read Only</span>
+        <div className="bg-blue-600 text-white px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 shadow-md z-10">
+          <div className="flex flex-wrap items-center gap-3 min-w-0 w-full sm:w-auto">
+            <span className="text-sm font-bold uppercase tracking-wider whitespace-nowrap">🔍 Inspection Mode</span>
+            <span className="text-blue-100 text-sm whitespace-nowrap">Viewing clone — Read Only</span>
           </div>
           <button
             onClick={() => router.push(returnTo || `/dataset/${datasetId}`)}
-            className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0 w-full sm:w-auto justify-center"
           >
             {returnTo ? 'Back' : 'Exit Inspection'}
           </button>
         </div>
       )}
-      {/* Main Content Area - Resizable Panels */}
+      {reviewRequest && (
+        <div className="border-b border-violet-200 bg-violet-50 px-6 py-3 text-sm text-violet-950 shadow-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <strong className="font-semibold">Review Requested</strong>
+            <span>Requested by: {reviewRequest.requestedBy || 'Admin'}</span>
+            <span>Admin Reason: {reviewRequest.reason}</span>
+            <span>Deadline: {new Date(reviewRequest.deadlineAt).toLocaleString()}</span>
+            {reviewRequest.status === 'COMPLETED' && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                Re-submitted
+              </span>
+            )}
+            <span className="basis-full text-xs text-violet-800">
+              Admin Comment: {reviewRequest.comment || 'No comment provided.'}
+            </span>
+            <span className="basis-full text-xs font-medium text-violet-800">
+              Editable fields: {reviewRequest.fieldNames?.join(', ') || 'Requested fields'}
+            </span>
+            <div className="basis-full grid gap-2 pt-2 sm:grid-cols-3">
+              {(reviewRequest.fieldNames || []).map((fieldName: string) => (
+                <div key={fieldName} className="rounded-lg border border-violet-200 bg-white/70 p-2 text-xs">
+                  <strong className="block text-violet-900">{fieldName}</strong>
+                  <span className="block text-[10px] text-slate-500">Original Answer: {reviewRequest.previousAnswer?.annotations?.[fieldName] ?? 'Pending'}</span>
+                  <span className="block text-[10px] text-slate-500">Requested Correction: {reviewRequest.comment || reviewRequest.reason || 'See request'}</span>
+                  <span className="block text-[10px] font-semibold text-violet-800">Current Value: {newColumnData[fieldName] || 'Pending'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* View Mode Switcher */}
+      <AnnotationViewSwitcher
+        datasetId={datasetId}
+        mode={viewMode}
+        onModeChange={setViewMode}
+        returnTo={returnTo}
+      />
+
+      {/* Main Content Area */}
       <div className="flex-1 overflow-hidden">
-        <ResizablePanels
+        {viewMode === 'document-view' ? (
+          <DocumentViewProvider datasetId={datasetId}>
+            <DocumentIntelligencePage datasetName={datasetName} />
+          </DocumentViewProvider>
+        ) : (
+          <ResizablePanels
           leftPanel={
-            <MetadataDisplay
-              metadata={metadata}
-              orderedMetadataFields={orderedMetadataFields}
-              draggedField={draggedField}
-              editingField={editingField}
-              expandedTextFields={expandedTextFields}
-              imageOverlay={imageOverlay}
-              videoOverlay={videoOverlay}
-              datasetName={datasetName}
-              isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
-              onMetadataChange={setMetadata}
-              onDragStart={handleDragStart}
-              onDragOver={handleUnifiedDragOver}
-              onDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'metadata')}
-              onEditField={handleEditField}
-              onSaveField={handleSaveField}
-              onSaveIndividualField={handleSaveIndividualField}
-              onCancelEdit={handleCancelEdit}
-              onToggleTextExpansion={toggleTextExpansion}
-              onOpenImageOverlay={openImageOverlay}
-              onOpenVideoOverlay={openVideoOverlay}
-              onNavigateBack={handleNavigateBack}
-              onPanelDragOver={handleUnifiedDragOver}
-              onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
-            />
+              <MetadataDisplay
+                metadata={metadata}
+                orderedMetadataFields={orderedMetadataFields}
+                draggedField={draggedField}
+                editingField={editingField}
+                expandedTextFields={expandedTextFields}
+                imageOverlay={imageOverlay}
+                videoOverlay={videoOverlay}
+                datasetName={datasetName}
+                isAdmin={user?.role?.toUpperCase() === 'ADMIN' && !reviewRequestId}
+                onMetadataChange={setMetadata}
+                onDragStart={handleDragStart}
+                onDragOver={handleUnifiedDragOver}
+                onDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'metadata')}
+                onEditField={handleEditField}
+                onSaveField={handleSaveField}
+                onSaveIndividualField={handleSaveIndividualField}
+                onCancelEdit={handleCancelEdit}
+                onToggleTextExpansion={toggleTextExpansion}
+                onOpenImageOverlay={openImageOverlay}
+                onOpenVideoOverlay={openVideoOverlay}
+                onNavigateBack={handleNavigateBack}
+                onPanelDragOver={handleUnifiedDragOver}
+                onDropFromAnnotation={() => handleUnifiedDrop(null, '', 'metadata')}
+              />
           }
           rightPanel={
             <NewColumnDataPanel
               annotationConfig={annotationConfig}
               newColumnData={newColumnData}
               onNewColumnChange={handleNewColumnChange}
-              onSaveAllNewColumnData={saveAllNewColumnData}
               onExportSelectedColumns={handleExportSelectedColumns}
               onExportAllColumns={handleExportAllColumns}
               isSaving={isSaving}
               completedCount={annotatedTasks.length}
               pendingCount={unannotatedTasks.length}
               currentRowIndex={currentTask?.rowIndex}
-              onPanelDragOver={handleUnifiedDragOver}
-              onDropFromMetadata={() => handleUnifiedDrop(null, '', 'annotation')}
-              draggedField={draggedField}
-              onAnnotationFieldDragStart={handleDragStart}
-              onAnnotationFieldDragOver={handleUnifiedDragOver}
-              onAnnotationFieldDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation')}
-              onUpdateFieldConfig={handleUpdateFieldConfig}
-              isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
+              onPanelDragOver={viewMode === 'annotation' ? handleUnifiedDragOver : undefined}
+              onDropFromMetadata={viewMode === 'annotation' ? () => handleUnifiedDrop(null, '', 'annotation') : undefined}
+              draggedField={viewMode === 'annotation' ? draggedField : null}
+              onAnnotationFieldDragStart={viewMode === 'annotation' ? handleDragStart : undefined}
+              onAnnotationFieldDragOver={viewMode === 'annotation' ? handleUnifiedDragOver : undefined}
+              onAnnotationFieldDrop={viewMode === 'annotation' ? (e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation') : undefined}
+              onUpdateFieldConfig={reviewRequestId ? undefined : handleUpdateFieldConfig}
+              isAdmin={user?.role?.toUpperCase() === 'ADMIN' && !reviewRequestId}
               cloneId={datasetId}
               currentRowId={currentTask?.id}
+              reviewRequestFields={reviewRequestId ? (reviewRequest?.fieldNames || []) : undefined}
               onImageClick={openImageOverlay}
               onVideoClick={openVideoOverlay}
             />
@@ -1774,18 +1877,21 @@ export function DatasetAnnotationWorkbench({
           minLeftWidth={25}
           maxLeftWidth={75}
         />
+        )}
       </div>
 
-      {/* Fixed Footer: Row Navigation */}
-      <RowFooter
-        tasks={tasks}
-        currentTaskIndex={currentTaskIndex}
-        onNavigateTask={navigateTask}
-        onJumpToRow={jumpToRow}
-        onMarkAsCompleted={handleMarkAsCompleted}
-        completedCount={annotatedTasks.length}
-        totalCount={tasks.length}
-      />
+      {/* Fixed Footer: Row Navigation — annotation mode only */}
+      {viewMode === 'annotation' && (
+        <RowFooter
+          tasks={tasks}
+          currentTaskIndex={currentTaskIndex}
+          onNavigateTask={navigateTask}
+          onJumpToRow={jumpToRow}
+          onMarkAsCompleted={handleMarkAsCompleted}
+          completedCount={annotatedTasks.length}
+          totalCount={tasks.length}
+        />
+      )}
 
       {/* Image Overlay */}
       <ImageOverlay

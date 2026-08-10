@@ -13,6 +13,7 @@ export default function AnnotationPage() {
 
   // Feature 1: read taskId from URL — set by My Tasks "Open" button.
   const taskId = searchParams.get('taskId') ?? undefined;
+  const reviewRequestId = searchParams.get('reviewRequestId') ?? undefined;
 
   // Sprint B: inspection mode — admin views clone in read-only
   const mode = searchParams.get('mode') || 'annotation';
@@ -23,10 +24,11 @@ export default function AnnotationPage() {
 
   if (isDatasetLevel) {
     return (
-      <div className="h-screen">
+      <div className="h-dvh">
         <DatasetAnnotationWorkbench
           datasetId={datasetId}
           taskId={taskId}
+          reviewRequestId={reviewRequestId}
           mode={mode as 'annotation' | 'inspect'}
           returnTo={returnTo}
         />
@@ -34,7 +36,7 @@ export default function AnnotationPage() {
     );
   } else {
     return (
-      <div className="h-screen">
+      <div className="h-dvh">
         <AnnotationWorkbench csvImportId={csvImportId} datasetId={datasetId} />
       </div>
     );
