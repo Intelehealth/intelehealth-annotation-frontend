@@ -1,5 +1,52 @@
 # Dyno Annotation Platform - Frontend Task Status
 
+## Phase 18 — RAG Chat UI (collapse-by-default, controlled open) (2026-08)
+- `CollapsibleSection` now supports **controlled `open`/`onOpenChange`**; `RagAssistant` is driven by `document-view-context.expandedChat` → **collapsed by default**, opens when "Ask RAG"/a related-question click calls `askQuestion` (which sets `expandedChat(true)`). Chat + history state stays mounted while collapsed.
+- Gates: `tsc` clean (19 pre-existing); vitest **51/51**.
+
+## Phase 11 — Dynamic model catalog (2026-08)
+- `RagAssistant` model dropdown already driven by `ragAPI.models()` → real `/rag/models` (OpenRouter catalog with availability). Removed the **hardcoded `GEMINI` fallback option**; when catalog is empty it now shows "No models available (check /rag/models)". No hardcoded model IDs.
+- Gates: `tsc` clean (19 pre-existing); no-mock clean.
+
+## Phase 7 — Related Questions → orchestrator (2026-08)
+- `RelatedQuestionCard`: added **"Ask RAG"** action → `document-view-context.askQuestion(question)` (new) which sends the real question through `ragAPI.orchestrate` (`POST /orchestrator/query`), appends user+assistant messages, sets `expandedChat`, shows real citations/confidence. Citation chips + "Add as Annotation Question" remain.
+- Backend generation **verified PASS** (real OpenRouter chat; `matrix/phase7-related-v2.mjs` — 5 grounded questions with confidence/coverage/citations persisted in Mongo).
+- Gates: `tsc` clean (19 pre-existing); vitest **51/51**; no-mock clean.
+
+## Phase 6 — Annotation Questions (2026-08)
+- Verified the existing flow is real and complete: `AnnotationQuestions` reads `fieldSelectionAPI.getDatasetFieldConfig` → real `annotationconfigs`; `AddQuestionDialog` persists via `saveDatasetFieldConfig` (`POST /field-selection/dataset/:id`, exactly one `isPrimaryKey` field), then `onAdded()` refreshes. Backend matrix `phase6-annotation.mjs` **ALL PASS** (add → Mongo → re-read).
+- No frontend source change required (already real, one annotation system).
+
+## Phase 5 — All real previews (2026-08)
+- **PDF (`pdf-preview.tsx`) fixed for pdfjs-dist@6:** `getDocument({ url })`, `loadingTask.destroy()` (removed `PDFDocumentProxy.destroy`), `render({ canvas, canvasContext, viewport })`; **cleared the 3 pre-existing TS errors**. Added real states: LOADING ("Loading PDF preview..."), ERROR ("Unable to render this PDF.")+Retry (re-loads same URL)+"Download original PDF", plus zoom + Page X/Y + prev/next. Citation `currentPage` jump preserved.
+- **Image (`image-preview.tsx`):** LOADING, ERROR ("Unable to display this image.")+Retry+Download-original; zoom kept; renders only the real uploaded bytes.
+- **ZIP (`zip-preview.tsx`): real child explorer** — loads actual archive bytes via `jszip` (declared dep), lists real entries (name/size), opens each by its real type (image/svg → <img>, pdf → iframe, else text/raw), original archive downloadable; loading/error/retry.
+- **`document-preview.tsx`:** passes `name` to PDF, and the **archive buffer** to the ZIP explorer; URL documents already served by real content type (HTML → unsupported + download).
+- Gates: `tsc --noEmit` — **no errors in Phase-5 files** (19 total = pre-existing minus the 3 fixed pdf-preview errors); vitest **51/51**; no-mock scan clean.
+- No backend changes; previews still read only real stored bytes/rows.
+
+## Phase 4 — Document View state architecture (2026-08)
+- **`document-view-context` extended (additive; no consumer breakage):** `currentView`, `currentDocumentType` (+ pure `documentTypeFor` helper), `selectedRow`, `selectedSheet`, `selectedSourceLocation` (`SourceLocation` union: PDF/IMAGE/CSV/XLSX/SVG/ZIP), `annotationQuestions`, `relatedQuestions`, `conversationId`, `expandedChat`. `openCitation` now also propagates `rowIndex` → `selectedRow` (CSV row focus). Layout unchanged.
+- **Blue-accent polish (approved):** `emerald-*` → `blue-*` across `src/components/document-intelligence/**` (25 files, 0 emerald remaining, ~55 blue classes; layout/style structure unchanged).
+- New spec `context/document-view-context.spec.ts` (`documentTypeFor` by extension + mime + null).
+- Gates: `tsc --noEmit` — zero errors introduced by Phase 4 (remaining 22 are pre-existing incl. the known `pdf-preview.tsx` pdfjs-v6 errors, fixed in Phase 5); vitest **51/51 passed**; no-mock grep clean.
+
+## Phase 3 — Document processing (mirrored fixtures) (2026-08)
+- `e2e/fixtures/` updated with text-bearing `invoice-scan.png/.jpg/.webp`, scanned `invoice-scan.pdf`, and **user real handwritten `handwritten-note.webp`** (mirrored from backend `test/fixtures`).
+- Backend Phase-3 matrix verified all types (ALL PASS); this phase was backend-centric — frontend changes are fixture mirroring only.
+- No frontend source changes.
+
+## Phase 2 — Real fixtures + independent verifiers (2026-08)
+- **`e2e/fixtures/`** — mirror of backend `test/fixtures` (real `invoice.csv/xlsx/xls`, `invoice.png`, `receipt.jpg`, `logo.webp`, `invoice.pdf`, `logo.svg`, `bundle.zip`, `compliance-policy.pdf`, `compliance-audit.csv`, `security-controls.xlsx`); `e2e/fixtures/README.md` documents regen + mirror from the backend generator/verifier.
+- **`e2e/verifier.ts`** — independent expected-value helper (own `parseCsv`, `sumColumn`, `expectedInvoiceSum()` = 57300).
+- **Refactored `e2e/tests/analytics-agent.spec.ts`**: removed hardcoded `43,200`; now self-contained — register → create dataset → upload real `e2e/fixtures/invoice.csv` via `/csv-processing/upload` → ask "What is the sum of Total?" → assert streamed answer matches verifier-computed `57300`. Skips as **BLOCKED** (not a fake pass) when no backend/token is available.
+- **No app/source code changes** — fixtures + verifier + test only.
+
+## Phase 1 — E2E preflight + Analytics skill docs (2026-08)
+- **E2E preflight — GREEN:** FE `/login` → 200; backend `/` → 200; Mongo `127.0.0.1:27017` up; OpenRouter key present in backend env; backend fresh build present (`dist/csv-processing/excel-reader.js`); FE dev server running.
+- Created `files/skills/analytics/README.md` documenting the **real** Analytics frontend surface: `src/app/dataset/[datasetId]/analytics/page.tsx`, `DatasetAgentChat`, `DatasetStatsReport`, `analyticsAPI` endpoints, SSE agent client, orchestrator note (FE never decides intent), error/empty honesty, and the Text2SQL (DuckDB) roadmap.
+- No analytics code changes; docs only.
+
 ## COMPLETED — Phase 10: Workbench navigation cleanup + live E2E status (2026-08)
 - **Dataset Analytics removed from the workbench** (requirement): `annotation-view-switcher.tsx` `ViewMode` now `annotation | document-view` (removed `dataset-analytics` + `BarChart3`); `dataset-annotation-workbench.tsx` removed the inline `DatasetAnalyticsView` branch + import; deleted `src/components/annotation-components/dataset-analytics-view.tsx`.
 - Workbench navigation is now `[Back to Dataset] [Annotation] [Document View]` only (two modes). Standalone `/dataset/[datasetId]/analytics` page preserved.
