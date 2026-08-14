@@ -17,8 +17,12 @@ import { DataOverview } from "@/components/dataset-components/data-overview";
 import { DatasetUploadComponent } from "@/components/upload-components/dataset-upload-component";
 import { FieldConfig } from "@/components/field-config-components/field-config";
 import { DatasetSettings } from "@/components/dataset-components/dataset-settings";
+import { DatasetAgentChat } from "@/components/ai-agent/dataset-agent-chat";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useIsDesktop } from "@/hooks/use-is-desktop";
 import { Sidebar } from "@/components/sidebar";
 import { TopNav } from "@/components/top-nav";
+import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -29,6 +33,7 @@ import {
   AudioLines,
   Loader2,
   Upload,
+  LineChart,
 } from "lucide-react";
 
 const datasetTypeIcons = {
@@ -48,6 +53,10 @@ export default function DatasetDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [agentWidth, setAgentWidth] = useState(520);
+  const [agentCollapsed, setAgentCollapsed] = useState(false);
+  const isDesktop = useIsDesktop();
 
   const datasetId = params.datasetId as string;
 
@@ -119,12 +128,70 @@ export default function DatasetDetailPage() {
     switch (activeTab) {
       case "overview":
         return (
-          <DataOverview
-            key={refreshTrigger} // This will force re-render when refreshTrigger changes
-            datasetId={datasetId}
-            onNavigateToUpload={() => setActiveTab("upload")}
-            onNavigateToFieldConfig={() => setActiveTab("field-configuration")}
-          />
+          <div className="space-y-4">
+            {/* Header row: overview title + Analytics/Hide toggle */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm text-slate-500">Data Overview</p>
+                <p className="text-gray-600 mt-1">{dataset.description}</p>
+              </div>
+              <Button
+                onClick={() => setAnalyticsOpen((v) => !v)}
+                variant={analyticsOpen ? "secondary" : "default"}
+                className={cn(
+                  "shrink-0",
+                  analyticsOpen && "bg-blue-600 hover:bg-blue-700 text-white",
+                )}
+                aria-pressed={analyticsOpen}
+              >
+                <LineChart className="h-4 w-4 mr-2" />
+                {analyticsOpen ? "Hide Analytics" : "Analytics"}
+              </Button>
+            </div>
+
+            {/* Desktop (lg+): true 2-column split — overview + sticky analytics */}
+            <div className="flex gap-5 items-start">
+              {/* Left: scrollable overview content */}
+              <div className="flex-1 min-w-0 space-y-6">
+                <DataOverview
+                  key={refreshTrigger} // This will force re-render when refreshTrigger changes
+                  datasetId={datasetId}
+                  onNavigateToUpload={() => setActiveTab("upload")}
+                  onNavigateToFieldConfig={() => setActiveTab("field-configuration")}
+                />
+              </div>
+
+              {/* Right: full-height sticky analytics division (desktop only) */}
+              {analyticsOpen && dataset && isDesktop && (
+                <aside className="shrink-0 sticky top-2 self-start h-[calc(100vh-90px)]">
+                  <DatasetAgentChat
+                    datasetId={datasetId}
+                    datasetName={dataset.name}
+                    width={agentWidth}
+                    onWidthChange={setAgentWidth}
+                    collapsed={agentCollapsed}
+                    onToggleCollapsed={() => setAgentCollapsed((c) => !c)}
+                  />
+                </aside>
+              )}
+            </div>
+
+            {/* Mobile / tablet (< lg): analytics opens as a right-drawer Sheet */}
+            {dataset && !isDesktop && (
+              <Sheet open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
+                <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+                  <DatasetAgentChat
+                    datasetId={datasetId}
+                    datasetName={dataset.name}
+                    width={400}
+                    onWidthChange={() => {}}
+                    collapsed={false}
+                    onToggleCollapsed={() => {}}
+                  />
+                </SheetContent>
+              </Sheet>
+            )}
+          </div>
         );
 
       case "upload":

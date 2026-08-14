@@ -33,7 +33,7 @@ export function ChatComposer({ onSend, disabled }: ChatComposerProps) {
             key={q}
             type="button"
             onClick={() => onSend(q)}
-            className="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-600 hover:bg-emerald-50 hover:text-emerald-700"
+            className="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-600 hover:bg-blue-50 hover:text-blue-700"
           >
             {q}
           </button>
@@ -48,13 +48,13 @@ export function ChatComposer({ onSend, disabled }: ChatComposerProps) {
           }}
           placeholder="/query — ask about these documents…"
           disabled={disabled}
-          className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none disabled:opacity-50"
+          className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-xs focus:border-blue-500 focus:outline-none disabled:opacity-50"
         />
         <Button
           size="sm"
           onClick={submit}
           disabled={disabled || !text.trim()}
-          className="bg-emerald-600 px-3 hover:bg-emerald-700"
+          className="bg-blue-600 px-3 hover:bg-blue-700"
         >
           <Send className="h-3.5 w-3.5" />
         </Button>

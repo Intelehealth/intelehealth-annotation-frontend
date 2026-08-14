@@ -25,6 +25,7 @@ const FIELD_TYPES = [
   { value: "selectrange", label: "Numeric Range", group: "Numeric Fields" },
   { value: "rating", label: "Star Rating", group: "Numeric Fields" },
   { value: "date", label: "Date Picker", group: "Date & Time" },
+  { value: "url", label: "URL Link", group: "Text Fields" },
   { value: "image", label: "Image", group: "Media Fields" },
   { value: "audio", label: "Audio", group: "Media Fields" },
   { value: "video", label: "Video", group: "Media Fields" },
@@ -241,7 +242,8 @@ export function RecursiveFieldEditor({
                         | "multiselect"
                         | "checkbox"
                         | "radio"
-                        | "date",
+                        | "date"
+                        | "url",
                     });
                   }
                 }}

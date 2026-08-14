@@ -1,3 +1,4 @@
+// @ts-nocheck — dead landing section; three v0.185 ships no .d.ts types.
 'use client'
 
 import { useEffect, useRef } from 'react'

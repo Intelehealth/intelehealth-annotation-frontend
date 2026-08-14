@@ -13,11 +13,11 @@ export function ConfidenceIndicator({ confidence, low }: ConfidenceIndicatorProp
     <div className="flex items-center gap-2" title={`Confidence ${pct.toFixed(0)}%`}>
       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
         <div
-          className={cn('h-full rounded-full', low ? 'bg-amber-400' : 'bg-emerald-500')}
+          className={cn('h-full rounded-full', low ? 'bg-amber-400' : 'bg-blue-500')}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className={cn('text-[11px] font-medium tabular-nums', low ? 'text-amber-600' : 'text-emerald-700')}>
+      <span className={cn('text-[11px] font-medium tabular-nums', low ? 'text-amber-600' : 'text-blue-700')}>
         {pct.toFixed(0)}%
       </span>
     </div>

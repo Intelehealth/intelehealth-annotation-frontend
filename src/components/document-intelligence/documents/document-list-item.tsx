@@ -60,14 +60,14 @@ export function DocumentListItem({ document, active, onClick }: DocumentListItem
       className={cn(
         'flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors',
         active
-          ? 'border-emerald-300 bg-emerald-50'
+          ? 'border-blue-300 bg-blue-50'
           : 'border-gray-200 bg-white hover:bg-gray-50',
       )}
     >
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
-          active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500',
+          active ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500',
         )}
       >
         <Icon className="h-4 w-4" />

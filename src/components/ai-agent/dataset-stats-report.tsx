@@ -29,16 +29,16 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { DatasetStats, AgentPlan } from '@/lib/api/agent';
 
-const PIE_COLORS = ['#1e2a45', '#c9a227', '#2b3a5c', '#b08a1d', '#66708f', '#3e4a6b'];
+const PIE_COLORS = ['#1e2a45', '#2563eb', '#1d4ed8', '#3b82f6', '#66708f', '#60a5fa'];
 
 const TREND_COLORS = [
   '#1e2a45',
   '#3e4a6b',
-  '#c9a227',
-  '#22a06b',
-  '#2b3a5c',
-  '#b08a1d',
-  '#8b5e3c',
+  '#2563eb',
+  '#1d4ed8',
+  '#3b82f6',
+  '#60a5fa',
+  '#2563eb',
   '#5b6b8f',
 ];
 
@@ -93,7 +93,7 @@ export function StatsReport({
   }));
   const bandColor: Record<string, string> = {
     low: '#b91c1c',
-    medium: '#c9a227',
+    medium: '#2563eb',
     high: '#1d7a4f',
   };
   const trendTypes = buildTrendTypes(stats.trend.series);
@@ -298,7 +298,7 @@ export function StatsReport({
               <YAxis tick={{ fontSize: 9 }} allowDecimals={false} />
               <Tooltip cursor={{ fill: 'rgba(59,130,246,0.06)' }} />
               <Bar dataKey="Completed" fill="#1d7a4f" radius={[3, 3, 0, 0]} name="Completed" />
-              <Bar dataKey="Assigned" fill="#c9a227" radius={[3, 3, 0, 0]} name="Assigned" />
+              <Bar dataKey="Assigned" fill="#2563eb" radius={[3, 3, 0, 0]} name="Assigned" />
             </BarChart>
           </ResponsiveContainer>
         </div>

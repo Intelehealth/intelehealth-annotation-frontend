@@ -8,6 +8,9 @@ import {
   Search,
 } from 'lucide-react';
 import type { CsvPreviewResult } from '@/lib/api/rag';
+import { parseCsv } from '@/lib/csv';
+import { isTableEmpty } from '@/lib/table-data';
+import { TableEmpty, TableError, TableLoading } from './table-state';
 
 const PAGE_SIZE = 200;
 const DEFAULT_COL_WIDTH = 140;
@@ -21,47 +24,6 @@ function columnLetter(index: number): string {
     n = Math.floor((n - 1) / 26);
   }
   return s;
-}
-
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let currentRow: string[] = [];
-  let currentField = '';
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (text[i + 1] === '"') {
-          currentField += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        currentField += ch;
-      }
-    } else {
-      if (ch === '"') {
-        inQuotes = true;
-      } else if (ch === ',') {
-        currentRow.push(currentField);
-        currentField = '';
-      } else if (ch === '\n') {
-        currentRow.push(currentField);
-        if (currentRow.some((f) => f.trim() !== '')) rows.push(currentRow);
-        currentRow = [];
-        currentField = '';
-      } else if (ch !== '\r') {
-        currentField += ch;
-      }
-    }
-  }
-  if (currentField || currentRow.length > 0) {
-    currentRow.push(currentField);
-    if (currentRow.some((f) => f.trim() !== '')) rows.push(currentRow);
-  }
-  return rows;
 }
 
 interface CsvTablePreviewProps {
@@ -93,16 +55,19 @@ export function CsvTablePreview({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Static mode
-  const staticParsed = useMemo(
-    () => (rows && rows.length ? rows : text ? parseCsv(text) : []),
-    [rows, text],
-  );
+  const staticParsed = useMemo(() => {
+    if (rows && rows.length) {
+      return { columns: rows[0] || [], rows: rows.slice(1) };
+    }
+    if (text) return parseCsv(text);
+    return { columns: [] as string[], rows: [] as string[][] };
+  }, [rows, text]);
   const staticMode = useMemo(() => !fetchPage, [fetchPage]);
   const columns = staticMode
-    ? staticParsed[0] || []
+    ? staticParsed.columns
     : loadedColumns;
   const data = staticMode
-    ? staticParsed.slice(1)
+    ? staticParsed.rows
     : searchQuery
       ? dataRows.filter((row) =>
           row.some((cell) => cell.toLowerCase().includes(searchQuery.toLowerCase())),
@@ -124,8 +89,8 @@ export function CsvTablePreview({
         setLoadedColumns(res.columns || []);
         setDataRows(res.rows || []);
         setTotalRows(res.totalRows || 0);
-        setTotalPages(res.totalPages || 1);
-        setPage(res.page);
+        setTotalPages(res.totalPages && Number.isFinite(res.totalPages) ? res.totalPages : 1);
+        setPage(Number.isFinite(res.page) ? res.page : p);
         setSel(null);
         if (scrollRef.current) scrollRef.current.scrollTop = 0;
       } catch {
@@ -208,8 +173,8 @@ export function CsvTablePreview({
   };
 
   const formattedTotal = useMemo(
-    () => (staticMode ? staticParsed.length - 1 : totalRows),
-    [staticMode, staticParsed.length, totalRows],
+    () => (staticMode ? staticParsed.rows.length : totalRows),
+    [staticMode, staticParsed.rows.length, totalRows],
   );
 
   const renderedHeader = columns;
@@ -236,7 +201,7 @@ export function CsvTablePreview({
               setPage(0);
             }}
             placeholder="Search current page…"
-            className="rounded border bg-white px-2 py-0.5 text-xs text-gray-700 focus:border-emerald-500 focus:outline-none"
+            className="rounded border bg-white px-2 py-0.5 text-xs text-gray-700 focus:border-blue-500 focus:outline-none"
           />
         </div>
         {!staticMode && (
@@ -268,7 +233,7 @@ export function CsvTablePreview({
       <div className="flex items-center gap-2 border-b bg-white px-3 py-1 text-xs">
         <span className="flex items-center gap-1 text-gray-400">
           <Copy className="h-3 w-3" />
-          <button onClick={copySelection} disabled={!sel} className="text-emerald-700 hover:underline disabled:text-gray-300">
+          <button onClick={copySelection} disabled={!sel} className="text-blue-700 hover:underline disabled:text-gray-300">
             Copy cell
           </button>
         </span>
@@ -285,13 +250,11 @@ export function CsvTablePreview({
       {/* Grid */}
       <div ref={scrollRef} className="flex-1 overflow-auto">
         {pageLoading && !staticMode ? (
-          <div className="flex h-full items-center justify-center text-xs text-gray-400">
-            Loading rows…
-          </div>
+          <TableLoading />
         ) : pageError ? (
-          <div className="flex h-full items-center justify-center text-sm text-red-600">
-            {pageError}
-          </div>
+          <TableError onRetry={() => loadPage(page)} />
+        ) : isTableEmpty(columns, data) && !searchQuery ? (
+          <TableEmpty />
         ) : (
           <div className="inline-block min-w-full align-top">
             <table className="text-xs" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -313,14 +276,14 @@ export function CsvTablePreview({
                       style={{ width: widthOf(ci), minWidth: widthOf(ci), whiteSpace: 'nowrap' }}
                     >
                       <div className="flex flex-col leading-tight">
-                        <span className="text-[9px] font-semibold text-emerald-700">
+                        <span className="text-[9px] font-semibold text-blue-700">
                           {columnLetter(ci)}
                         </span>
                         <span className="truncate">{h}</span>
                       </div>
                       <span
                         onMouseDown={handleResizeStart(ci)}
-                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-emerald-500"
+                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500"
                         title="Drag to resize"
                       />
                     </th>
@@ -329,7 +292,9 @@ export function CsvTablePreview({
               </thead>
               <tbody ref={tableBodyRef}>
                 {renderedRows.map((row, ri) => {
-                  const globalRow = staticMode ? ri : page * PAGE_SIZE + ri;
+                  const globalRow = staticMode
+                    ? ri
+                    : (Number.isFinite(page) ? page : 0) * PAGE_SIZE + ri;
                   const selected = sel?.r === ri;
                   return (
                     <tr
@@ -354,7 +319,7 @@ export function CsvTablePreview({
                           className={
                             'max-w-[320px] truncate border-b border-r border-gray-200 px-2 py-1 ' +
                             (selected && sel?.c === ci
-                              ? 'bg-emerald-100 outline outline-2 outline-emerald-500'
+                              ? 'bg-blue-100 outline outline-2 outline-blue-500'
                               : cell.trim() === ''
                                 ? 'bg-gray-50 text-gray-300'
                                 : Number.isFinite(Number(cell)) && cell.trim() !== ''
@@ -375,11 +340,7 @@ export function CsvTablePreview({
                 {renderedRows.length === 0 && (
                   <tr>
                     <td colSpan={Math.max(1, renderedHeader.length) + 1} className="px-3 py-8 text-center text-gray-400">
-                      {staticMode
-                        ? 'No rows in this file.'
-                        : searchQuery
-                          ? 'No rows match your search.'
-                          : 'No rows to display.'}
+                      {searchQuery ? 'No rows match your search.' : 'No rows to display.'}
                     </td>
                   </tr>
                 )}

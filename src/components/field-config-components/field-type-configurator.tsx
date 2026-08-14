@@ -340,6 +340,20 @@ export function FieldTypeConfigurator({
         </div>
       );
 
+    case 'url':
+      return (
+        <div>
+          <Label className="text-[10px] font-bold text-gray-500">Placeholder Text</Label>
+          <Input
+            value={field.placeholder || ''}
+            onChange={(e) => onChange({ placeholder: e.target.value })}
+            placeholder="e.g. https://example.com"
+            className="h-8 text-xs mt-1 bg-white"
+            disabled={false}
+          />
+        </div>
+      );
+
     default:
       return null;
   }

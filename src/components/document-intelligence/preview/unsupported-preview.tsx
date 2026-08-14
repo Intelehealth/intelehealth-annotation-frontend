@@ -18,7 +18,7 @@ export function UnsupportedPreview({ fileName, downloadUrl, message }: Unsupport
         <a
           href={downloadUrl}
           download={fileName}
-          className="mt-4 flex items-center gap-1 text-xs text-emerald-700 hover:underline"
+          className="mt-4 flex items-center gap-1 text-xs text-blue-700 hover:underline"
         >
           <Download className="h-3.5 w-3.5" /> Download {fileName || 'original'}
         </a>

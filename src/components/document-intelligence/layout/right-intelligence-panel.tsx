@@ -11,14 +11,14 @@ export function RightIntelligencePanel() {
     <div className="flex h-full flex-col gap-2.5 overflow-auto p-3">
       <CollapsibleSection
         title="Annotation Questions"
-        icon={<HelpCircle className="h-4 w-4 text-emerald-600" />}
+        icon={<HelpCircle className="h-4 w-4 text-blue-600" />}
       >
         <AnnotationQuestions />
       </CollapsibleSection>
 
       <CollapsibleSection
         title="Related Questions"
-        icon={<Sparkles className="h-4 w-4 text-emerald-600" />}
+        icon={<Sparkles className="h-4 w-4 text-blue-600" />}
       >
         <RelatedQuestions />
       </CollapsibleSection>

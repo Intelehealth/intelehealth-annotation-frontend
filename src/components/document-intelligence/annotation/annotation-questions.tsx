@@ -56,7 +56,7 @@ export function AnnotationQuestions() {
       <Button
         size="sm"
         variant="outline"
-        className="w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+        className="w-full border-blue-200 text-blue-700 hover:bg-blue-50"
         onClick={() => setDialogOpen(true)}
       >
         <Plus className="mr-1 h-3.5 w-3.5" /> Add Annotation Question

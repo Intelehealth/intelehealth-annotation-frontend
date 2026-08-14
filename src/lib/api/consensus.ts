@@ -3,6 +3,49 @@ import type { ConsensusReview, ResolveConsensusRequest } from '@/types/feature1'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+export type ReliabilityMetricKey =
+  | 'PERCENT_AGREEMENT'
+  | 'FLEISS_KAPPA'
+  | 'KRIPPENDORFF_ALPHA';
+
+export interface ReliabilityMetricMeta {
+  key: ReliabilityMetricKey;
+  label: string;
+  shortLabel: string;
+  description: string;
+  order: number;
+  min: number;
+  max: number;
+  chanceCorrected: boolean;
+  supportedFieldTypes: string[];
+}
+
+export interface ReliabilityResult {
+  key: ReliabilityMetricKey;
+  label: string;
+  order: number;
+  score: number | null;
+  percentage: number | null;
+  interpretation: string;
+  supported: boolean;
+  itemsUsed: number;
+}
+
+export interface DatasetReliability {
+  datasetId: string;
+  selectedMetric: ReliabilityMetricKey;
+  catalog: ReliabilityMetricMeta[];
+  overall: ReliabilityResult[];
+  selectedOverall: ReliabilityResult | null;
+  perField: {
+    fieldName: string;
+    displayName: string;
+    metrics: ReliabilityResult[];
+    selected: ReliabilityResult | null;
+  }[];
+  totalRows: number;
+}
+
 const authHeaders = () => {
   const token = localStorage.getItem('accessToken');
   return { Authorization: `Bearer ${token}` };
@@ -156,6 +199,60 @@ export const consensusAPI = {
     return res.data;
   },
 
+  // ─── Inter-rater reliability (metrics catalog + field-level scores) ────────
+
+  async getMetricsCatalog(): Promise<{
+    metrics: ReliabilityMetricMeta[];
+    default: ReliabilityMetricKey;
+  }> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/metrics/catalog`, {
+      headers: authHeaders(),
+    });
+    return res.data;
+  },
+
+  async getReliability(
+    datasetId: string,
+    metric?: ReliabilityMetricKey | string,
+  ): Promise<DatasetReliability> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/reliability`, {
+      params: metric ? { metric } : {},
+      headers: authHeaders(),
+    });
+    return res.data;
+  },
+
+  async getResolvedStatus(datasetId: string): Promise<{
+    available: boolean;
+    status: string | null;
+    resolvedCount: number;
+    mergedAt: string | null;
+    finalizedAt: string | null;
+  }> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/resolved-status`, {
+      headers: authHeaders(),
+    });
+    return res.data;
+  },
+
+  async exportResolvedReport(datasetId: string, format: 'csv' | 'json' = 'csv'): Promise<void> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/resolved-report`, {
+      params: { format },
+      headers: authHeaders(),
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    const disposition = res.headers['content-disposition'];
+    const match = disposition?.match(/filename="(.+)"/);
+    link.download = match ? match[1] : `resolved-report.${format === 'json' ? 'json' : 'csv'}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+
   // ─── Flat paginated grid (Phase 2 Item 8 redesign) ──────────────────────────
 
   async getConsensusGrid(datasetId: string, params: {
@@ -218,6 +315,16 @@ export const consensusAPI = {
     return res.data;
   },
 
+  async getCollabGrid(sessionId: string): Promise<any> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/session/${sessionId}/collab-grid`, { headers: authHeaders() });
+    return res.data;
+  },
+
+  async setSharedAnswer(sessionId: string, body: { rowIndex: number; fieldName: string; value: string }): Promise<any> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/session/${sessionId}/shared-answer`, body, { headers: jsonHeaders() });
+    return res.data;
+  },
+
   async mergeSession(datasetId: string, sessionId: string): Promise<any> {
     const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/merge-session/${sessionId}`, {}, { headers: jsonHeaders() });
     return res.data;
@@ -233,13 +340,19 @@ export const consensusAPI = {
     return res.data;
   },
 
-  async getStatistics(sessionId: string): Promise<any> {
-    const res = await axios.get(`${API_BASE_URL}/consensus/sessions/${sessionId}/statistics`, { headers: authHeaders() });
+  async getStatistics(sessionId: string, metric?: string): Promise<any> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/sessions/${sessionId}/statistics`, {
+      params: metric ? { metric } : {},
+      headers: authHeaders(),
+    });
     return res.data;
   },
 
-  async computeStatistics(sessionId: string): Promise<any> {
-    const res = await axios.post(`${API_BASE_URL}/consensus/sessions/${sessionId}/statistics/compute`, {}, { headers: jsonHeaders() });
+  async computeStatistics(sessionId: string, metric?: string): Promise<any> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/sessions/${sessionId}/statistics/compute`, {}, {
+      params: metric ? { metric } : {},
+      headers: jsonHeaders(),
+    });
     return res.data;
   },
 

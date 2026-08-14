@@ -29,7 +29,7 @@ export function DocumentIntelligencePage({ datasetName }: { datasetName?: string
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50">
       <div className="flex items-center gap-2 border-b bg-white px-4 py-2.5">
-        <Database className="h-4 w-4 text-emerald-600" />
+        <Database className="h-4 w-4 text-blue-600" />
         <span className="text-sm font-semibold text-gray-800">
           {datasetName || 'Document Intelligence'}
         </span>

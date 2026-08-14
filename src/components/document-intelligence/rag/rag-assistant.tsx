@@ -27,6 +27,8 @@ export function RagAssistant() {
     openCitation,
     clearCitation,
     requestAddQuestion,
+    expandedChat,
+    setExpandedChat,
   } = useDocumentView();
 
   const [models, setModels] = useState<RagPresetInfo[]>([]);
@@ -170,15 +172,17 @@ export function RagAssistant() {
   return (
     <CollapsibleSection
       title="RAG Assistant"
-      icon={<BrainCircuit className="h-4 w-4 text-emerald-600" />}
+      icon={<BrainCircuit className="h-4 w-4 text-blue-600" />}
+      open={expandedChat}
+      onOpenChange={setExpandedChat}
       right={
         <span
           className={cn(
             'inline-flex items-center gap-1.5 text-[11px] font-medium',
-            ready ? 'text-emerald-600' : 'text-amber-600',
+            ready ? 'text-blue-600' : 'text-amber-600',
           )}
         >
-          <span className={cn('h-2 w-2 rounded-full', ready ? 'bg-emerald-500' : 'bg-amber-400')} />
+          <span className={cn('h-2 w-2 rounded-full', ready ? 'bg-blue-500' : 'bg-amber-400')} />
           RAG: {ragStatus ? (ready ? 'READY' : 'NOT READY') : '…'}
         </span>
       }
@@ -194,7 +198,7 @@ export function RagAssistant() {
             <select
               value={selectedModel}
               onChange={(e) => handleModelChange(e.target.value)}
-              className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] focus:border-emerald-500 focus:outline-none"
+              className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] focus:border-blue-500 focus:outline-none"
             >
               {models.map((m) => (
                 <option key={m.key} value={m.key} disabled={!m.available}>
@@ -202,7 +206,11 @@ export function RagAssistant() {
                   {!m.available ? ' (unavailable)' : ''}
                 </option>
               ))}
-              {models.length === 0 && <option value="GEMINI">GEMINI</option>}
+              {models.length === 0 && (
+                <option value="" disabled>
+                  No models available (check /rag/models)
+                </option>
+              )}
             </select>
             <button
               onClick={handleIndex}
@@ -212,7 +220,7 @@ export function RagAssistant() {
                 'flex items-center gap-1 rounded border px-1.5 py-0.5',
                 indexing
                   ? 'border-gray-200 text-gray-400'
-                  : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50',
+                  : 'border-blue-200 text-blue-700 hover:bg-blue-50',
               )}
             >
               {indexing ? (
@@ -227,10 +235,10 @@ export function RagAssistant() {
 
         {/* Selected-file scope */}
         {selectedDocumentId && selectedDocument && (
-          <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-800">
+          <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-[11px] text-blue-800">
             <FileText className="h-3 w-3" />
             <span className="min-w-0 flex-1 truncate">Chatting in: {selectedDocument.fileName}</span>
-            <button onClick={() => setSelectedDocumentId(null)} title="Clear scope" className="rounded p-0.5 hover:bg-emerald-100">
+            <button onClick={() => setSelectedDocumentId(null)} title="Clear scope" className="rounded p-0.5 hover:bg-blue-100">
               <X className="h-3 w-3" />
             </button>
           </div>

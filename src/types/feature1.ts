@@ -308,7 +308,7 @@ export interface BranchOption {
 export interface AnnotationField {
   csvColumnName: string;
   fieldName: string;
-  fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'image' | 'audio' | 'video';
+  fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url' | 'image' | 'audio' | 'video';
   isRequired: boolean;
   isAnnotationField?: boolean;
   isPrimaryKey?: boolean;
@@ -316,7 +316,7 @@ export interface AnnotationField {
   instructions?: string;
   isNewColumn?: boolean;
   newColumnId?: string;
-  columnType?: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
+  columnType?: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url';
   placeholder?: string;
   defaultValue?: string;
   maxLength?: number;
@@ -346,7 +346,7 @@ export interface AnnotationField {
 
 export interface FieldGroupChildField {
   fieldName: string;
-  fieldType: 'text' | 'image' | 'audio' | 'video' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
+  fieldType: 'text' | 'image' | 'audio' | 'video' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url';
   isRequired: boolean;
   options?: string[];
   placeholder?: string;

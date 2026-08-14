@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import type { AnnotationTask } from '@/types/feature1';
 import { computeTaskStatus } from '@/types/feature1';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { Separator } from '@/components/ui/separator';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,

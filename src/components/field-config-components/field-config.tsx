@@ -125,7 +125,8 @@ interface NewColumn {
     | "multiselect"
     | "checkbox"
     | "radio"
-    | "date";
+    | "date"
+    | "url";
   isRequired: boolean;
   defaultValue?: string;
   options?: string[]; // For select type
@@ -168,6 +169,7 @@ interface AnnotationField {
     | "checkbox"
     | "radio"
     | "date"
+    | "url"
     | "image"
     | "audio"
     | "video";
@@ -189,7 +191,8 @@ interface AnnotationField {
     | "multiselect"
     | "checkbox"
     | "radio"
-    | "date";
+    | "date"
+    | "url";
   placeholder?: string;
   defaultValue?: string;
   maxLength?: number;
@@ -588,7 +591,8 @@ export function FieldConfig({
         | "multiselect"
         | "checkbox"
         | "radio"
-        | "date";
+        | "date"
+        | "url";
     }
     handleFieldChange(field.id, updates);
   };
@@ -787,9 +791,31 @@ export function FieldConfig({
       return;
     }
 
-    // Ensure exactly one Primary Key is selected
-    const primaryCount = annotationFields.filter((f) => f.isPrimaryKey).length;
-    if (primaryCount !== 1) {
+    // Ensure exactly one Primary Key is selected — auto-assign the first
+    // annotation field if none is marked, so saving never fails with the
+    // backend's opaque "Primary Key" error.
+    let fieldsToSave = annotationFields;
+    let primaryKeyCount = fieldsToSave.filter((f) => f.isPrimaryKey).length;
+    if (primaryKeyCount !== 1) {
+      const firstField =
+        fieldsToSave.find((f) => f.isAnnotationField && !f.isNewColumn) ||
+        fieldsToSave[0];
+      if (primaryKeyCount === 0 && firstField) {
+        fieldsToSave = fieldsToSave.map((f, idx) => ({
+          ...f,
+          isPrimaryKey: idx === fieldsToSave.indexOf(firstField),
+        }));
+        setAnnotationFields(fieldsToSave);
+        primaryKeyCount = 1;
+        showToast({
+          title: "Primary Key Set",
+          description: `"${firstField?.fieldName || firstField?.csvColumnName || 'first field'}" was set as the primary key automatically.`,
+          type: "info",
+        });
+      }
+    }
+
+    if (primaryKeyCount !== 1) {
       showToast({
         title: "Validation Error",
         description: "Please select exactly one Primary Key field.",
@@ -856,7 +882,7 @@ export function FieldConfig({
       // Build payload with full deep-cloned recursive structures
       const payload = {
         datasetId,
-        annotationFields: annotationFields.map((field) => ({
+        annotationFields: fieldsToSave.map((field) => ({
           id:
             field.id ||
             field.fieldName ||
@@ -1662,6 +1688,7 @@ export function FieldConfig({
                       },
                       { value: "date", label: "Date Picker" },
                       { value: "rating", label: "Star Rating" },
+                      { value: "url", label: "URL Link" },
                       { value: "image", label: "Image" },
                       { value: "audio", label: "Audio" },
                       { value: "video", label: "Video" },
