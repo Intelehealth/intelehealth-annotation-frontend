@@ -148,6 +148,7 @@ export interface AgentPlan {
   model?: string;
   generatedAt?: string;
   datasetStats?: DatasetStats;
+  ragCitations?: Array<{ fileName?: string; page?: number; chunkId?: string }>;
 }
 
 export interface PlanStreamHandlers {

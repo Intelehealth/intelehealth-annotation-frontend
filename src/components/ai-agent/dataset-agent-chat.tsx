@@ -33,6 +33,7 @@ import {
   Maximize2,
   Copy,
   MoreVertical,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -655,6 +656,27 @@ export function PlanCard({
                 <BulletList color="text-[#b91c1c]" items={plan.report.risks} />
               </Collapsible>
             )}
+          </div>
+        )}
+        {plan.ragCitations && plan.ragCitations.length > 0 && (
+          <div className="border-t border-slate-100 pt-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-classic-sub">
+              Source documents (RAG)
+            </p>
+            <ul className="mt-1.5 space-y-1">
+              {plan.ragCitations.map((c, i) => (
+                <li
+                  key={i}
+                  className="text-[11px] text-classic-sub flex gap-1.5 items-start"
+                >
+                  <BookOpen className="h-3 w-3 mt-0.5 shrink-0" />
+                  <span>
+                    {c.fileName || 'Document'}
+                    {c.page != null ? ` · p.${c.page}` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>
