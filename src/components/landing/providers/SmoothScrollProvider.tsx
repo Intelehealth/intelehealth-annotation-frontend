@@ -2,6 +2,10 @@
 
 import { ReactNode, useEffect } from 'react'
 import Lenis from 'lenis'
+import { gsap } from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+
+gsap.registerPlugin(ScrollTrigger)
 
 export function SmoothScrollProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -20,14 +24,26 @@ export function SmoothScrollProvider({ children }: { children: ReactNode }) {
       infinite: false
     })
 
-    function raf(time: number) {
-      lenis.raf(time)
-      requestAnimationFrame(raf)
-    }
+    // Lenis owns the scroll position, so ScrollTrigger must be told when it
+    // changes — otherwise GSAP reads native scroll, the two desync, and pinned
+    // sections leave gaps / mispositioned content behind.
+    lenis.on('scroll', ScrollTrigger.update)
 
-    requestAnimationFrame(raf)
+    // Drive Lenis from GSAP's ticker instead of a private RAF loop, so both run
+    // on one frame in a deterministic order (and stop together on unmount).
+    const tick = (time: number) => lenis.raf(time * 1000)
+    gsap.ticker.add(tick)
+    gsap.ticker.lagSmoothing(0)
+
+    // Pinned triggers are measured from element heights; images finishing later
+    // change those heights, so re-measure once everything has loaded.
+    const refresh = () => ScrollTrigger.refresh()
+    window.addEventListener('load', refresh)
 
     return () => {
+      window.removeEventListener('load', refresh)
+      gsap.ticker.remove(tick)
+      lenis.off('scroll', ScrollTrigger.update)
       lenis.destroy()
     }
   }, [])

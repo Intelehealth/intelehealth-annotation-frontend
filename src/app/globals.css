@@ -146,10 +146,17 @@ iframe {
   max-width: 100%;
 }
 
-/* Allow flex/grid children to shrink instead of forcing horizontal overflow */
-.flex > *,
-.grid > * {
-  min-width: 0;
+/* Allow flex/grid children to shrink instead of forcing horizontal overflow.
+   Kept in @layer base so it acts as a *default*: Tailwind's utilities layer
+   wins over it, so an explicit min-w-* utility still applies. Unlayered, this
+   rule has the same specificity as `.min-w-full` but comes later in the file,
+   so it silently defeated every min-w-* utility in the app (it was why the
+   landing carousel's `min-w-full` panels collapsed to their content width). */
+@layer base {
+  .flex > *,
+  .grid > * {
+    min-width: 0;
+  }
 }
 
 /* Tables scroll horizontally on small screens instead of breaking layout */
