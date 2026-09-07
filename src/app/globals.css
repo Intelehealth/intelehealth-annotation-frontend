@@ -563,6 +563,95 @@ iframe {
   .landing-page .lp-marquee-track > li[aria-hidden] { display: none; }
 }
 
+/* --- Landing: adaptive bar ------------------------------------------------ */
+/* Colours come from data-theme, which the header sets from the section under
+   it, so the same bar is paper-on-charcoal over dark sections and
+   ink-on-beige over light ones. Everything transitions on the flip. */
+.landing-page .lp-bar {
+  --lp-bar-h: 4.25rem;
+  --bar-fg: var(--lp-paper);
+  --bar-bg: oklch(0.2 0.014 60 / 0.72);
+  --bar-line: oklch(1 0 0 / 0.1);
+  --bar-pill: oklch(1 0 0 / 0.08);
+  --bar-cta-bg: var(--lp-paper);
+  --bar-cta-fg: var(--lp-ink);
+  color: var(--bar-fg);
+  transition: color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.landing-page .lp-bar[data-theme='light'] {
+  --bar-fg: var(--lp-ink);
+  --bar-bg: oklch(0.965 0.014 82 / 0.78);
+  --bar-line: oklch(0 0 0 / 0.08);
+  --bar-pill: oklch(0 0 0 / 0.06);
+  --bar-cta-bg: var(--lp-ink);
+  --bar-cta-fg: var(--lp-paper);
+}
+.landing-page .lp-bar-inner {
+  height: var(--lp-bar-h);
+  transition: height 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* the bar starts transparent over the hero and gains its surface on scroll */
+.landing-page .lp-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--bar-bg);
+  border-bottom: 1px solid var(--bar-line);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  opacity: 0;
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: -1;
+}
+.landing-page .lp-bar[data-compact] { --lp-bar-h: 3.5rem; }
+.landing-page .lp-bar[data-compact]::before { opacity: 1; }
+
+.landing-page .lp-bar-logo {
+  background: var(--lp-ink);
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.landing-page .lp-bar[data-compact] .lp-bar-logo { transform: scale(0.9); }
+
+.landing-page .lp-bar-pill { background: var(--bar-pill); }
+
+.landing-page .lp-bar-cta {
+  background: var(--bar-cta-bg);
+  color: var(--bar-cta-fg);
+  transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.landing-page .lp-bar-cta:hover { background: var(--lp-accent-2); color: var(--lp-paper); }
+.landing-page .lp-bar-cta:active { transform: scale(0.98); }
+
+.landing-page .lp-bar-panel {
+  color: var(--bar-fg);
+  background: var(--bar-bg);
+  border: 1px solid var(--bar-line);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 24px 48px -24px oklch(0 0 0 / 0.5);
+  margin-top: 0.25rem;
+}
+.landing-page .lp-bar-item { transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+.landing-page .lp-bar-item:hover { background: var(--bar-pill); }
+
+.landing-page .lp-bar-sheet {
+  color: var(--bar-fg);
+  background: var(--bar-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.landing-page .lp-bar a:focus-visible,
+.landing-page .lp-bar button:focus-visible {
+  outline: 2px solid var(--lp-accent-2);
+  outline-offset: 2px;
+  border-radius: 9999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page .lp-bar, .landing-page .lp-bar *, .landing-page .lp-bar::before { transition: none !important; }
+}
+
 /* --- Landing: FAQ ---------------------------------------------------------- */
 /* Native <details>; the marker rotates into a minus and the answer fades up.
    Height itself is not animated (details can't, without JS) — the fade is
@@ -578,6 +667,38 @@ iframe {
 .landing-page .lp-faq summary:focus-visible { outline: 2px solid var(--lp-accent-2); outline-offset: 4px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) {
   .landing-page .lp-faq-mark, .landing-page .lp-faq[open] .lp-faq-a { transition: none; animation: none; }
+}
+
+/* --- Landing: hero self-annotation ------------------------------------------ */
+/* One shared box, terracotta, gliding between the headline's words. */
+.landing-page .lp-annot {
+  --annot: oklch(0.72 0.14 42);
+  --annot-soft: oklch(0.72 0.14 42 / 0.1);
+  border: 1.5px solid var(--annot);
+  background: var(--annot-soft);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px oklch(0 0 0 / 0.25);
+}
+.landing-page .lp-annot-h {
+  position: absolute;
+  width: 6px; height: 6px;
+  background: var(--annot);
+  border: 1px solid var(--lp-ink);
+  border-radius: 1px;
+}
+.landing-page .lp-annot-tag {
+  position: absolute;
+  left: -1.5px;
+  bottom: calc(100% + 6px);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: var(--annot);
+  color: var(--lp-ink);
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.04em;
 }
 
 /* --- Landing: keyframe timeline under animated drawings ---------------------- */

@@ -1,37 +1,31 @@
 export interface NavItem {
   label: string
   href: string
-  children?: { label: string; href: string; description?: string }[]
+  children?: { label: string; href: string; description: string }[]
 }
 
+// Every href is a real route under src/app or an anchor on the landing page.
 export const navigationData: NavItem[] = [
   {
-    label: 'Products',
+    label: 'Platform',
     href: '/dashboard',
     children: [
-      { label: 'Data Engine', href: '/dashboard', description: 'Scalable annotation pipeline' },
-      { label: 'Annotation Tools', href: '/documentation', description: 'Multi-modal labeling suite' },
-      { label: 'Consensus Engine', href: '/dashboard', description: 'Quality control & reviews' },
-      { label: 'Export Studio', href: '/dashboard', description: 'Dataset export & formats' }
+      { label: 'Annotation workspace', href: '/dashboard', description: 'Every modality, one workbench' },
+      { label: 'Datasets', href: '/dataset', description: 'Upload, schema, assignment' },
+      { label: 'Consensus review', href: '/assignments/review', description: 'Resolve disagreement, not average it' },
+      { label: 'Tasks', href: '/tasks', description: 'What is queued for you' }
     ]
   },
   {
-    label: 'Solutions',
-    href: '/dashboard',
+    label: 'Services',
+    href: '#deliver',
     children: [
-      { label: 'Autonomous Vehicles', href: '/landing#vehicles', description: 'Sensor & LiDAR annotation' },
-      { label: 'Computer Vision', href: '/landing#vision', description: 'Image & video labeling' },
-      { label: 'NLP', href: '/landing#nlp', description: 'Text & language annotation' },
-      { label: 'Healthcare', href: '/landing#healthcare', description: 'Medical imaging labels' }
+      { label: 'What we annotate', href: '#annotate', description: 'Image, video, audio, text' },
+      { label: 'Produce', href: '#produce', description: 'Workspace & document intelligence' },
+      { label: 'Verify', href: '#verify', description: 'Consensus, QA and analytics' },
+      { label: 'Evaluate', href: '#evaluate', description: 'Agentic evaluation & LLM judges' }
     ]
   },
-  {
-    label: 'Resources',
-    href: '/documentation',
-    children: [
-      { label: 'Blog', href: '/documentation', description: 'Latest updates' },
-      { label: 'Documentation', href: '/documentation', description: 'Guides & API refs' },
-      { label: 'Events', href: '/documentation', description: 'Upcoming webinars' }
-    ]
-  }
+  { label: 'FAQ', href: '#faq' },
+  { label: 'Docs', href: '/documentation' }
 ]

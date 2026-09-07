@@ -1,8 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { motion, useMotionValue, useSpring, useTransform, useScroll } from 'framer-motion'
-import { TextReveal } from '../animations/TextReveal'
-import { MagneticButton } from '../MagneticButton'
+import { HeroAnnotator, AnnotatedWords } from '../HeroAnnotator'
 import { ParticleField3D } from '../ParticleField3D'
 import { HiArrowDown } from 'react-icons/hi'
 import { useEffect, useRef } from 'react'
@@ -28,8 +28,9 @@ export function HeroSection() {
   const parallaxX = useSpring(mouseX, springConfig)
   const parallaxY = useSpring(mouseY, springConfig)
 
-  const textX = useTransform(parallaxX, [-0.5, 0.5], [15, -15])
-  const textY = useTransform(parallaxY, [-0.5, 0.5], [10, -10])
+  // barely-there drift: a few px, so the text feels settled rather than tracking the cursor
+  const textX = useTransform(parallaxX, [-0.5, 0.5], [3, -3])
+  const textY = useTransform(parallaxY, [-0.5, 0.5], [2, -2])
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -46,7 +47,7 @@ export function HeroSection() {
   }, [mouseX, mouseY])
 
   return (
-    <section ref={heroRef} className="relative h-screen flex items-center justify-center overflow-hidden pt-20">
+    <section ref={heroRef} data-nav="dark" className="relative h-screen flex items-center justify-center overflow-hidden pt-20">
       {/* 3D Animated Particle Field Background with scroll parallax */}
       <motion.div
         style={{ y: bgY, opacity: bgOpacity, scale: bgScale }}
@@ -63,19 +64,22 @@ export function HeroSection() {
         style={{ x: textX, y: textY }}
         className="relative z-20 container mx-auto px-6 text-center"
       >
-        <TextReveal
-          text="The world's most important decisions need reliable data annotation."
-          className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-tight"
-          as="h1"
-        />
+        {/* hover / tap a word: the headline annotates itself — a live
+            sample of the tool. Tours the targets on its own until you touch it. */}
+        <HeroAnnotator>
+          <AnnotatedWords
+            text="Reliable annotation for decisions that matter."
+            className="mx-auto mb-5 max-w-[20ch] text-3xl font-semibold leading-[1.08] tracking-tight text-[var(--lp-paper)] md:text-4xl lg:text-5xl [text-wrap:balance]"
+          />
+        </HeroAnnotator>
 
         <motion.p
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8, duration: 0.8, ease: EASE_OUT_EXPO }}
-          className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto"
+          className="mx-auto mb-9 max-w-[44ch] text-sm leading-relaxed text-[var(--lp-paper)]/65 md:text-base"
         >
-          We work across the AI stack, from the data that trains models to the systems that put them to work.
+          Human-labelled, checked by consensus, with the agreement numbers to prove it.
         </motion.p>
 
         <motion.div
@@ -84,22 +88,13 @@ export function HeroSection() {
           transition={{ delay: 1.0, duration: 0.8, ease: EASE_OUT_EXPO }}
           className="flex flex-col sm:flex-row gap-4 justify-center items-center"
         >
-          <MagneticButton href="/dashboard" strength={0.4}>
-            <span className="inline-flex items-center justify-center px-8 py-4 text-lg font-medium rounded-lg bg-white text-black hover:bg-gray-200 transition-all duration-300 group">
-              <span className="transition-transform duration-300 group-hover:scale-90">
-                Get Started
-              </span>
-            </span>
-          </MagneticButton>
+          <Link href="/dataset/add-dataset" className="inline-flex items-center justify-center rounded-md bg-[var(--lp-paper)] px-6 py-3 text-sm font-medium text-[var(--lp-ink)] transition-colors duration-300 hover:bg-[var(--lp-accent-2)] hover:text-[var(--lp-paper)]">
+              Upload a dataset
+            </Link>
 
-          <MagneticButton href="/documentation" strength={0.4}>
-            <span className="inline-flex items-center justify-center px-8 py-4 text-lg font-medium rounded-lg border-2 border-white text-white hover:bg-white hover:text-black transition-all duration-300 group relative overflow-hidden">
-              <span className="absolute inset-0 bg-black opacity-0 mix-blend-multiply transition-opacity duration-300 group-hover:opacity-0" />
-              <span className="transition-transform duration-300 group-hover:scale-90">
-                Learn More
-              </span>
-            </span>
-          </MagneticButton>
+          <Link href="#annotate" className="inline-flex items-center justify-center rounded-md border border-[var(--lp-paper)]/35 px-6 py-3 text-sm font-medium text-[var(--lp-paper)] transition-colors duration-300 hover:border-[var(--lp-paper)]/70">
+              See what we annotate
+            </Link>
         </motion.div>
       </motion.div>
 
@@ -114,17 +109,17 @@ export function HeroSection() {
           animate={{ y: [0, 6, 0] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <HiArrowDown className="text-white text-3xl opacity-70" />
+          <HiArrowDown className="text-2xl text-[var(--lp-paper)]/60" />
         </motion.div>
       </motion.div>
 
       {/* Gradient glow that follows cursor */}
       <motion.div
         style={{
-          x: useTransform(parallaxX, [-0.5, 0.5], [-100, 100]),
-          y: useTransform(parallaxY, [-0.5, 0.5], [-100, 100]),
+          x: useTransform(parallaxX, [-0.5, 0.5], [-40, 40]),
+          y: useTransform(parallaxY, [-0.5, 0.5], [-40, 40]),
         }}
-        className="absolute top-1/2 left-1/2 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-[120px] pointer-events-none z-0"
+        className="absolute top-1/2 left-1/2 w-[600px] h-[600px] bg-[var(--lp-accent-2)]/10 rounded-full blur-[120px] pointer-events-none z-0"
       />
     </section>
   )
