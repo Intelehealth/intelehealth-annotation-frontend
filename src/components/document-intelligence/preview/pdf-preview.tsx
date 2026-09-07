@@ -2,32 +2,21 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as pdfjs from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { Loader2, Minus, Plus, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 
-// pdf.js requires workerSrc to be a string. The `?url` import is not guaranteed
-// to serialize to a string in every bundler, so resolve defensively and only
-// assign inside the browser (never at module eval).
+// pdf.js needs workerSrc to be a URL string. The worker is copied into
+// public/ by scripts/copy-pdf-worker.mjs (prebuild/predev), so it is served
+// same-origin and always matches the installed pdfjs-dist version. Assign only
+// in the browser, never at module eval.
 let workerConfigured = false;
-
-function resolveWorkerUrl(): string {
-  // Preferred: the webpack-bundled worker (`?url` yields a real asset string).
-  const fromUrlImport = (pdfWorkerUrl as unknown as string) || '';
-  if (typeof fromUrlImport === 'string' && fromUrlImport) return fromUrlImport;
-  // Fallback: a guaranteed-valid worker URL (browser fetches it once).
-  return 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
-}
 
 function ensurePdfWorker() {
   if (workerConfigured || typeof window === 'undefined') return;
   workerConfigured = true;
-  const url = resolveWorkerUrl();
-  if (typeof url === 'string' && url) {
-    try {
-      pdfjs.GlobalWorkerOptions.workerSrc = url;
-    } catch {
-      // never let a worker-config failure take down the app
-    }
+  try {
+    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  } catch {
+    // never let a worker-config failure take down the app
   }
 }
 
