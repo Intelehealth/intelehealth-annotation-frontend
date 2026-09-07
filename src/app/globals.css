@@ -292,6 +292,29 @@ iframe {
 /* ===== Landing Page Styles (integrated) ===== */
 
 /* Smooth cursor and interactions */
+/* Landing-page palette. Tinted neutrals (a hint of blue chroma) rather than
+   pure greys, one accent, no gradients. Scoped so the app's shadcn tokens are
+   untouched. */
+.landing-page {
+  /* warm paper — hue ~80 (beige), low chroma so text stays legible */
+  --lp-paper: oklch(0.965 0.014 82);
+  --lp-paper-2: oklch(0.99 0.007 85);
+  /* second light surface: pale peach, so two light sections in a row read
+     as different planes; same hue family as the terracotta accent */
+  --lp-paper-peach: oklch(0.945 0.022 50);
+  --lp-rule-peach: oklch(0.83 0.035 50);
+  --lp-ink: oklch(0.2 0.014 60);
+  --lp-ink-2: oklch(0.42 0.016 60);
+  --lp-muted: oklch(0.56 0.02 68);
+  --lp-rule: oklch(0.86 0.018 78);
+  --lp-shape: oklch(0.91 0.016 80);
+  /* one cool accent for contrast on beige, one warm for the second class */
+  --lp-accent: oklch(0.5 0.15 255);
+  --lp-accent-soft: oklch(0.5 0.15 255 / 0.14);
+  --lp-accent-2: oklch(0.6 0.15 42);
+  --lp-accent-2-soft: oklch(0.6 0.15 42 / 0.18);
+}
+
 .landing-page * {
   -webkit-tap-highlight-color: transparent;
 }
@@ -343,3 +366,286 @@ iframe {
 .animate-fadeIn {
   animation: fadeIn 0.5s ease-in-out forwards;
 }
+
+/* ─── Landing: modality demos (ValueProposition) ─────────────────────────── */
+/* Small SVG drawings of each annotation type, each looping on its own: boxes
+   draw, the tracked object follows the keyframe track, a playhead sweeps the
+   diarized waveform, entity spans highlight in sequence. Only transform /
+   opacity / stroke-dashoffset are animated, so the four loops together cost
+   less than one hover shadow. */
+.landing-page .lp-demo {
+  width: 100%;
+  max-width: 11rem;
+  height: auto;
+  color: var(--lp-accent);
+}
+.landing-page .lp-frame   { fill: var(--lp-paper-2); stroke: var(--lp-rule); stroke-width: 1; }
+.landing-page .lp-shape   { fill: var(--lp-shape); }
+.landing-page .lp-rule    { stroke: var(--lp-rule); stroke-width: 1; }
+.landing-page .lp-text    { stroke: var(--lp-rule); stroke-width: 3; stroke-linecap: round; }
+.landing-page .lp-bar     { fill: oklch(0.7 0.02 70); }
+.landing-page .lp-segment { fill: var(--lp-accent-soft); }
+.landing-page .lp-segment-2 { fill: var(--lp-accent-2-soft); }
+.landing-page .lp-span    { fill: var(--lp-accent-soft); }
+.landing-page .lp-span-2  { fill: var(--lp-accent-2-soft); }
+.landing-page .lp-tag     { fill: currentColor; }
+.landing-page .lp-tag-2   { fill: var(--lp-accent-2); }
+.landing-page .lp-playhead { fill: currentColor; }
+.landing-page .lp-scan    { stroke: currentColor; stroke-width: 1.5; }
+.landing-page .lp-box {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-dasharray: 100;
+}
+.landing-page .lp-box-2 { stroke: var(--lp-accent-2); }
+
+/* Image: both boxes draw, labels pop, hold, then reset. */
+@keyframes lp-draw {
+  0%, 8%   { stroke-dashoffset: 100; }
+  40%, 85% { stroke-dashoffset: 0; }
+  100%     { stroke-dashoffset: 100; }
+}
+@keyframes lp-pop {
+  0%, 35%  { opacity: 0; }
+  45%, 85% { opacity: 1; }
+  100%     { opacity: 0; }
+}
+.landing-page .lp-box { animation: lp-draw 4s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
+.landing-page .lp-box-2 { animation-delay: 0.25s; }
+.landing-page .lp-demo .lp-tag { animation: lp-pop 4s ease-out infinite; }
+
+/* Video: tracked object and playhead travel the keyframe track together. */
+@keyframes lp-travel {
+  0%, 5%    { transform: translateX(0); }
+  45%, 55%  { transform: translateX(100px); }
+  95%, 100% { transform: translateX(0); }
+}
+.landing-page .lp-track,
+.landing-page .lp-playhead { animation: lp-travel 5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+/* the tracked box stays drawn while it moves */
+.landing-page .lp-track .lp-box,
+.landing-page .lp-track .lp-tag { animation: none; stroke-dashoffset: 0; opacity: 1; }
+
+/* Audio: a playhead sweeps left→right; whichever speaker segment it is inside
+   lights up, the other fades — that is what diarization looks like. */
+@keyframes lp-sweep {
+  from { transform: translateX(0); }
+  to   { transform: translateX(136px); }
+}
+@keyframes lp-seg-a { 0%, 48% { opacity: 1; } 52%, 100% { opacity: 0.3; } }
+@keyframes lp-seg-b { 0%, 48% { opacity: 0.3; } 52%, 100% { opacity: 1; } }
+.landing-page .lp-scan    { animation: lp-sweep 3.6s linear infinite; }
+.landing-page .lp-segment { animation: lp-seg-a 3.6s linear infinite; }
+.landing-page .lp-segment-2 { animation: lp-seg-b 3.6s linear infinite; }
+.landing-page .lp-demo .lp-segment ~ .lp-tag   { animation: lp-seg-a 3.6s linear infinite; }
+.landing-page .lp-demo .lp-segment ~ .lp-tag-2 { animation: lp-seg-b 3.6s linear infinite; }
+
+/* Text: entity spans are "selected" one after another, like an annotator
+   dragging across each mention, then the pass restarts. */
+@keyframes lp-select {
+  0%, 10%  { transform: scaleX(0); }
+  30%, 85% { transform: scaleX(1); }
+  100%     { transform: scaleX(0); }
+}
+.landing-page .lp-span {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: lp-select 4.5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page .lp-demo * { animation: none !important; }
+  .landing-page .lp-box { stroke-dashoffset: 0; }
+  .landing-page .lp-span { transform: none; }
+}
+
+/* --- Landing: service drawings (Services) --------------------------------- */
+/* Literal scenes of each workflow on an 8s cycle. `lp-sN` fades an element in
+   at slot N (N x 10%) and everything fades out at 92% for the reset; `lp-xN`
+   is the inverse (visible until slot N) for things that get replaced. */
+.landing-page .lp-draw {
+  width: 100%;
+  max-width: 32rem;
+  height: auto;
+  --d-accent: oklch(0.74 0.11 255);
+  --d-accent-2: oklch(0.72 0.14 42);
+  --d-ink: oklch(0.24 0.014 60);
+  --d-pane: oklch(0.28 0.014 60);
+  --d-line: oklch(1 0 0 / 0.16);
+}
+.landing-page .lp-d-frame  { fill: var(--d-ink); stroke: oklch(1 0 0 / 0.12); }
+.landing-page .lp-d-pane   { fill: var(--d-pane); stroke: var(--d-line); }
+.landing-page .lp-d-t      { font: 7.5px ui-monospace, SFMono-Regular, Menlo, monospace; fill: var(--lp-paper); letter-spacing: 0.01em; }
+.landing-page .lp-d-t-dim  { fill: oklch(1 0 0 / 0.45); }
+.landing-page .lp-d-t-inv  { fill: var(--d-ink); font-weight: 600; }
+.landing-page .lp-d-t-acc  { fill: var(--d-accent); }
+.landing-page .lp-d-t-warn { fill: var(--d-accent-2); }
+.landing-page .lp-d-t-big  { font-size: 14px; font-weight: 600; }
+.landing-page .lp-d-rule   { stroke: var(--d-line); stroke-width: 1; }
+.landing-page .lp-d-shape  { fill: oklch(1 0 0 / 0.12); }
+.landing-page .lp-d-box    { fill: none; stroke: oklch(1 0 0 / 0.4); stroke-width: 1.2; }
+.landing-page .lp-d-radio  { fill: none; stroke: oklch(1 0 0 / 0.4); stroke-width: 1.2; }
+.landing-page .lp-d-radio-on { fill: var(--d-accent); }
+.landing-page .lp-d-check  { fill: none; stroke: var(--d-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.landing-page .lp-d-branch { stroke: oklch(1 0 0 / 0.3); stroke-width: 1.2; }
+.landing-page .lp-d-field  { fill: none; stroke: var(--d-accent); stroke-width: 1.2; }
+.landing-page .lp-d-tagbg  { fill: var(--d-accent); }
+.landing-page .lp-d-chip   { fill: var(--d-accent); }
+.landing-page .lp-d-chip-2 { fill: var(--d-accent-2); }
+.landing-page .lp-d-bar    { fill: oklch(1 0 0 / 0.28); }
+.landing-page .lp-d-dot    { fill: none; stroke: oklch(1 0 0 / 0.35); stroke-width: 1.2; }
+.landing-page .lp-d-dot-on { stroke: none; }
+.landing-page .lp-d-dot-h  { fill: var(--lp-paper); }
+.landing-page .lp-d-dot-j  { fill: var(--d-accent); }
+.landing-page .lp-d-link   { stroke: var(--d-accent-2); stroke-width: 1.2; }
+
+/* the labelling box in Produce draws itself over slot 1 */
+.landing-page .lp-d-boxdraw { fill: none; stroke: var(--d-accent); stroke-width: 1.4; stroke-dasharray: 100; animation: lp-d-boxdraw 8s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
+@keyframes lp-d-boxdraw { 0%, 4% { stroke-dashoffset: 100; } 18%, 92% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 100; } }
+
+/* slot fades */
+@keyframes lp-s1 { 0%, 8%  { opacity: 0; } 12%, 92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes lp-s2 { 0%, 18% { opacity: 0; } 22%, 92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes lp-s3 { 0%, 28% { opacity: 0; } 32%, 92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes lp-s4 { 0%, 38% { opacity: 0; } 42%, 92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes lp-s5 { 0%, 48% { opacity: 0; } 52%, 92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes lp-s6 { 0%, 58% { opacity: 0; } 62%, 92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes lp-s7 { 0%, 68% { opacity: 0; } 72%, 92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes lp-x6 { 0%, 58% { opacity: 1; } 62%, 100% { opacity: 0; } }
+.landing-page .lp-s1 { animation: lp-s1 8s ease-out infinite; }
+.landing-page .lp-s2 { animation: lp-s2 8s ease-out infinite; }
+.landing-page .lp-s3 { animation: lp-s3 8s ease-out infinite; }
+.landing-page .lp-s4 { animation: lp-s4 8s ease-out infinite; }
+.landing-page .lp-s5 { animation: lp-s5 8s ease-out infinite; }
+.landing-page .lp-s6 { animation: lp-s6 8s ease-out infinite; }
+.landing-page .lp-s7 { animation: lp-s7 8s ease-out infinite; }
+.landing-page .lp-x6 { animation: lp-x6 8s ease-out infinite; }
+
+/* Verify: the live analytics bar grows when the conflict is resolved */
+@keyframes lp-d-grow { 0%, 60% { transform: scaleY(0.02); } 78%, 92% { transform: scaleY(1); } 100% { transform: scaleY(0.02); } }
+.landing-page .lp-d-bar-live { fill: var(--d-accent); transform-box: fill-box; transform-origin: bottom; animation: lp-d-grow 8s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page .lp-draw * { animation: none !important; }
+  .landing-page .lp-draw .lp-x6 { opacity: 0; }
+  .landing-page .lp-d-boxdraw { stroke-dashoffset: 0; }
+  .landing-page .lp-d-bar-live { transform: none; }
+}
+
+/* --- Landing: client marquee ---------------------------------------------- */
+/* Seamless loop: the list is rendered twice and translated by half its width.
+   Wordmarks sit at ~45% opacity and the strip fades at both edges, so it reads
+   as a quiet band rather than a logo wall. Pauses on hover. */
+.landing-page .lp-marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+}
+.landing-page .lp-marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 4.5rem;
+  padding-right: 4.5rem; /* same as gap, so the seam between copies is even */
+  animation: lp-marquee 38s linear infinite;
+  will-change: transform;
+}
+.landing-page .lp-marquee-track > li {
+  white-space: nowrap;
+  opacity: 0.45;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.landing-page .lp-marquee:hover .lp-marquee-track { animation-play-state: paused; }
+.landing-page .lp-marquee:hover .lp-marquee-track > li { opacity: 0.85; }
+@keyframes lp-marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .landing-page .lp-marquee-track { animation: none; flex-wrap: wrap; width: auto; }
+  .landing-page .lp-marquee-track > li[aria-hidden] { display: none; }
+}
+
+/* --- Landing: FAQ ---------------------------------------------------------- */
+/* Native <details>; the marker rotates into a minus and the answer fades up.
+   Height itself is not animated (details can't, without JS) — the fade is
+   enough to read as "opened". */
+.landing-page .lp-faq summary::-webkit-details-marker { display: none; }
+.landing-page .lp-faq-mark {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s, color 0.3s;
+}
+.landing-page .lp-faq summary:hover .lp-faq-mark { background: var(--lp-ink); color: var(--lp-paper); border-color: var(--lp-ink); }
+.landing-page .lp-faq[open] .lp-faq-mark { transform: rotate(45deg); }
+@keyframes lp-faq-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.landing-page .lp-faq[open] .lp-faq-a { animation: lp-faq-in 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+.landing-page .lp-faq summary:focus-visible { outline: 2px solid var(--lp-accent-2); outline-offset: 4px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .landing-page .lp-faq-mark, .landing-page .lp-faq[open] .lp-faq-a { transition: none; animation: none; }
+}
+
+/* --- Landing: keyframe timeline under animated drawings ---------------------- */
+/* --tl-dur is set per instance to the drawing's loop length, so the playhead
+   (a scaleX fill, linear) and the drawing complete a cycle together. Quiet by
+   default; the row/group hover brings it to full strength. */
+.landing-page .lp-clip { display: grid; gap: 0.5rem; }
+.landing-page .lp-tl {
+  --tl-ink: var(--lp-ink);
+  opacity: 0.55;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.landing-page .lp-clip-dark .lp-tl { --tl-ink: var(--lp-paper); }
+.landing-page .lp-row:hover .lp-tl,
+.landing-page .group:hover .lp-tl { opacity: 1; }
+.landing-page .lp-tl-rail {
+  position: relative;
+  height: 1px;
+  margin: 6px 0 8px;
+  background: color-mix(in oklch, var(--tl-ink) 18%, transparent);
+  cursor: pointer;
+}
+/* the 1px rail is a 20px-tall click target */
+.landing-page .lp-tl-rail::before { content: ''; position: absolute; inset: -10px 0; }
+.landing-page .lp-tl-fill {
+  position: absolute; inset: 0;
+  background: var(--lp-accent-2);
+  transform-origin: left;
+  animation: lp-tl-play var(--tl-dur) linear infinite;
+}
+.landing-page .lp-tl-fill::after {
+  /* the playhead itself, riding the end of the fill */
+  content: '';
+  position: absolute; right: -1px; top: -4px;
+  width: 1.5px; height: 9px;
+  background: var(--lp-accent-2);
+}
+@keyframes lp-tl-play { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.landing-page .lp-tl-key {
+  position: absolute; top: 50%;
+  width: 5px; height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  padding: 0; border: 0; cursor: pointer;
+  background: var(--tl-ink);
+  opacity: 0.55;
+  transform: rotate(45deg);
+  transition: transform 0.2s, opacity 0.2s;
+}
+/* generous hit area around the 5px diamond */
+.landing-page .lp-tl-key::before { content: ''; position: absolute; inset: -8px; }
+.landing-page .lp-tl-key:hover,
+.landing-page .lp-tl-key:focus-visible { opacity: 1; transform: rotate(45deg) scale(1.6); outline: none; }
+.landing-page .lp-tl-key[data-active] { opacity: 1; background: var(--lp-accent-2); transform: rotate(45deg) scale(1.4); }
+.landing-page .lp-tl-meta {
+  display: flex; justify-content: space-between;
+  font: 500 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--tl-ink); opacity: 0.55;
+}
+.landing-page .lp-tl-meta > span:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.landing-page .lp-tl-meta > span:last-child { flex-shrink: 0; margin-left: 0.75em; }
+@media (prefers-reduced-motion: reduce) {
+  .landing-page .lp-tl-fill { animation: none; transform: scaleX(1); }
+}
+
+/* keyframe diamonds are buttons (click to seek): reset the button chrome and
+   give a 16px hit area around the 5px diamond */
+.landing-page .lp-tl-key { border: 0; padding: 0; cursor: pointer; appearance: none; }
+.landing-page .lp-tl-key::before { content: ''; position: absolute; inset: -6px; }
+.landing-page .lp-tl-key:hover, .landing-page .lp-tl-key[data-active] { opacity: 1; background: var(--lp-accent-2); }
+.landing-page .lp-tl-key:focus-visible { outline: 2px solid var(--lp-accent-2); outline-offset: 3px; }

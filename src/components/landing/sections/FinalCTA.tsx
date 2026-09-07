@@ -1,33 +1,50 @@
 'use client'
 
+import Link from 'next/link'
 import { SlideUp } from '../animations/SlideUp'
 import { TextReveal } from '../animations/TextReveal'
-import { MagneticButton } from '../MagneticButton'
 
 export function FinalCTA() {
   return (
-    <section className="py-32 px-6 bg-gradient-to-t from-black to-gray-950">
-      <div className="container mx-auto max-w-4xl text-center">
-        <TextReveal
-          text="Ready to power your AI?"
-          className="text-5xl md:text-6xl font-bold text-white mb-6"
-          as="h2"
-        />
+    <section id="start" data-nav="light" className="bg-[var(--lp-paper-peach)] px-6 py-28 text-[var(--lp-ink)] md:py-40">
 
-        <SlideUp delay={0.2}>
-          <p className="text-xl text-gray-400 mb-8">
-            Start annotating today and join the teams building the future.
+      <div className="container mx-auto grid gap-12 lg:grid-cols-12">
+        <div className="lg:col-span-7">
+          <TextReveal
+            as="h2"
+            text="Start with one dataset."
+            className="max-w-[11ch] text-5xl font-semibold leading-[1.02] tracking-tight md:text-7xl [text-wrap:balance]"
+          />
+        </div>
+
+        {/* actions sit low and to the right, under the headline's baseline */}
+        <SlideUp delay={0.15} className="lg:col-span-4 lg:col-start-9 lg:self-end">
+          <p className="max-w-[30ch] text-lg leading-relaxed text-[var(--lp-ink-2)]">
+            Upload it, define the questions, and see the first labels and
+            agreement numbers come back.
           </p>
-        </SlideUp>
 
-        <SlideUp delay={0.4}>
-          <MagneticButton href="/dashboard" strength={0.5}>
-            <span className="inline-flex items-center justify-center px-10 py-5 text-lg font-medium rounded-lg bg-white text-black hover:bg-gray-200 transition-all duration-300 group">
-              <span className="transition-transform duration-300 group-hover:scale-90">
-                Get Started Now
+          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
+            <Link href="/dataset/add-dataset" className="inline-flex items-center justify-center rounded-md bg-[var(--lp-ink)] px-7 py-4 text-base font-medium text-[var(--lp-paper)] transition-colors duration-300 hover:bg-[var(--lp-accent-2)]">
+              Upload a dataset
+            </Link>
+            <Link
+              href="/documentation"
+              className="group inline-flex items-center gap-2 text-base font-medium text-[var(--lp-ink)]"
+            >
+              Read the docs
+              <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1">
+                &rarr;
               </span>
-            </span>
-          </MagneticButton>
+            </Link>
+          </div>
+
+          <ul className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-[var(--lp-rule-peach)] pt-5 font-mono text-xs uppercase tracking-[0.18em] text-[var(--lp-muted)]">
+            <li>Image</li>
+            <li>Video</li>
+            <li>Audio</li>
+            <li>Text &amp; tabular</li>
+          </ul>
         </SlideUp>
       </div>
     </section>

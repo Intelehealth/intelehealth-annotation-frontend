@@ -3,155 +3,205 @@
 import { motion } from 'framer-motion'
 import { SlideUp } from '../animations/SlideUp'
 import { TextReveal } from '../animations/TextReveal'
-import { FaImage, FaFileAudio, FaVideo, FaFileCsv } from 'react-icons/fa'
-import { EASE_OUT_EXPO, cardEntrance } from '@/lib/landing-animations'
+import { EASE_OUT_EXPO } from '@/lib/landing-animations'
+import { Timeline } from '../Timeline'
 
-const annotationTypes = [
+// Each modality gets a small, purpose-built drawing of what the annotation
+// actually looks like, instead of a stock photo of a dog or a microphone. They
+// are plain SVG so they cost nothing to load; each loops via CSS keyframes.
+
+function ImageDemo() {
+  return (
+    <svg viewBox="0 0 160 100" className="lp-demo" aria-hidden="true">
+      <rect x="1" y="1" width="158" height="98" rx="3" className="lp-frame" />
+      {/* abstract subject */}
+      <circle cx="58" cy="52" r="22" className="lp-shape" />
+      <rect x="96" y="38" width="42" height="36" rx="4" className="lp-shape" />
+      {/* bounding boxes draw themselves */}
+      <rect x="30" y="24" width="56" height="56" className="lp-box" pathLength={100} />
+      <rect x="90" y="32" width="54" height="48" className="lp-box lp-box-2" pathLength={100} />
+      <rect x="30" y="16" width="26" height="8" rx="1" className="lp-tag" />
+      <rect x="90" y="24" width="20" height="8" rx="1" className="lp-tag lp-tag-2" />
+    </svg>
+  )
+}
+
+function VideoDemo() {
+  return (
+    <svg viewBox="0 0 160 100" className="lp-demo" aria-hidden="true">
+      <rect x="1" y="1" width="158" height="98" rx="3" className="lp-frame" />
+      {/* keyframe track */}
+      <line x1="14" y1="76" x2="146" y2="76" className="lp-rule" />
+      {[14, 47, 80, 113, 146].map((x) => (
+        <line key={x} x1={x} y1="72" x2={x} y2="80" className="lp-rule" />
+      ))}
+      {/* tracked object moves along the track */}
+      <g className="lp-track">
+        <rect x="8" y="30" width="30" height="24" className="lp-box" pathLength={100} />
+        <rect x="8" y="22" width="18" height="8" rx="1" className="lp-tag" />
+      </g>
+      <circle cx="14" cy="76" r="3" className="lp-playhead" />
+    </svg>
+  )
+}
+
+function AudioDemo() {
+  // deterministic pseudo-waveform so SSR and client render identical markup
+  const bars = Array.from({ length: 34 }, (_, i) => 6 + ((i * 37) % 23))
+  return (
+    <svg viewBox="0 0 160 100" className="lp-demo" aria-hidden="true">
+      <rect x="1" y="1" width="158" height="98" rx="3" className="lp-frame" />
+      {/* two speaker segments */}
+      <rect x="12" y="24" width="64" height="52" rx="2" className="lp-segment" />
+      <rect x="84" y="24" width="64" height="52" rx="2" className="lp-segment lp-segment-2" />
+      {bars.map((h, i) => (
+        <rect key={i} x={14 + i * 4} y={50 - h / 2} width="2" height={h} rx="1" className="lp-bar" />
+      ))}
+      <rect x="12" y="14" width="22" height="7" rx="1" className="lp-tag" />
+      <rect x="84" y="14" width="22" height="7" rx="1" className="lp-tag lp-tag-2" />
+      {/* playhead sweeping the waveform */}
+      <line x1="12" y1="22" x2="12" y2="78" className="lp-scan" />
+    </svg>
+  )
+}
+
+function TextDemo() {
+  // lines of "text" as rules, with highlighted entity spans
+  return (
+    <svg viewBox="0 0 160 100" className="lp-demo" aria-hidden="true">
+      <rect x="1" y="1" width="158" height="98" rx="3" className="lp-frame" />
+      <line x1="14" y1="28" x2="146" y2="28" className="lp-text" />
+      <line x1="14" y1="44" x2="128" y2="44" className="lp-text" />
+      <line x1="14" y1="60" x2="146" y2="60" className="lp-text" />
+      <line x1="14" y1="76" x2="96" y2="76" className="lp-text" />
+      <rect x="40" y="23" width="34" height="10" rx="2" className="lp-span" />
+      <rect x="90" y="39" width="26" height="10" rx="2" className="lp-span lp-span-2" style={{ animationDelay: '0.6s' }} />
+      <rect x="20" y="71" width="44" height="10" rx="2" className="lp-span" style={{ animationDelay: '1.2s' }} />
+    </svg>
+  )
+}
+
+const modalities = [
   {
-    id: 'image',
-    title: 'Image Annotation',
-    icon: FaImage,
-    color: 'from-blue-600 to-blue-800',
-    accent: '#3b82f6',
-    description: 'Bounding boxes, polygons & segmentation',
-    image: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600&h=400&fit=crop'
+    index: '01',
+    title: 'Image',
+    tasks: 'Bounding boxes, polygons, segmentation masks',
+    note: 'Pixel-accurate labels with reviewer consensus on every frame.',
+    Demo: ImageDemo,
+    dur: 4,
+    marks: [
+      { at: 8, label: "boxes start drawing" },
+      { at: 40, label: "boxes closed, labels attached" },
+      { at: 85, label: "hold ends, next frame" }
+    ]
   },
   {
-    id: 'video',
-    title: 'Video Annotation',
-    icon: FaVideo,
-    color: 'from-purple-600 to-purple-800',
-    accent: '#a855f7',
-    description: 'Frame-by-frame object tracking',
-    image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=600&h=400&fit=crop'
+    index: '02',
+    title: 'Video',
+    tasks: 'Object tracking, event tagging, frame-level classes',
+    note: 'Identities persist across frames; drift is caught in review.',
+    Demo: VideoDemo,
+    dur: 5,
+    marks: [
+      { at: 5, label: "track starts, identity assigned" },
+      { at: 45, label: "object reaches far edge" },
+      { at: 55, label: "returns, same identity" },
+      { at: 95, label: "back at origin, loop closes" }
+    ]
   },
   {
-    id: 'audio',
-    title: 'Audio Annotation',
-    icon: FaFileAudio,
-    color: 'from-green-600 to-green-800',
-    accent: '#22c55e',
-    description: 'Transcription & speaker diarization',
-    image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&h=400&fit=crop'
+    index: '03',
+    title: 'Audio',
+    tasks: 'Transcription, speaker diarization, event detection',
+    note: 'Time-aligned segments, verified against the source waveform.',
+    Demo: AudioDemo,
+    dur: 3.6,
+    marks: [
+      { at: 0, label: "speaker A segment begins" },
+      { at: 50, label: "speaker change, B takes over" },
+      { at: 100, label: "end of clip" }
+    ]
   },
   {
-    id: 'csv',
-    title: 'Text / CSV Annotation',
-    icon: FaFileCsv,
-    color: 'from-amber-600 to-amber-800',
-    accent: '#f59e0b',
-    description: 'Sentiment, NER & classification',
-    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=400&fit=crop'
+    index: '04',
+    title: 'Text & tabular',
+    tasks: 'Entity recognition, sentiment, classification, CSV fields',
+    note: 'Nested and conditional questions for structured schemas.',
+    Demo: TextDemo,
+    dur: 4.5,
+    marks: [
+      { at: 10, label: "first entity selected" },
+      { at: 23, label: "second entity selected" },
+      { at: 37, label: "third entity selected" },
+      { at: 85, label: "pass complete, reset" }
+    ]
   }
 ]
 
 export function ValueProposition() {
   return (
-    <section className="py-24 px-6 bg-white border-y border-slate-100">
-      <div className="container mx-auto">
-        {/* Heading */}
-        <div className="max-w-4xl mx-auto text-center mb-16">
+    <section id="annotate" data-nav="light" className="bg-[var(--lp-paper)] px-6 py-24 text-[var(--lp-ink)] md:py-32">
+      {/* 12-col grid, split 5/7. The headline column is sticky and the list
+          starts one beat lower, so the two columns never share a baseline —
+          the asymmetry is the point. */}
+      <div className="container mx-auto grid gap-16 lg:grid-cols-12 lg:gap-12">
+        <header className="lg:col-span-5 lg:self-start lg:sticky lg:top-32">
+          <SlideUp>
+            <p className="mb-6 font-mono text-xs uppercase tracking-[0.2em] text-[var(--lp-muted)]">
+              What we annotate
+            </p>
+          </SlideUp>
+
           <TextReveal
-            text="Reliable AI has no shortcuts."
-            className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight"
             as="h2"
+            text="Reliable AI has no shortcuts."
+            className="max-w-[12ch] text-5xl font-semibold leading-[1.02] tracking-tight md:text-6xl [text-wrap:balance]"
           />
 
-          <SlideUp delay={0.2}>
-            <p className="text-xl md:text-2xl text-slate-600 mb-4 leading-relaxed">
-              We provide precision data annotation at scale, powering the models that drive critical decisions.
+          <SlideUp delay={0.15}>
+            <p className="mt-8 max-w-[36ch] text-lg leading-relaxed text-[var(--lp-ink-2)]">
+              Precision labels at scale, produced by people with domain knowledge
+              and checked by consensus &mdash; the ground truth behind models
+              that make consequential decisions.
             </p>
           </SlideUp>
 
-          <SlideUp delay={0.4}>
-            <p className="text-sm font-mono tracking-widest text-slate-400 uppercase">
-              HUMANS IN THE LOOP • SECURE • CERTIFIED
-            </p>
+          <SlideUp delay={0.3}>
+            <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-2 border-t border-[var(--lp-rule)] pt-5 font-mono text-xs uppercase tracking-[0.18em] text-[var(--lp-muted)]">
+              <li>Humans in the loop</li>
+              <li>Secure</li>
+              <li>Certified</li>
+            </ul>
           </SlideUp>
-        </div>
+        </header>
 
-        {/* Annotation Type Showcase Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-          {annotationTypes.map((item, i) => {
-            const Icon = item.icon
-            return (
-              <motion.div
-                key={item.id}
-                variants={cardEntrance}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, margin: '0px 0px -15% 0px', amount: 0.2 }}
-                transition={{ delay: i * 0.1, duration: 0.7, ease: EASE_OUT_EXPO }}
-                whileHover={{ scale: 1.03, boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}
-                className="group/card relative rounded-2xl overflow-hidden border border-slate-200 bg-white hover:border-slate-300 transition-all duration-500 ease-out cursor-pointer shadow-sm hover:shadow-lg"
-              >
-                {/* Image with zoom on hover (Scale.com style: 1000ms) */}
-                <div className="aspect-[4/3] relative overflow-hidden bg-slate-100">
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="w-full h-full object-cover opacity-80 group-hover/card:opacity-95 group-hover/card:scale-105 transition-all duration-1000 ease-out"
-                  />
-                  {/* Dark gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+        <ul className="lg:col-span-7 lg:mt-28 border-t border-[var(--lp-rule)]">
+          {modalities.map(({ index, title, tasks, note, Demo, dur, marks }, i) => (
+            <motion.li
+              key={index}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '0px 0px -10% 0px' }}
+              transition={{ duration: 0.7, delay: i * 0.08, ease: EASE_OUT_EXPO }}
+              className="lp-row group grid grid-cols-[2.5rem_1fr] items-start gap-x-4 gap-y-6 border-b border-[var(--lp-rule)] py-8 sm:grid-cols-[3rem_1fr_11rem] sm:gap-x-8"
+            >
+              <span className="pt-1 font-mono text-sm text-[var(--lp-muted)]">{index}</span>
 
-                  {/* Scale.com mix-blend-multiply hover overlay */}
-                  <div className="pointer-events-none absolute inset-0 z-[1] bg-black opacity-0 mix-blend-multiply transition-opacity duration-300 ease-out group-hover/card:opacity-[0.12]" />
+              <div>
+                <h3 className="text-2xl font-semibold tracking-tight md:text-3xl">{title}</h3>
+                <p className="mt-2 text-base text-[var(--lp-ink-2)]">{tasks}</p>
+                <p className="mt-3 max-w-[44ch] text-sm leading-relaxed text-[var(--lp-muted)]">
+                  {note}
+                </p>
+              </div>
 
-                  {/* Animated annotation overlay (SVG bounding box that draws on hover) */}
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-0 group-hover/card:opacity-100 transition-opacity duration-500">
-                    <motion.rect
-                      x="15%"
-                      y="20%"
-                      width="40%"
-                      height="45%"
-                      fill={`${item.accent}20`}
-                      stroke={item.accent}
-                      strokeWidth={2}
-                      strokeDasharray={300}
-                      initial={{ strokeDashoffset: 300 }}
-                      whileInView={{ strokeDashoffset: 0 }}
-                      transition={{ duration: 0.8, ease: 'easeInOut' }}
-                    />
-                  </svg>
-
-                  {/* Label badge on image */}
-                  <div
-                    className="absolute top-3 left-3 px-2 py-1 text-[10px] font-mono font-bold text-white rounded opacity-0 group-hover/card:opacity-100 transition-opacity duration-500"
-                    style={{ backgroundColor: item.accent }}
-                  >
-                    ANNOTATED
-                  </div>
-                </div>
-
-                {/* Content below image */}
-                <div className="p-5 bg-slate-50/90 border-t border-slate-100">
-                  {/* Icon */}
-                  <motion.div
-                    whileHover={{ scale: 1.1 }}
-                    transition={{ duration: 0.25, ease: [0.34, 1.56, 0.64, 1] }}
-                    className={`w-10 h-10 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center mb-3 group-hover/card:scale-110 transition-transform duration-500`}>
-                    <Icon className="text-white text-lg" />
-                  </motion.div>
-
-                  <h3 className="text-lg font-bold text-slate-800 mb-1 group-hover/card:text-slate-900 transition-colors">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-slate-500 line-clamp-2">
-                    {item.description}
-                  </p>
-
-                  </div>
-
-                {/* Gradient glow on hover */}
-                <div
-                  className="absolute -inset-1 rounded-2xl opacity-0 group-hover/card:opacity-10 blur-xl transition-opacity duration-500 pointer-events-none"
-                  style={{ background: `radial-gradient(circle at center, ${item.accent}, transparent 70%)` }}
-                />
-              </motion.div>
-            )
-          })}
-        </div>
+              <div className="lp-clip col-span-2 sm:col-span-1 sm:justify-self-end">
+                <Demo />
+                <Timeline dur={dur} marks={marks} />
+              </div>
+            </motion.li>
+          ))}
+        </ul>
       </div>
     </section>
   )

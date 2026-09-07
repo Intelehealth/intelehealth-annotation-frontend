@@ -7,10 +7,11 @@ import { SmoothScrollProvider } from '@/components/landing/providers/SmoothScrol
 import { LandingHeader } from '@/components/landing/LandingHeader'
 import { HeroSection } from '@/components/landing/sections/HeroSection'
 import { ValueProposition } from '@/components/landing/sections/ValueProposition'
-import { CategoryShowcase } from '@/components/landing/sections/CategoryShowcase'
-import { CustomerCarousel } from '@/components/landing/sections/CustomerCarousel'
-import { FeaturesSection } from '@/components/landing/sections/FeaturesSection'
+import { ClientMarquee } from '@/components/landing/sections/ClientMarquee'
+import { Services } from '@/components/landing/sections/Services'
+import { FaqSection } from '@/components/landing/sections/FaqSection'
 import { FinalCTA } from '@/components/landing/sections/FinalCTA'
+import { Footer } from '@/components/landing/sections/Footer'
 
 export default function Home() {
   const { user, isLoading } = useAuth()
@@ -31,11 +32,12 @@ export default function Home() {
         <main>
           <HeroSection />
           <ValueProposition />
-          <CategoryShowcase />
-          <FeaturesSection />
-          <CustomerCarousel />
+          <Services />
+          <ClientMarquee />
+          <FaqSection />
           <FinalCTA />
         </main>
+        <Footer />
       </div>
     </SmoothScrollProvider>
   )
