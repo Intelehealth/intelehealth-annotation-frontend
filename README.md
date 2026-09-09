@@ -1,515 +1,154 @@
-# Dyno Annotation Platform — Frontend
+# Latent Verify — frontend
 
-A production-grade data annotation platform built with **Next.js 15.4.7**, **React 19.1.0**, **TypeScript**, and **Tailwind CSS v4**. This frontend communicates with the NestJS backend API and requires both the backend and MongoDB to be running.
+The web app for Latent Verify, LatentSig's multi-annotator data annotation platform: administrators create datasets and define the questions annotators answer, annotators label isolated copies of the data, and the platform measures agreement and runs a review flow so exported labels come with a reliability figure attached.
 
-| Component       | URL / Port                    |
-| --------------- | ----------------------------- |
-| Frontend (this) | `http://localhost:3000`       |
-| Backend API     | `http://localhost:4000`       |
-| MongoDB         | `mongodb://localhost:27017`   |
+This repository is the Next.js frontend only. It talks to a separate backend service over HTTP.
 
----
-
-## Table of Contents
-
-1. [Prerequisites](#1-prerequisites)
-2. [Installation](#2-installation)
-3. [Environment Variables](#3-environment-variables)
-4. [Running the Application](#4-running-the-application)
-5. [Build for Production](#5-build-for-production)
-6. [Code Quality](#6-code-quality)
-7. [Routes](#7-routes)
-8. [Upload Workflow](#8-upload-workflow)
-9. [Supported Upload Formats](#9-supported-upload-formats)
-10. [Annotation Workflow](#10-annotation-workflow)
-11. [Analytics](#11-analytics)
-12. [Troubleshooting](#12-troubleshooting)
-13. [All OS Setup Guide](#13-all-os-setup-guide)
-
----
-
-## 1. Prerequisites
-
-| Tool       | Minimum Version | Check Command          |
-| ---------- | --------------- | ---------------------- |
-| Node.js    | 22+             | `node --version`       |
-| npm        | 10+             | `npm --version`        |
-| MongoDB    | 6+              | `mongod --version`     |
-| Backend    | —               | `curl localhost:4000`  |
-
-> The backend repository must be cloned, configured, and running before starting the frontend. See the backend README for instructions.
-
----
-
-## 2. Installation
-
-```bash
-git clone <repository-url>
-cd annotation-platform-frontend
-
-npm install
-```
-
----
-
-## 3. Environment Variables
-
-Copy the example environment file:
-
-```bash
-# Windows CMD:     copy .env.local.example .env.local
-# PowerShell:      Copy-Item .env.local.example .env.local
-# macOS / Linux / WSL / Git Bash:
-cp .env.local.example .env.local
-```
-
-The only frontend environment variable is:
-
-| Variable              | Required Value                  | Description                        |
-| --------------------- | ------------------------------- | ---------------------------------- |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:4000`         | Base URL of the NestJS backend API |
-
-> `NEXT_PUBLIC_*` variables are baked into the JavaScript bundle at build time. If you change this value, you must rebuild.
-
----
-
-## 4. Running the Application
-
-### Development (hot reload)
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### Production (after build)
-
-```bash
-npm start
-```
-
-### Required running services
-
-All three must be active simultaneously:
-
-| Service  | How to start                                                |
-| -------- | ----------------------------------------------------------- |
-| MongoDB  | `mongod` or `mongosh` or via Docker                         |
-| Backend  | `cd backend && npm run start:dev` (see backend README)      |
-| Frontend | `npm run dev` (this repository)                             |
-
----
-
-## 5. Build for Production
-
-```bash
-npm run build
-```
-
-The output uses Next.js `standalone` mode (configured in `next.config.ts`). The build artifact is written to `.next/` (production) or `.next-dev/` (development).
-
-> **Note:** `ignoreBuildErrors: true` and `ignoreDuringBuilds: true` are configured. TypeScript and ESLint errors are suppressed during production builds. Run `npx tsc --noEmit` separately to check types.
-
----
-
-## 6. Code Quality
-
-```bash
-# TypeScript check
-npx tsc --noEmit
-
-# Lint
-npm run lint
-```
-
----
-
-## 7. Routes
-
-| Route                                 | Page                            | Access         |
-| ------------------------------------- | ------------------------------- | -------------- |
-| `/login`                              | Login (email / Google OAuth)    | Public         |
-| `/dashboard`                          | Role-based dashboard            | ADMIN/ANNOTATOR |
-| `/dataset`                            | Dataset list                    | ADMIN          |
-| `/dataset/[id]`                       | Dataset detail + field config   | ADMIN          |
-| `/dataset/[id]/annotation`            | Annotation workbench (3 modes)  | ADMIN/ANNOTATOR |
-| `/dataset/[id]/analytics`             | Redirects to annotation?view=dataset-analytics | ADMIN |
-| `/dataset/[id]/consensus`             | Consensus review                | ADMIN          |
-| `/tasks`                              | My assigned tasks               | ANNOTATOR      |
-| `/users`                              | User management (invite, roles) | ADMIN          |
-| `/profile`                            | Profile + change password       | All            |
-
----
-
-## 8. Upload Workflow
-
-**Admin upload flow:**
-
-1. Navigate to **Datasets** → **Add Dataset**
-2. Enter a name and description → **Create**
-3. On the dataset detail page, click **Upload CSV** or choose a document type
-4. Select a file → **Upload**
-5. The backend processes the file and adds rows to the dataset
-6. Configure annotation fields (text, dropdown, number, etc.) → **Save Field Configuration**
-
----
-
-## 9. Supported Upload Formats
-
-The platform supports **18 file formats** for upload and processing:
-
-| Category | Formats |
+| | |
 |---|---|
-| Tabular Data | CSV, XLS, XLSX |
-| Documents | PDF, DOCX, DOC, ODT |
-| Presentations | PPTX, PPT, ODP |
-| Images | PNG, JPG, JPEG, TIFF, BMP, WEBP, SVG |
-| Archives | ZIP (nested extraction up to depth 2) |
+| Live site | https://data-annotation-frontend-1045030213449.asia-south1.run.app |
+| Backend API (production) | https://annotation-backend-1045030213449.asia-south1.run.app |
+| Backend API (local default) | `http://localhost:4000` |
+| Docs (in-app) | `/documentation` |
 
-**Important notes:**
-- **CSV uploads** create datasets with embedded row storage. Very large CSVs (>100k rows) may hit MongoDB's 16 MB BSON document limit.
-- **PDF uploads** work for native-text PDFs. For scanned/image-only PDFs, text extraction will return empty results because the backend OCR provider is a stub (no true OCR is configured).
-- **ZIP archives** can contain any of the above formats. Maximum 500 files, 500 MB total extracted size, nesting depth 2.
-- **Cloud sources** (Google Drive, OneDrive, Dropbox, S3, Azure Blob, SharePoint) require manual environment variable configuration in the backend.
+## Stack
 
----
+- **Next.js 15.4** (App Router, `output: 'standalone'`), **React 19**, **TypeScript**
+- **Tailwind CSS v4** with shadcn/Radix primitives
+- Framer Motion, GSAP + Lenis (landing page motion), Recharts (statistics), pdf.js (document preview), ExcelJS (exports)
+- Playwright for end-to-end tests
 
-## 10. Annotation Workflow
+Node 20 or newer. `.nvmrc` pins 24; CI builds on 20; the Docker image uses `node:26-alpine`.
 
-**Admin — Prepare dataset:**
-
-1. Create dataset and upload data (see [Upload Workflow](#8-upload-workflow))
-2. Configure annotation fields on the dataset detail page
-3. Clone the dataset to one or more annotators → **Clone & Assign**
-
-**Annotator — Annotate data:**
-
-1. Log in and go to **My Tasks**
-2. Click on an assigned task to open the **Annotation Workbench**
-3. Review each row and fill in annotation fields
-4. Save progress incrementally
-5. When all rows are complete, click **Submit**
-
-**Admin — Review and export:**
-
-1. Review annotations via the **Consensus** page at `/dataset/[id]/consensus`
-2. Export annotated data as CSV from the dataset detail page
-
-### Workbench Modes
-
-The annotation workbench supports three view modes accessible from the top navigation bar:
-
-| Mode | Button | Description |
-|------|--------|-------------|
-| **Annotation** | `[ Annotation ]` | Two-panel layout: left = data/document view, right = annotation fields |
-| **Document View** | `[ Document View ]` | Full source document preview for the selected row |
-| **Dataset Analytics** | `[ Dataset Analytics ]` | Inline analytics dashboard (same page, not a separate route) |
-
-All three modes stay within the same workbench page. Switching modes preserves the selected dataset and row context. The existing "Back to Dataset" button returns to the dataset detail page.
-
-**Document View** renders inline previews based on file type:
-
-| Format | Preview Mode | Details |
-|--------|-------------|---------|
-| **PDF** | Embedded iframe | Native browser PDF viewer with page navigation, zoom |
-| **PNG, JPG, JPEG, TIFF, BMP, WEBP** | Inline `<img>` | Scaled to fit, preserves aspect ratio |
-| **SVG** | Inline `<img>` | Rendered safely (no script execution) |
-| **CSV** | Paginated HTML table | Header row + data rows, 25 rows per page, pagination controls |
-| **XLSX / XLS** | Paginated HTML table | Sheet selector dropdown, header row, pagination, parsed via exceljs |
-| **DOCX, DOC, PPTX, PPT, ODT, ODP** | Download link | Browser-native preview not available; file can be downloaded |
-| **ZIP** | Download link | Not rendered inline; extracted documents are individual assets |
-
-Documents are served through the backend's protected content endpoint with JWT authentication.
-
----
-
-## 11. Analytics
-
-Analytics are available inline within the dataset workbench by selecting "Dataset Analytics" mode from the navigation. The standalone `/dataset/[id]/analytics` route redirects to the workbench with `?view=dataset-analytics`. Data is fetched from the backend analytics API:
-
-- **Dataset-level metrics:** total documents, row count, annotation progress, consensus status
-- **Processing metrics:** document status distribution (pie chart), source type breakdown
-- **Annotation progress:** completion percentage, completed/in-progress/pending breakdown (bar chart)
-- **Consensus overview:** agreed/disagreed/resolved/pending counts, agreement rate gauge
-- **AI Analytics Agent:** read-only query tool for dataset summary, failures, low-confidence fields, pending reviews, duplicates, etc.
-
-All analytics are read-only — they never modify data. Visualizations use **Recharts** (pie charts, bar charts, progress bars, gauge charts).
-
----
-
-## 12. Troubleshooting
-
-| Problem                              | Likely Cause                         | Fix                                                                                                              |
-| ------------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Blank page at `localhost:3000`       | Build or runtime error               | Check terminal output. Run `npm run build` to see errors.                                                        |
-| API calls return `Network Error`     | Backend not running / wrong API URL  | Verify `curl http://localhost:4000` returns a response. Check `NEXT_PUBLIC_API_URL` in `.env.local`.              |
-| `CORS` error in browser console      | Backend `FRONTEND_URL` mismatch      | Ensure backend `.env` has `FRONTEND_URL=http://localhost:3000`.                                                   |
-| Google login redirects wrong         | Callback URL mismatch                | Backend `GOOGLE_CALLBACK_URL` must match Google Cloud Console exactly.                                           |
-| Port 3000 already in use             | Another process on that port         | **CMD:** `netstat -ano \| findstr :3000` / **PowerShell:** `netstat -ano \| Select-String :3000` / **WSL/Linux/Mac:** `lsof -i :3000` |
-| MongoDB connection error             | MongoDB not running                  | Start `mongod` or check MongoDB connection string in backend `.env`.                                             |
-| `NEXT_PUBLIC_API_URL` is `undefined` | Missing env variable at build time   | Ensure `.env.local` exists and contains the variable. Rebuild if needed.                                         |
-| Uploaded file rejected               | Format not supported or corrupt      | Check the 18 supported formats. Files are validated by magic bytes on the backend.                               |
-| PDF text appears empty               | Scanned PDF without text layer       | The backend OCR provider is a stub. Only native-text PDFs are supported.                                         |
-| Processed data not appearing         | Backend processing incomplete        | Check SSE event stream at `/processing/document/:id/events` on the backend.                                      |
-
----
-
-## 13. All OS Setup Guide
-
-### Identifying your environment
-
-| Environment         | How to identify                              |
-| ------------------- | -------------------------------------------- |
-| Windows CMD         | `echo %OS%` → `Windows_NT`                   |
-| Windows PowerShell  | `$PSVersionTable.PSVersion`                  |
-| Windows WSL (Ubuntu)| `uname -r` → contains `microsoft`            |
-| Windows Git Bash    | `echo $MSYSTEM` → `MINGW64` or `MSYS`        |
-| macOS               | `uname -s` → `Darwin`                        |
-| Linux               | `uname -s` → `Linux`                         |
-
-### Command equivalents
-
-| Operation            | CMD                             | PowerShell                            | WSL / macOS / Linux / Git Bash         |
-| -------------------- | ------------------------------- | ------------------------------------- | -------------------------------------- |
-| Copy file            | `copy src dest`                 | `Copy-Item src dest`                  | `cp src dest`                          |
-| Navigate to folder   | `cd path\to\folder`             | `cd path\to\folder`                   | `cd path/to/folder`                    |
-| List files           | `dir`                           | `ls` / `Get-ChildItem`                | `ls`                                   |
-| Environment variable | `set VAR=value`                 | `$env:VAR = "value"`                  | `export VAR=value`                     |
-| Check port usage     | `netstat -ano \| findstr :PORT` | `netstat -ano \| Select-String :PORT` | `lsof -i :PORT` / `ss -tlnp \| grep :PORT` |
-
-### Full setup by OS
-
-<details>
-<summary><strong>Windows (CMD)</strong></summary>
-
-```cmd
-REM 1. Install Node.js 22+ from https://nodejs.org
-node --version
-
-REM 2. Clone and install
-git clone <repository-url>
-cd annotation-platform-frontend
-npm install
-
-REM 3. Create env file
-copy .env.local.example .env.local
-
-REM 4. Start MongoDB (using Docker Desktop)
-docker run -d -p 27017:27017 --name mongodb mongo:7
-
-REM 5. Start the backend (in a separate terminal)
-cd ../backend
-copy .env.example .env
-npm install
-npm run start:dev
-
-REM 6. Start the frontend (in another terminal)
-cd ../annotation-platform-frontend
-npm run dev
-
-REM 7. Open http://localhost:3000
-```
-</details>
-
-<details>
-<summary><strong>Windows (PowerShell)</strong></summary>
-
-```powershell
-# 1. Install Node.js 22+ from https://nodejs.org
-node --version
-
-# 2. Clone and install
-git clone <repository-url>
-cd annotation-platform-frontend
-npm install
-
-# 3. Create env file
-Copy-Item .env.local.example .env.local
-
-# 4. Start MongoDB
-docker run -d -p 27017:27017 --name mongodb mongo:7
-
-# 5. Start the backend (separate terminal)
-cd ../backend
-Copy-Item .env.example .env
-npm install
-npm run start:dev
-
-# 6. Start the frontend (separate terminal)
-cd ../annotation-platform-frontend
-npm run dev
-
-# 7. Open http://localhost:3000
-```
-</details>
-
-<details>
-<summary><strong>Windows (WSL / Ubuntu)</strong></summary>
+## Getting started
 
 ```bash
-# 1. Install Node.js 22+
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-node --version
-
-# 2. Clone and install
-git clone <repository-url>
+git clone https://github.com/latentsig/annotation-platform-frontend.git
 cd annotation-platform-frontend
 npm install
-
-# 3. Create env file
-cp .env.local.example .env.local
-
-# 4. Start MongoDB
-sudo mongod --dbpath /var/lib/mongodb &
-# or via Docker: docker run -d -p 27017:27017 --name mongodb mongo:7
-
-# 5. Start the backend (separate terminal)
-cd ../backend
-cp .env.example .env
-npm install
-npm run start:dev
-
-# 6. Start the frontend (separate terminal)
-cd ../annotation-platform-frontend
-npm run dev
-
-# 7. Open http://localhost:3000
 ```
-</details>
 
-<details>
-<summary><strong>macOS</strong></summary>
+Create `.env.local`:
 
 ```bash
-# 1. Install Node.js 22+ via Homebrew
-brew install node@22
-node --version
-
-# 2. Clone and install
-git clone <repository-url>
-cd annotation-platform-frontend
-npm install
-
-# 3. Create env file
-cp .env.local.example .env.local
-
-# 4. Start MongoDB
-brew services start mongodb-community@7
-# or via Docker: docker run -d -p 27017:27017 --name mongodb mongo:7
-
-# 5. Start the backend (separate terminal)
-cd ../backend
-cp .env.example .env
-npm install
-npm run start:dev
-
-# 6. Start the frontend (separate terminal)
-cd ../annotation-platform-frontend
-npm run dev
-
-# 7. Open http://localhost:3000
+# Where the frontend sends API calls. Baked into the client bundle at build
+# time — change it and rebuild.
+NEXT_PUBLIC_API_URL=http://localhost:4000
 ```
-</details>
 
-<details>
-<summary><strong>Linux (Ubuntu / Debian)</strong></summary>
+Point it at the production backend instead if you are not running one locally:
 
 ```bash
-# 1. Install Node.js 22+
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-node --version
-
-# 2. Clone and install
-git clone <repository-url>
-cd annotation-platform-frontend
-npm install
-
-# 3. Create env file
-cp .env.local.example .env.local
-
-# 4. Start MongoDB
-sudo systemctl start mongod
-# or: docker run -d -p 27017:27017 --name mongodb mongo:7
-
-# 5. Start the backend (separate terminal)
-cd ../backend
-cp .env.example .env
-npm install
-npm run start:dev
-
-# 6. Start the frontend (separate terminal)
-cd ../annotation-platform-frontend
-npm run dev
-
-# 7. Open http://localhost:3000
+NEXT_PUBLIC_API_URL=https://annotation-backend-1045030213449.asia-south1.run.app
 ```
-</details>
 
----
+Then:
 
-## Project Structure
+```bash
+npm run dev        # http://localhost:3000, hot reload
+```
+
+`NEXT_PUBLIC_API_URL` is the only environment variable the frontend reads. Document uploads go through a same-origin proxy: `next.config.ts` rewrites `/processing/*` to the backend so multipart uploads are not cross-origin; every other API call goes to the backend URL directly.
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Development server. Runs `predev` first, which copies the pdf.js worker into `public/`. |
+| `npm run build` | Production build (standalone). Runs `prebuild` (same worker copy). |
+| `npm start` | Serve a production build. |
+| `npm run lint` | ESLint via `next lint`. |
+| `npm run test:e2e` | Playwright suite in `e2e/` (consensus workflow, statistics, CSV mapping, negative paths). |
+| `npx tsc --noEmit` | Type check. The build has `ignoreBuildErrors` on, so run this separately. |
+
+`scripts/copy-pdf-worker.mjs` exists because pdf.js needs its worker served as a URL; copying it from `node_modules` on every build keeps it version-matched to the installed `pdfjs-dist` and served from our own origin rather than a CDN. `public/pdf.worker.min.mjs` is generated and git-ignored.
+
+## Project layout
 
 ```
 src/
-├── app/          # Next.js App Router pages and layouts
-├── components/   # Reusable UI components (shadcn/ui, Radix)
-├── contexts/     # React context providers
-├── lib/          # API clients, utilities, helpers
-├── schemas/      # Zod validation schemas
-├── types/        # TypeScript type definitions
-└── middleware.ts # Next.js middleware (auth, route protection)
+  app/                      routes (App Router)
+    page.tsx                landing page
+    documentation/          user docs: _docs/ (registry, content, shell, graph, search)
+                            [slug]/ pages, search-index/ route, _legacy/ (old spec, unrouted)
+    dashboard/ dataset/ tasks/ assignments/ users/ profile/   the application
+    login/ admin-login/ ... auth flows
+  components/
+    landing/                landing sections, header, hero annotator, animations
+    annotation-components/  the workbench: image, audio and text tools, media preview
+    field-config-components/ schema editor: field types, groups, nested/conditional fields
+    consensus/              collaborative review grid
+    dataset-components/     dataset list, settings, clone & assign, schema change requests
+    document-intelligence/  document view, retrieval assistant, coverage
+    ui/                     shadcn primitives
+  data/                     static content: navigation, FAQ
+  lib/  hooks/  contexts/   API client, animation vocabulary, auth context
+  middleware.ts             auth gate for app routes
+e2e/                        Playwright specs
+docs/ARCHITECTURE.md        internal code-quality audit (not user docs)
 ```
 
-## Tech Stack
+### Application routes
 
-| Technology      | Version / Notes                    |
-| --------------- | ---------------------------------- |
-| Next.js         | 15.4.7 (App Router, standalone output) |
-| React           | 19.1.0                             |
-| TypeScript      | 5.x                                |
-| Tailwind CSS    | 4 (via @tailwindcss/postcss)       |
-| shadcn/ui       | Radix UI primitives + CVA          |
-| Axios           | HTTP client for API calls          |
-| React Hook Form | Form management + Zod validation   |
-| Framer Motion   | Animations                         |
-| Recharts        | Analytics charts                   |
-| Playwright      | E2E testing                        |
+| Route | Purpose |
+|---|---|
+| `/` | Landing page |
+| `/documentation`, `/documentation/[slug]` | User documentation (nine pages, global search, page map) |
+| `/login`, `/admin-login`, `/verify-email`, `/create-password`, `/forgot-password`, `/reset-password`, `/auth/callback` | Authentication |
+| `/dashboard` | Workspace overview |
+| `/dataset`, `/dataset/add-dataset` | Dataset list and creation |
+| `/dataset/[id]` | Dataset detail: items, schema, settings, clone & assign |
+| `/dataset/[id]/annotation` | Annotation workbench |
+| `/dataset/[id]/consensus`, `/generate-consensus` | Consensus configuration and computation |
+| `/dataset/[id]/review-session/[shareCode]` | Shared review session for resolving conflicts |
+| `/dataset/[id]/statistics`, `/analytics` | Agreement statistics, annotator performance, exports |
+| `/tasks` | An annotator's assignments and their statuses |
+| `/assignments/review` | Review requests (approve, request rework) |
+| `/users`, `/profile` | Team management, own account |
 
-## License
+## Landing page
 
-Proprietary — Dyno Annotation Platform
-# Document upload + async processing (frontend)
+`src/app/page.tsx` composes `src/components/landing/sections/*`. Design notes that are not obvious from the code:
 
-## Run
+- The header is fixed over sections that alternate beige/charcoal. Each section root carries `data-nav="light|dark"`; the header reads which one is under it and flips its own colours. Add the attribute to any new section.
+- Section animations are CSS keyframes on inline SVG, not JS. Each drawing's loop length is passed to the `Timeline` beneath it so the playhead stays in sync.
+- Palette lives on `--lp-*` tokens in `globals.css` (`.landing-page` scope); docs use `--doc-*`. Both are independent of the app's shadcn tokens.
+- Lenis owns scrolling and is wired to GSAP's ticker and ScrollTrigger in `SmoothScrollProvider`; anything using ScrollTrigger must go through it.
+
+## Documentation
+
+`/documentation` is generated from `src/app/documentation/_docs/registry.tsx`. To add a page: write its body in `content.tsx` using the primitives (`H2`, `Steps`, `Table`, `Callout`, `D` for internal links), add an entry to the registry with its `sections` (these drive the on-page TOC) and `related` slugs (these draw the connection graph). Search is full-text over an index the server builds by rendering each page to static markup (`search-index/route.ts`); nothing to regenerate.
+
+## Docker
+
+```bash
+docker compose up --build
+# or
+docker build --build-arg NEXT_PUBLIC_API_URL=https://annotation-backend-1045030213449.asia-south1.run.app -t latent-verify-frontend .
+docker run -p 3000:3000 latent-verify-frontend
 ```
-cd annotation-platform-frontend
-npm install
-cp .env.local.example .env.local   # NEXT_PUBLIC_API_URL=http://localhost:4000
-npm run dev                        # http://localhost:3000
-```
-Production: `npm run build && npm run start`.
 
-Backend + worker must be running (see backend README). The frontend calls the
-backend directly at `NEXT_PUBLIC_API_URL`; only `NEXT_PUBLIC_*` variables are
-exposed to the browser (never secrets).
+The image is a two-stage build producing the standalone server; `NEXT_PUBLIC_API_URL` is a build argument because it is compiled into the bundle.
 
-## Upload → processing → Field Config
-1. Upload returns HTTP 202 → item shows **Queued**, then **Processing**, then **Completed**.
-2. The Upload tab shows a truthful **Worker connected / Worker unavailable** banner
-   (from `GET /processing/worker/status`).
-3. When the first document completes and no field config exists, the app auto-opens
-   `?tab=field-configuration` (driven by API state, not a timer).
-4. Workbench header = **Back to Dataset** + [Annotation][Document View][Dataset Analytics].
-   Dataset Analytics renders inside the same workbench and shows real metrics.
+## Deployment
 
-## Error handling
-- "Upload timed out" only on a real network timeout.
-- HTTP errors map to clear messages (400/401/403/413/422/500/503).
-- The auth-refresh call has a 10s timeout so it can't hold an upload hostage.
+GitHub Actions → Google Artifact Registry → Cloud Run, all in `asia-south1` (project `refined-outlet-249712`), authenticated with Workload Identity Federation (no stored keys).
 
-## Supported formats (frontend dropzone)
-PDF, PNG, JPG, JPEG, TIFF, BMP, WEBP, SVG, CSV, XLS, XLSX, DOC, DOCX, PPT, PPTX,
-ODT, ODP, ZIP. Legacy DOC/PPT are reported BLOCKED at processing (no converter).
+| Workflow | Trigger | Result |
+|---|---|---|
+| `ci-cd.yml` | push to `feature/nested-conditional-questions`, or manual | build, push image `data-annotation/frontend`, deploy service `data-annotation-frontend` (the live site) |
+| `deploy-development.yml` | push to `dev`, or manual | development deployment |
+| `pr-check.yml` | pull requests to `main`, `dev` | build validation |
+
+Note that the production deploy is tied to `feature/nested-conditional-questions`, not `main`. Merging to that branch deploys.
+
+## Branches
+
+- `feature/nested-conditional-questions` — deploy branch; contains `main` and `feature/multi-dataset-upload`
+- `rehaul` — landing page redesign, header, user documentation, and the fix that restored the production build (feature-by-feature commits)
+- `feature/rag-document-intelligence`, `feature/analytics-integration` — carry commits not yet in the deploy branch
+
+## Related
+
+- Backend: separate repository (NestJS). Its URL is the only thing this app needs from it; setup lives in that repo's README.
+- `docs/ARCHITECTURE.md` — internal audit of the frontend's structure and known problem areas.
