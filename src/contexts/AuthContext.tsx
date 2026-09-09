@@ -165,12 +165,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       startHeartbeat();
 
-      // Dynamic routing based on role
-      if (currentUser && currentUser.role && currentUser.role.toUpperCase() === 'ADMIN') {
-        router.push('/dashboard');
-      } else {
-        router.push('/documentation');
-      }
+      // Everyone lands on the dashboard; it renders the admin or annotator view
+      // by role. (Annotators used to be sent to /documentation, which hid their
+      // task view entirely.)
+      router.push('/dashboard');
 
       return { success: true };
     } catch (error: any) {
@@ -212,12 +210,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       startHeartbeat();
 
-      // Dynamic routing based on role
-      if (currentUser && currentUser.role && currentUser.role.toUpperCase() === 'ADMIN') {
-        router.push('/dashboard');
-      } else {
-        router.push('/documentation');
-      }
+      // Everyone lands on the dashboard; it renders the admin or annotator view
+      // by role. (Annotators used to be sent to /documentation, which hid their
+      // task view entirely.)
+      router.push('/dashboard');
 
       return { success: true };
     } catch (error: any) {
