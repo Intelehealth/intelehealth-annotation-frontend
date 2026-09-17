@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  GripVertical,
   Plus,
   Trash2,
   Save,
@@ -29,6 +30,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CSVColumnsDisplay } from "./csv-columns-display";
+import { MergeColumns } from "./merge-columns";
 import { useToast } from "@/components/ui/toast";
 import { FieldGroup, VisibilityRule, BranchOption } from "@/types/feature1";
 import { FieldGroupEditor } from "./field-group-editor";
@@ -230,6 +232,25 @@ interface FieldConfigProps {
   onNavigateToUpload?: () => void;
   onNavigateToOverview?: () => void;
 }
+
+// Fields split by what an annotator may do with them. "Viewing" fields are the
+// context they read (the CSV data, media, merged columns); "annotation" fields
+// are the questions they answer. Dragging a card between the panels flips it.
+const FIELD_PANELS = [
+  {
+    key: "view" as const,
+    title: "Viewing fields",
+    subtitle: "Read only",
+    hint: "Context an annotator reads while working. They cannot change these.",
+  },
+  {
+    key: "annotate" as const,
+    title: "Annotation fields",
+    subtitle: "Read & write",
+    hint: "Questions the annotator answers. Use the button on a card to move it between the two.",
+  },
+];
+type FieldPanelKey = (typeof FIELD_PANELS)[number]["key"];
 
 export function FieldConfig({
   datasetId,
@@ -1275,6 +1296,432 @@ export function FieldConfig({
     }
   };
 
+  // ── Moving fields between the viewing and annotation panels ───────────────
+  const [dragFieldId, setDragFieldId] = useState<string | null>(null);
+  const [dragHandleId, setDragHandleId] = useState<string | null>(null);
+  const [dropPanel, setDropPanel] = useState<FieldPanelKey | null>(null);
+
+  const panelOf = (field: AnnotationField): FieldPanelKey =>
+    field.isAnnotationField ? "annotate" : "view";
+
+  // Reorder within a section. The array order is the order annotators see, so
+  // a field only ever swaps with its neighbour inside the same section.
+  const moveFieldOrder = (fieldId: string, dir: -1 | 1) => {
+    setAnnotationFields((fields) => {
+      const field = fields.find((f) => f.id === fieldId);
+      if (!field) return fields;
+      const panel = panelOf(field);
+      const positions = fields
+        .map((f, i) => ({ f, i }))
+        .filter(({ f }) => panelOf(f) === panel)
+        .map(({ i }) => i);
+      const at = positions.indexOf(fields.indexOf(field));
+      const swapWith = positions[at + dir];
+      if (swapWith === undefined) return fields;
+      const next = [...fields];
+      const here = positions[at];
+      [next[here], next[swapWith]] = [next[swapWith], next[here]];
+      return next;
+    });
+    setHasChanges(true);
+  };
+
+  const moveFieldTo = (fieldId: string, panel: FieldPanelKey) => {
+    const field = annotationFields.find((f) => f.id === fieldId);
+    if (!field || panelOf(field) === panel) return;
+    if (panel === "annotate" && field.isPrimaryKey) {
+      showToast({
+        title: "The primary key stays read only",
+        description:
+          "It identifies the row, so annotators must not change it. Clear Primary Key first if you really want it annotated.",
+        type: "error",
+      });
+      return;
+    }
+    if (panel === "view" && field.isNewColumn) {
+      showToast({
+        title: "A new column is always a question",
+        description:
+          "It has no data behind it, so there is nothing to display read only. Delete it instead if it is not needed.",
+        type: "error",
+      });
+      return;
+    }
+    // Keep media types as they are when moving back to viewing; they are
+    // already read-only presentations of the underlying column.
+    const mediaType = ["image", "audio", "video"].includes(
+      getUnifiedType(field),
+    );
+    handleUnifiedTypeChange(
+      field,
+      panel === "annotate" ? "text" : mediaType ? getUnifiedType(field) : "text-metadata",
+    );
+  };
+
+  const renderFieldCard = (field: AnnotationField) => {
+                    const siblings = annotationFields.filter(
+                      (f) => panelOf(f) === panelOf(field),
+                    );
+                    const position = siblings.findIndex((f) => f.id === field.id);
+                    const newColumn = field.isNewColumn
+                      ? newColumns.find((col) => col.id === field.newColumnId)
+                      : null;
+                    const unifiedTypes = [
+                      { value: "text", label: "Text Input" },
+                      { value: "textarea", label: "Long Text" },
+                      { value: "number", label: "Numeric Input" },
+                      { value: "select", label: "Dropdown" },
+                      { value: "selectrange", label: "Numeric Range Select" },
+                      { value: "radio", label: "Radio Options" },
+                      { value: "checkbox", label: "Checkbox Toggle" },
+                      {
+                        value: "multiselect",
+                        label: "Multiple Select Checkboxes",
+                      },
+                      { value: "date", label: "Date Picker" },
+                      { value: "rating", label: "Star Rating" },
+                      { value: "url", label: "URL Link" },
+                      { value: "image", label: "Image" },
+                      { value: "audio", label: "Audio" },
+                      { value: "video", label: "Video" },
+                    ];
+
+                    const metadataTypes = [
+                      { value: "text-metadata", label: "Metadata Display" },
+                    ];
+
+                    const options = field.isNewColumn
+                      ? unifiedTypes
+                      : [...unifiedTypes, ...metadataTypes];
+                    const currentUnifiedType = getUnifiedType(field);
+                    const isInputType = unifiedTypes.some(
+                      (opt) => opt.value === currentUnifiedType,
+                    );
+                    const isTypeDisabled = Boolean(field.isPrimaryKey);
+
+                    return (
+                      <Card
+                        key={field.id}
+                        draggable={dragHandleId === field.id}
+                        onDragStart={(e) => {
+                          setDragFieldId(field.id);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragEnd={() => {
+                          setDragFieldId(null);
+                          setDragHandleId(null);
+                          setDropPanel(null);
+                        }}
+                        className={cn(
+                          "border border-gray-200 shadow-sm overflow-hidden bg-white transition-all duration-200",
+                          dragFieldId === field.id && "opacity-50",
+                          field.isNewColumn
+                            ? "hover:border-purple-200"
+                            : "hover:border-blue-200",
+                        )}
+                      >
+                        <div className="p-4 flex flex-col md:flex-row md:items-start justify-between gap-4">
+                          {/* Left Part: Name & Selection */}
+                          <div className="flex-1 min-w-0">
+                            {field.isNewColumn ? (
+                              <div className="space-y-1 max-w-md">
+                                <Input
+                                  placeholder="Column name"
+                                  value={newColumn?.columnName || ""}
+                                  disabled={false}
+                                  onChange={(e) => {
+                                    const columnName = e.target.value;
+                                    handleFieldChange(field.id, {
+                                      fieldName: columnName,
+                                      csvColumnName: columnName,
+                                    });
+
+                                    if (columnName.trim() === "") {
+                                      setColumnValidationErrors((prev) => {
+                                        const newErrors = { ...prev };
+                                        delete newErrors[field.newColumnId!];
+                                        return newErrors;
+                                      });
+                                      return;
+                                    }
+
+                                    const validation = validateColumnName(
+                                      columnName,
+                                      field.newColumnId,
+                                    );
+                                    if (!validation.isValid) {
+                                      setColumnValidationErrors((prev) => ({
+                                        ...prev,
+                                        [field.newColumnId!]:
+                                          validation.error || "",
+                                      }));
+                                    } else {
+                                      setColumnValidationErrors((prev) => {
+                                        const newErrors = { ...prev };
+                                        delete newErrors[field.newColumnId!];
+                                        return newErrors;
+                                      });
+                                    }
+                                  }}
+                                  className={cn(
+                                    "h-9 text-sm bg-white transition-colors",
+                                    columnValidationErrors[field.newColumnId!]
+                                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                                      : "border-gray-300 focus:border-blue-500 focus:ring-blue-500",
+                                  )}
+                                />
+                                {columnValidationErrors[field.newColumnId!] && (
+                                  <div className="flex items-center space-x-1 mt-1">
+                                    <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                                    <p className="text-xs text-red-500">
+                                      {
+                                        columnValidationErrors[
+                                          field.newColumnId!
+                                        ]
+                                      }
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5 max-w-md">
+                                <div className="flex items-center space-x-2">
+                                  <span
+                                    className="font-mono text-xs text-gray-600 truncate max-w-[250px]"
+                                    title="Original column name in the CSV. Used to read the data and cannot be changed."
+                                  >
+                                    {field.csvColumnName}
+                                  </span>
+                                  <span className="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded uppercase font-semibold">
+                                    CSV Column
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Display name + description, for every field. Metadata columns
+                                use fieldName/helpText (the data is read via csvColumnName);
+                                annotation inputs use questionTitle/questionDescription because
+                                answers are stored under fieldName, which must stay stable. */}
+                            <div className="mt-2 grid gap-1.5 max-w-md">
+                              <Input
+                                value={isInputType ? field.questionTitle ?? "" : field.fieldName}
+                                placeholder={isInputType ? `Display name (defaults to “${field.fieldName || "field"}”)` : "Display name shown to annotators"}
+                                aria-label="Display name"
+                                onChange={(e) =>
+                                  handleFieldChange(field.id, isInputType ? { questionTitle: e.target.value } : { fieldName: e.target.value })
+                                }
+                                className="h-8 text-sm bg-white"
+                              />
+                              <Input
+                                value={(isInputType ? field.questionDescription : field.helpText) ?? ""}
+                                placeholder="What this field means — shown as an ⓘ tip"
+                                aria-label="Field description"
+                                onChange={(e) =>
+                                  handleFieldChange(field.id, isInputType ? { questionDescription: e.target.value } : { helpText: e.target.value })
+                                }
+                                className="h-8 text-xs bg-white"
+                              />
+                              <p className="text-[11px] text-gray-500">
+                                Annotators see{" "}
+                                <span className="font-medium text-gray-700">
+                                  {(isInputType ? field.questionTitle : field.fieldName) || field.fieldName || field.csvColumnName || "…"}
+                                </span>
+                                {(isInputType ? field.questionDescription : field.helpText) ? " with an info tip." : "."}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Middle Part: Type Dropdown, Primary checkbox, action buttons */}
+                          <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
+                            <div className="w-[180px]">
+                              <select
+                                value={currentUnifiedType}
+                                onChange={(e) =>
+                                  handleUnifiedTypeChange(field, e.target.value)
+                                }
+                                disabled={isTypeDisabled}
+                                className="w-full h-9 px-3 border border-gray-300 bg-white rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                {options.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {!field.isNewColumn && (
+                              <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
+                                <input
+                                  type="checkbox"
+                                  id={`pk-${field.id}`}
+                                  checked={Boolean(field.isPrimaryKey)}
+                                  onChange={(e) =>
+                                    togglePrimaryKey(field.id, e.target.checked)
+                                  }
+                                  disabled={false}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
+                                />
+                                <Label
+                                  htmlFor={`pk-${field.id}`}
+                                  className="text-xs text-gray-600 cursor-pointer font-medium select-none"
+                                >
+                                  Primary Key
+                                </Label>
+                              </div>
+                            )}
+
+                            {isInputType && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => toggleRowExpanded(field.id)}
+                                className="h-9 text-xs font-semibold flex items-center space-x-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+                              >
+                                <span>Configure</span>
+                                {expandedRows.has(field.id) ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={false}
+                              onClick={() => {
+                                if (field.isNewColumn) {
+                                  removeNewColumn(field.newColumnId!);
+                                } else {
+                                  // Uncheck CSV column selection
+                                  setSelectedColumns((prev) => {
+                                    const newSet = new Set(prev);
+                                    newSet.delete(field.csvColumnName);
+                                    return newSet;
+                                  });
+                                }
+                                removeAnnotationField(field.id);
+                              }}
+                              className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Move this field to the other panel — bottom right */}
+                        <div className="flex items-center justify-end gap-2 border-t border-gray-100 bg-gray-50/60 px-4 py-1.5">
+                          <span
+                            onMouseDown={() => setDragHandleId(field.id)}
+                            onMouseUp={() => setDragHandleId(null)}
+                            title="Drag to the other section"
+                            className="cursor-grab rounded p-0.5 text-gray-300 hover:text-gray-600 active:cursor-grabbing"
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </span>
+                          <div className="mr-1 flex items-center">
+                            <button
+                              type="button"
+                              aria-label={`Move ${field.fieldName || field.csvColumnName || "field"} up`}
+                              title="Move up"
+                              disabled={position <= 0}
+                              onClick={() => moveFieldOrder(field.id, -1)}
+                              className="rounded-l-md border border-gray-200 bg-white p-1 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-white"
+                            >
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Move ${field.fieldName || field.csvColumnName || "field"} down`}
+                              title="Move down"
+                              disabled={position >= siblings.length - 1}
+                              onClick={() => moveFieldOrder(field.id, 1)}
+                              className="-ml-px rounded-r-md border border-gray-200 bg-white p-1 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-white"
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <span className="mr-auto text-[11px] tabular-nums text-gray-400">
+                            {position + 1} of {siblings.length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              moveFieldTo(
+                                field.id,
+                                panelOf(field) === "annotate" ? "view" : "annotate",
+                              )
+                            }
+                            className="whitespace-nowrap rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                          >
+                            {panelOf(field) === "annotate"
+                              ? "Make read only ↑"
+                              : "Make annotatable ↓"}
+                          </button>
+                        </div>
+
+                        {/* Expanded Config Panel */}
+                        {expandedRows.has(field.id) && isInputType && (
+                          <div className="px-4 pb-4 pt-3 border-t border-gray-100 bg-gray-50/50">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              {/* LEFT: Configuration */}
+                              <div className="space-y-4">
+                                <FieldTypeConfigurator
+                                  type={currentUnifiedType}
+                                  field={field}
+                                  onChange={(updates) =>
+                                    handleFieldChange(field.id, updates)
+                                  }
+                                />
+                                {/* Recursive Branching Editor for choice types */}
+                                {[
+                                  "radio",
+                                  "multiselect",
+                                  "select",
+                                  "rating",
+                                  "checkbox",
+                                ].includes(currentUnifiedType) && (
+                                  <div className="pt-4 border-t border-gray-200">
+                                    <RecursiveFieldEditor
+                                      field={field}
+                                      depth={0}
+                                      onChange={(updated) =>
+                                        handleFieldChange(field.id, updated)
+                                      }
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              {/* RIGHT: Live Preview Tree */}
+                              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                  <span>👁</span> Live Workflow Tree
+                                </h4>
+                                <LivePreviewTree fields={[field]} />
+                                {![
+                                  "radio",
+                                  "multiselect",
+                                  "select",
+                                  "rating",
+                                  "checkbox",
+                                ].includes(currentUnifiedType) && (
+                                  <div className="text-xs text-gray-400 italic mt-4 text-center">
+                                    Branching is only available for choice-based
+                                    fields (Radio, Multi-Select, Dropdown,
+                                    Rating).
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1448,6 +1895,24 @@ export function FieldConfig({
           onInvertSelection={handleInvertSelection}
           title="Select Columns"
           description="Click on columns below to add them to annotation fields"
+        />
+      )}
+
+      {/* Build one column out of several */}
+      {availableColumns.csvColumns.length +
+        availableColumns.manualColumns.length +
+        availableColumns.documentColumns.length >
+        1 && (
+        <MergeColumns
+          datasetId={datasetId}
+          columns={[
+            ...availableColumns.csvColumns,
+            ...availableColumns.manualColumns,
+            ...availableColumns.documentColumns,
+          ]}
+          onChanged={() => {
+            loadDatasetColumns();
+          }}
         />
       )}
 
@@ -1659,312 +2124,66 @@ export function FieldConfig({
                 <div>
                   <CardTitle className="flex items-center space-x-2">
                     <Database className="h-5 w-5 text-blue-600" />
-                    <span>Select Field Types</span>
+                    <span>Fields</span>
                   </CardTitle>
                   <CardDescription>
-                    Configure the type of each field for annotation
+                    Viewing fields are read-only context; annotation fields are the questions. Move a field with the button on its card.
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-4">
               {annotationFields.length > 0 ? (
-                <div className="space-y-4">
-                  {annotationFields.map((field) => {
-                    const newColumn = field.isNewColumn
-                      ? newColumns.find((col) => col.id === field.newColumnId)
-                      : null;
-                    const unifiedTypes = [
-                      { value: "text", label: "Text Input" },
-                      { value: "textarea", label: "Long Text" },
-                      { value: "number", label: "Numeric Input" },
-                      { value: "select", label: "Dropdown" },
-                      { value: "selectrange", label: "Numeric Range Select" },
-                      { value: "radio", label: "Radio Options" },
-                      { value: "checkbox", label: "Checkbox Toggle" },
-                      {
-                        value: "multiselect",
-                        label: "Multiple Select Checkboxes",
-                      },
-                      { value: "date", label: "Date Picker" },
-                      { value: "rating", label: "Star Rating" },
-                      { value: "url", label: "URL Link" },
-                      { value: "image", label: "Image" },
-                      { value: "audio", label: "Audio" },
-                      { value: "video", label: "Video" },
-                    ];
-
-                    const metadataTypes = [
-                      { value: "text-metadata", label: "Metadata Display" },
-                    ];
-
-                    const options = field.isNewColumn
-                      ? unifiedTypes
-                      : [...unifiedTypes, ...metadataTypes];
-                    const currentUnifiedType = getUnifiedType(field);
-                    const isInputType = unifiedTypes.some(
-                      (opt) => opt.value === currentUnifiedType,
+                <div className="space-y-5">
+                  {FIELD_PANELS.map((panel) => {
+                    const fields = annotationFields.filter(
+                      (f) => panelOf(f) === panel.key,
                     );
-                    const isTypeDisabled = Boolean(field.isPrimaryKey);
-
+                    const isTarget = dropPanel === panel.key;
                     return (
-                      <Card
-                        key={field.id}
+                      <section
+                        key={panel.key}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (dragFieldId) setDropPanel(panel.key);
+                        }}
+                        onDragLeave={() => setDropPanel((p) => (p === panel.key ? null : p))}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (dragFieldId) moveFieldTo(dragFieldId, panel.key);
+                          setDragFieldId(null);
+                          setDropPanel(null);
+                        }}
+                        aria-label={panel.title}
                         className={cn(
-                          "border border-gray-200 shadow-sm overflow-hidden bg-white transition-all duration-200",
-                          field.isNewColumn
-                            ? "hover:border-purple-200"
-                            : "hover:border-blue-200",
+                          "rounded-lg border-2 border-dashed p-3 transition-colors",
+                          isTarget
+                            ? "border-blue-400 bg-blue-50/40"
+                            : "border-gray-200 bg-gray-50/40",
                         )}
                       >
-                        <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          {/* Left Part: Name & Selection */}
-                          <div className="flex-1 min-w-0">
-                            {field.isNewColumn ? (
-                              <div className="space-y-1 max-w-md">
-                                <Input
-                                  placeholder="Column name"
-                                  value={newColumn?.columnName || ""}
-                                  disabled={false}
-                                  onChange={(e) => {
-                                    const columnName = e.target.value;
-                                    handleFieldChange(field.id, {
-                                      fieldName: columnName,
-                                      csvColumnName: columnName,
-                                    });
-
-                                    if (columnName.trim() === "") {
-                                      setColumnValidationErrors((prev) => {
-                                        const newErrors = { ...prev };
-                                        delete newErrors[field.newColumnId!];
-                                        return newErrors;
-                                      });
-                                      return;
-                                    }
-
-                                    const validation = validateColumnName(
-                                      columnName,
-                                      field.newColumnId,
-                                    );
-                                    if (!validation.isValid) {
-                                      setColumnValidationErrors((prev) => ({
-                                        ...prev,
-                                        [field.newColumnId!]:
-                                          validation.error || "",
-                                      }));
-                                    } else {
-                                      setColumnValidationErrors((prev) => {
-                                        const newErrors = { ...prev };
-                                        delete newErrors[field.newColumnId!];
-                                        return newErrors;
-                                      });
-                                    }
-                                  }}
-                                  className={cn(
-                                    "h-9 text-sm bg-white transition-colors",
-                                    columnValidationErrors[field.newColumnId!]
-                                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                                      : "border-gray-300 focus:border-blue-500 focus:ring-blue-500",
-                                  )}
-                                />
-                                {columnValidationErrors[field.newColumnId!] && (
-                                  <div className="flex items-center space-x-1 mt-1">
-                                    <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                                    <p className="text-xs text-red-500">
-                                      {
-                                        columnValidationErrors[
-                                          field.newColumnId!
-                                        ]
-                                      }
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="space-y-1.5 max-w-md">
-                                <div className="flex items-center space-x-2">
-                                  <span
-                                    className="font-mono text-xs text-gray-600 truncate max-w-[250px]"
-                                    title="Original column name in the CSV. Used to read the data and cannot be changed."
-                                  >
-                                    {field.csvColumnName}
-                                  </span>
-                                  <span className="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded uppercase font-semibold">
-                                    CSV Column
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Display name + description, for every field. Metadata columns
-                                use fieldName/helpText (the data is read via csvColumnName);
-                                annotation inputs use questionTitle/questionDescription because
-                                answers are stored under fieldName, which must stay stable. */}
-                            <div className="mt-2 grid gap-1.5 max-w-md">
-                              <Input
-                                value={isInputType ? field.questionTitle ?? "" : field.fieldName}
-                                placeholder={isInputType ? `Display name (defaults to “${field.fieldName || "field"}”)` : "Display name shown to annotators"}
-                                aria-label="Display name"
-                                onChange={(e) =>
-                                  handleFieldChange(field.id, isInputType ? { questionTitle: e.target.value } : { fieldName: e.target.value })
-                                }
-                                className="h-8 text-sm bg-white"
-                              />
-                              <Input
-                                value={(isInputType ? field.questionDescription : field.helpText) ?? ""}
-                                placeholder="What this field means — shown as an ⓘ tip"
-                                aria-label="Field description"
-                                onChange={(e) =>
-                                  handleFieldChange(field.id, isInputType ? { questionDescription: e.target.value } : { helpText: e.target.value })
-                                }
-                                className="h-8 text-xs bg-white"
-                              />
-                              <p className="text-[11px] text-gray-500">
-                                Annotators see{" "}
-                                <span className="font-medium text-gray-700">
-                                  {(isInputType ? field.questionTitle : field.fieldName) || field.fieldName || field.csvColumnName || "…"}
-                                </span>
-                                {(isInputType ? field.questionDescription : field.helpText) ? " with an info tip." : "."}
-                              </p>
-                            </div>
+                        <header className="mb-3 flex items-baseline justify-between gap-2">
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-800">
+                              {panel.title}
+                              <span className="ml-2 rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-600">
+                                {panel.subtitle}
+                              </span>
+                            </h3>
+                            <p className="mt-0.5 text-xs text-gray-500">{panel.hint}</p>
                           </div>
-
-                          {/* Middle Part: Type Dropdown, Primary checkbox, action buttons */}
-                          <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
-                            <div className="w-[180px]">
-                              <select
-                                value={currentUnifiedType}
-                                onChange={(e) =>
-                                  handleUnifiedTypeChange(field, e.target.value)
-                                }
-                                disabled={isTypeDisabled}
-                                className="w-full h-9 px-3 border border-gray-300 bg-white rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                {options.map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {!field.isNewColumn && (
-                              <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
-                                <input
-                                  type="checkbox"
-                                  id={`pk-${field.id}`}
-                                  checked={Boolean(field.isPrimaryKey)}
-                                  onChange={(e) =>
-                                    togglePrimaryKey(field.id, e.target.checked)
-                                  }
-                                  disabled={false}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
-                                />
-                                <Label
-                                  htmlFor={`pk-${field.id}`}
-                                  className="text-xs text-gray-600 cursor-pointer font-medium select-none"
-                                >
-                                  Primary Key
-                                </Label>
-                              </div>
-                            )}
-
-                            {isInputType && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => toggleRowExpanded(field.id)}
-                                className="h-9 text-xs font-semibold flex items-center space-x-1 border-gray-300 text-gray-700 hover:bg-gray-50"
-                              >
-                                <span>Configure</span>
-                                {expandedRows.has(field.id) ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
-                              </Button>
-                            )}
-
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={false}
-                              onClick={() => {
-                                if (field.isNewColumn) {
-                                  removeNewColumn(field.newColumnId!);
-                                } else {
-                                  // Uncheck CSV column selection
-                                  setSelectedColumns((prev) => {
-                                    const newSet = new Set(prev);
-                                    newSet.delete(field.csvColumnName);
-                                    return newSet;
-                                  });
-                                }
-                                removeAnnotationField(field.id);
-                              }}
-                              className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Expanded Config Panel */}
-                        {expandedRows.has(field.id) && isInputType && (
-                          <div className="px-4 pb-4 pt-3 border-t border-gray-100 bg-gray-50/50">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                              {/* LEFT: Configuration */}
-                              <div className="space-y-4">
-                                <FieldTypeConfigurator
-                                  type={currentUnifiedType}
-                                  field={field}
-                                  onChange={(updates) =>
-                                    handleFieldChange(field.id, updates)
-                                  }
-                                />
-                                {/* Recursive Branching Editor for choice types */}
-                                {[
-                                  "radio",
-                                  "multiselect",
-                                  "select",
-                                  "rating",
-                                  "checkbox",
-                                ].includes(currentUnifiedType) && (
-                                  <div className="pt-4 border-t border-gray-200">
-                                    <RecursiveFieldEditor
-                                      field={field}
-                                      depth={0}
-                                      onChange={(updated) =>
-                                        handleFieldChange(field.id, updated)
-                                      }
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                              {/* RIGHT: Live Preview Tree */}
-                              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                  <span>👁</span> Live Workflow Tree
-                                </h4>
-                                <LivePreviewTree fields={[field]} />
-                                {![
-                                  "radio",
-                                  "multiselect",
-                                  "select",
-                                  "rating",
-                                  "checkbox",
-                                ].includes(currentUnifiedType) && (
-                                  <div className="text-xs text-gray-400 italic mt-4 text-center">
-                                    Branching is only available for choice-based
-                                    fields (Radio, Multi-Select, Dropdown,
-                                    Rating).
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                          <span className="shrink-0 text-xs tabular-nums text-gray-500">
+                            {fields.length}
+                          </span>
+                        </header>
+                        {fields.length === 0 ? (
+                          <p className="rounded-md border border-dashed border-gray-200 bg-white/60 px-3 py-6 text-center text-xs text-gray-500">
+                            Nothing here yet. Use the button at the bottom of a field card{panel.key === "annotate" ? " to ask a question about it" : " to show it as read-only context"}.
+                          </p>
+                        ) : (
+                          <div className="space-y-4">{fields.map(renderFieldCard)}</div>
                         )}
-                      </Card>
+                      </section>
                     );
                   })}
                 </div>

@@ -2,6 +2,15 @@ import { jsonApi } from "../api";
 import { FieldGroup } from "@/types/feature1";
 
 // Field Selection API endpoints
+// A column built by joining other columns with a delimiter.
+export interface MergedColumn {
+  name: string;
+  sourceColumns: string[];
+  delimiter: string;
+  skipEmpty?: boolean;
+  createdAt?: string;
+}
+
 export const fieldSelectionAPI = {
   // Save annotation field configuration
   saveFieldSelection: async (data: {
@@ -134,6 +143,31 @@ export const fieldSelectionAPI = {
         newColumns: data.newColumns,
         fieldGroups: data.fieldGroups || [],
       },
+    );
+    return response.data;
+  },
+
+  listMergedColumns: async (datasetId: string): Promise<MergedColumn[]> => {
+    const response = await jsonApi.get(
+      `/field-selection/dataset/${datasetId}/merged-columns`,
+    );
+    return response.data;
+  },
+
+  mergeColumns: async (
+    datasetId: string,
+    body: { name: string; sourceColumns: string[]; delimiter: string; skipEmpty?: boolean },
+  ) => {
+    const response = await jsonApi.post(
+      `/field-selection/dataset/${datasetId}/merge-columns`,
+      body,
+    );
+    return response.data;
+  },
+
+  deleteMergedColumn: async (datasetId: string, name: string) => {
+    const response = await jsonApi.delete(
+      `/field-selection/dataset/${datasetId}/merged-columns/${encodeURIComponent(name)}`,
     );
     return response.data;
   },

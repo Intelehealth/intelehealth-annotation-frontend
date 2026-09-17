@@ -119,7 +119,7 @@ export function CSVColumnsDisplay({
             </div>
           )}
 
-          {/* Manual Columns (non-clickable) */}
+          {/* Manual Columns (merged columns land here, and are clickable) */}
           {manualColumns.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -133,12 +133,14 @@ export function CSVColumnsDisplay({
                     return (
                       <span
                         key={column.name}
+                        onClick={() => onColumnClick(column.name)}
                         className={cn(
-                          "px-3 py-1 text-sm border text-center truncate rounded-sm select-none",
+                          "px-3 py-1 text-sm border text-center truncate rounded-sm cursor-pointer transition-all duration-200 hover:scale-105",
                           isSelected
                             ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
-                            : "bg-green-100 text-green-800 border-green-200"
+                            : "bg-white text-green-800 border-green-200 hover:bg-green-50"
                         )}
+                        title={`${column.name} - Click to ${isSelected ? 'remove' : 'add'} to annotation fields`}
                       >
                         {column.name}
                       </span>
