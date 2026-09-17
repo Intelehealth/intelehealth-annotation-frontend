@@ -1,54 +1,52 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import ExcelJS from 'exceljs';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { parseWorkbook, SpreadsheetFormat, SheetData } from '@/lib/spreadsheet';
+import { TableEmpty, TableError, TableLoading } from './table-state';
 
 const PAGE_SIZE = 50;
 
-interface SheetData {
-  name: string;
-  rows: string[][];
-}
-
-function parseWorkbook(buffer: ArrayBuffer): Promise<SheetData[]> {
-  const workbook = new ExcelJS.Workbook();
-  return workbook.xlsx.load(buffer).then((wb) => {
-    const sheets: SheetData[] = [];
-    wb.eachSheet((sheet) => {
-      const rows: string[][] = [];
-      sheet.eachRow((row) => {
-        const cells: string[] = [];
-        row.eachCell((cell) => cells.push(Array.isArray(cell.text) ? cell.text.join('') : String(cell.text ?? '')));
-        rows.push(cells);
-      });
-      sheets.push({ name: sheet.name, rows });
-    });
-    return sheets;
-  });
-}
-
 interface SpreadsheetPreviewProps {
   buffer: ArrayBuffer;
+  format?: SpreadsheetFormat;
 }
 
-export function SpreadsheetPreview({ buffer }: SpreadsheetPreviewProps) {
+export function SpreadsheetPreview({ buffer, format = 'xlsx' }: SpreadsheetPreviewProps) {
   const [sheets, setSheets] = useState<SheetData[]>([]);
   const [active, setActive] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let on = true;
     setLoading(true);
     setError(null);
-    parseWorkbook(buffer)
+    parseWorkbook(buffer, format)
       .then((s) => {
+        if (!on) return;
         setSheets(s);
+        setActive(0);
+        setPage(0);
       })
-      .catch(() => setError('This spreadsheet could not be parsed.'))
-      .finally(() => setLoading(false));
-  }, [buffer]);
+      .catch(() => {
+        if (!on) return;
+        setError('Unable to load table preview.');
+      })
+      .finally(() => {
+        if (on) setLoading(false);
+      });
+    return () => {
+      on = false;
+    };
+  }, [buffer, format, reloadKey]);
+
+  const hasData = useMemo(
+    () => sheets.some((s) => s.rows.some((r) => r.some((c) => c !== ''))),
+    [sheets],
+  );
 
   const sheet = sheets[active];
   const dataRows = useMemo(() => (sheet ? sheet.rows.slice(1) : []), [sheet]);
@@ -57,21 +55,17 @@ export function SpreadsheetPreview({ buffer }: SpreadsheetPreviewProps) {
   const pageRows = dataRows.slice(startIdx, startIdx + PAGE_SIZE);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-      </div>
-    );
+    return <TableLoading />;
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full text-sm text-red-600">{error}</div>
+      <TableError message={error} onRetry={() => setReloadKey((k) => k + 1)} />
     );
   }
 
-  if (!sheet) {
-    return <div className="flex items-center justify-center h-full text-sm text-gray-500">Empty workbook.</div>;
+  if (!hasData || !sheet) {
+    return <TableEmpty />;
   }
 
   const header = sheet.rows[0] || [];
@@ -86,7 +80,7 @@ export function SpreadsheetPreview({ buffer }: SpreadsheetPreviewProps) {
               setActive(i);
               setPage(0);
             }}
-            className={`rounded px-2 py-1 ${i === active ? 'bg-emerald-600 text-white' : 'hover:bg-gray-200'}`}
+            className={`rounded px-2 py-1 ${i === active ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
           >
             {s.name}
           </button>
@@ -126,7 +120,7 @@ export function SpreadsheetPreview({ buffer }: SpreadsheetPreviewProps) {
           </thead>
           <tbody>
             {pageRows.map((row, ri) => (
-              <tr key={ri} className="even:bg-gray-50 hover:bg-emerald-50">
+              <tr key={ri} className="even:bg-gray-50 hover:bg-blue-50">
                 {row.map((cell, ci) => (
                   <td key={ci} className="border border-gray-200 px-2 py-1 max-w-xs truncate" title={cell}>
                     {cell}
@@ -134,6 +128,13 @@ export function SpreadsheetPreview({ buffer }: SpreadsheetPreviewProps) {
                 ))}
               </tr>
             ))}
+            {pageRows.length === 0 && (
+              <tr>
+                <td colSpan={Math.max(1, header.length)} className="px-3 py-8 text-center text-gray-400">
+                  No rows in this sheet.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

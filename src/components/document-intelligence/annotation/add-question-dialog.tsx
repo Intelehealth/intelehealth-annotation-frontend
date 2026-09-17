@@ -159,6 +159,9 @@ export function AddQuestionDialog({
         isRequired: false,
         isAnnotationField: true,
         isNewColumn: true,
+        // Backend requires exactly one primary-key field; the first added
+        // annotation field becomes the primary key.
+        isPrimaryKey: (existing?.length ?? 0) === 0,
       };
       if (isChoice) {
         newField.options = options.slice();
@@ -214,7 +217,7 @@ export function AddQuestionDialog({
             id="add-q-type"
             value={fieldType}
             onChange={(e) => setFieldType(e.target.value)}
-            className="mt-1 h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-emerald-500 focus:outline-none"
+            className="mt-1 h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-blue-500 focus:outline-none"
           >
             {FIELD_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -319,7 +322,7 @@ function DialogShell({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={onAdd} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+          <Button onClick={onAdd} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
             {saving ? 'Adding…' : 'Add'}
           </Button>
         </div>

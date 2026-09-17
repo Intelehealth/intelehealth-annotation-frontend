@@ -26,7 +26,7 @@ export function LeftDocumentPanel({ documents }: { documents: any[] }) {
         <div className="flex items-center gap-2 border-b bg-gray-50 px-3 py-2">
           <button
             onClick={() => setSelectedDocumentId(null)}
-            className="flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+            className="flex items-center gap-1 text-xs font-medium text-blue-700 hover:underline"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Documents
           </button>

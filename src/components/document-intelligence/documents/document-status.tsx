@@ -4,8 +4,8 @@ import { RagDocumentInfo } from '@/lib/api/rag';
 import { cn } from '@/lib/utils';
 
 const STATUS_STYLES: Record<string, string> = {
-  INDEXED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  READY: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  INDEXED: 'bg-blue-50 text-blue-700 border-blue-200',
+  READY: 'bg-blue-50 text-blue-700 border-blue-200',
   PROCESSING: 'bg-amber-50 text-amber-700 border-amber-200',
   FAILED: 'bg-red-50 text-red-700 border-red-200',
 };

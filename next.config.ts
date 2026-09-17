@@ -2,13 +2,16 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // Keep native (Rust) addons out of Turbopack's bundling. Turbopack cannot
+  // statically bundle the `.node` binary that lightningcss loads via a dynamic
+  // require, which causes "Cannot find module lightningcss.linux-x64-gnu.node"
+  // errors. Marking these as server-external lets the real Node runtime resolve
+  // them instead.
+  serverExternalPackages: ['lightningcss', 'lightningcss-linux-x64-gnu'],
   // Keep dev and production compiler artifacts isolated. Running `next dev`
   // while a production build is writing `.next` can leave webpack-runtime.js
   // pointing at a vendor chunk that no longer exists.
   distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },

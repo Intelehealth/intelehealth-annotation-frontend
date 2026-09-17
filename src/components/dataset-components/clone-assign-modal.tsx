@@ -387,6 +387,73 @@ export function CloneAssignModal({
               </PopoverContent>
             </Popover>
 
+            {/* Quick-select checkbox list for easier annotator selection */}
+            {available.length > 0 && canAdd && (
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
+                  <span className="text-xs font-semibold text-gray-700">Quick select annotators</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[11px] text-blue-600 hover:bg-blue-50"
+                    onClick={() => {
+                      const slot = CLONE_MAX_ANNOTATORS - selected.length;
+                      const toAdd = available.slice(0, Math.max(0, slot));
+                      setSelected((prev) => {
+                        const next = [...prev];
+                        for (const u of toAdd) {
+                          if (next.length >= CLONE_MAX_ANNOTATORS) break;
+                          if (!next.find((s) => s._id === u._id)) next.push(u);
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    Select all
+                  </Button>
+                </div>
+                <div className="max-h-44 overflow-y-auto divide-y divide-gray-50">
+                  {available.map((user) => {
+                    const activeTasks = workloads[user._id] || 0;
+                    const checked = !!selected.find((s) => s._id === user._id);
+                    const disabled = !checked && selected.length >= CLONE_MAX_ANNOTATORS;
+                    return (
+                      <label
+                        key={user._id}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors',
+                          disabled && 'opacity-50 cursor-not-allowed'
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={() =>
+                            checked ? removeUser(user._id) : addUser(user)
+                          }
+                        />
+                        <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold text-blue-600">
+                          {user.firstName?.[0] ?? ''}{user.lastName?.[0] ?? ''}
+                        </div>
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="text-sm font-medium text-gray-800 truncate">
+                            {user.firstName} {user.lastName}
+                          </span>
+                          <span className="text-xs text-gray-400 truncate">{user.email}</span>
+                        </div>
+                        <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0', getWorkloadBadgeClass(user._id))}>
+                          {activeTasks} task{activeTasks !== 1 ? 's' : ''}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Selected Annotators List */}
             {selected.length > 0 ? (
               <div className="space-y-2 max-h-52 overflow-y-auto pr-1">

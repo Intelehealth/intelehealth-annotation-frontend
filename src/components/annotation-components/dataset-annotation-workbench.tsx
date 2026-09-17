@@ -737,7 +737,7 @@ export function DatasetAnnotationWorkbench({
     
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        const VALID_FIELD_TYPES = ['text','image','audio','video','number','select','selectrange','textarea','rating','multiselect','checkbox','radio','date'];
+        const VALID_FIELD_TYPES = ['text','image','audio','video','number','select','selectrange','textarea','rating','multiselect','checkbox','radio','date','url'];
         const normalized = updatedFields.map((f: any) => ({
           ...f,
           fieldType: VALID_FIELD_TYPES.includes(f.fieldType) ? f.fieldType : (f.columnType && VALID_FIELD_TYPES.includes(f.columnType) ? f.columnType : 'text'),
@@ -1041,7 +1041,7 @@ export function DatasetAnnotationWorkbench({
       // Persist changes to backend
       if (result.updatedFields) {
         try {
-          const VALID_FIELD_TYPES = ['text','image','audio','video','number','select','selectrange','textarea','rating','multiselect','checkbox','radio','date'];
+          const VALID_FIELD_TYPES = ['text','image','audio','video','number','select','selectrange','textarea','rating','multiselect','checkbox','radio','date','url'];
           const normalizedFields = result.updatedFields.map((f: any) => ({
             ...f,
             fieldType: VALID_FIELD_TYPES.includes(f.fieldType) ? f.fieldType : (f.columnType && VALID_FIELD_TYPES.includes(f.columnType) ? f.columnType : 'text'),
@@ -1890,6 +1890,8 @@ export function DatasetAnnotationWorkbench({
           onMarkAsCompleted={handleMarkAsCompleted}
           completedCount={annotatedTasks.length}
           totalCount={tasks.length}
+          onSaveAllNewColumnData={flushPendingRowData}
+          isSaving={isSaving}
         />
       )}
 

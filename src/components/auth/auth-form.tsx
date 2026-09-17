@@ -219,7 +219,7 @@ export function AuthForm() {
 
       {/* Form */}
       {mode === "login" ? (
-        <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-4">
+        <form onSubmit={handleLoginSubmit(onLogin)} noValidate className="space-y-4">
           <Field
             id="login-email"
             label="Email"
@@ -280,7 +280,7 @@ export function AuthForm() {
           />
         </form>
       ) : (
-        <form onSubmit={handleSignupSubmit(onSignup)} className="space-y-4">
+        <form onSubmit={handleSignupSubmit(onSignup)} noValidate className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Field
               id="signup-first-name"

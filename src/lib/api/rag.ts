@@ -2,6 +2,15 @@ import { jsonApi } from '../api';
 
 export type RagDocumentStatus = 'INDEXED' | 'READY' | 'PROCESSING' | 'FAILED';
 
+export interface CsvPreviewResult {
+  columns: string[];
+  rows: string[][];
+  totalRows: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface RagDocumentInfo {
   id: string;
   fileName: string;
@@ -19,8 +28,35 @@ export interface RagIndexHealth {
   documents: number;
   chunks: number;
   ready: boolean;
+  stale: boolean;
+  reason?: 'NO_EMBEDDING_MODEL' | 'NO_INDEX' | 'CONFIG_CHANGED';
+  configuredEmbeddingProvider: RagEmbeddingProvider;
+  configuredEmbeddingModel: string;
+  embeddingProvider?: RagEmbeddingProvider;
   embeddingModel?: string;
   embeddingVersion?: string;
+}
+
+export type RagEmbeddingProvider = 'local' | 'openrouter';
+
+export interface RagEmbeddingModelInfo {
+  id: string;
+  label: string;
+  loaded?: boolean;
+  dimensions?: number;
+}
+
+export interface RagEmbeddingProviderInfo {
+  key: RagEmbeddingProvider;
+  label: string;
+  available: boolean;
+  message?: string;
+  models: RagEmbeddingModelInfo[];
+}
+
+export interface RagEmbeddingCatalog {
+  defaultProvider: RagEmbeddingProvider;
+  providers: RagEmbeddingProviderInfo[];
 }
 
 export interface RagCitation {
@@ -36,6 +72,7 @@ export interface RagChatResult {
   lowConfidence: boolean;
   citations: RagCitation[];
   selectedModel: string;
+  selectedEmbedProvider: RagEmbeddingProvider;
   selectedEmbedModel: string;
 }
 
@@ -67,15 +104,28 @@ export const ragAPI = {
     return res.data;
   },
 
-  async csvPreview(datasetId: string, csvImportId: string): Promise<{ columns: string[]; rows: string[][]; totalRows: number }> {
+  async csvPreview(
+    datasetId: string,
+    csvImportId: string,
+    opts?: { page?: number; pageSize?: number },
+  ): Promise<CsvPreviewResult> {
+    const params = new URLSearchParams();
+    if (opts?.page != null) params.set('page', String(opts.page));
+    if (opts?.pageSize != null) params.set('pageSize', String(opts.pageSize));
+    const qs = params.toString();
     const res = await jsonApi.get(
-      `/rag/datasets/${datasetId}/imports/${csvImportId}/preview`,
+      `/rag/datasets/${datasetId}/imports/${csvImportId}/preview${qs ? `?${qs}` : ''}`,
     );
     return res.data;
   },
 
   async models(): Promise<RagPresetInfo[]> {
     const res = await jsonApi.get(`/rag/models`);
+    return res.data;
+  },
+
+  async embeddingProviders(): Promise<RagEmbeddingCatalog> {
+    const res = await jsonApi.get(`/rag/embedding-providers`);
     return res.data;
   },
 
@@ -140,7 +190,14 @@ export const ragAPI = {
 
   async saveDatasetSettings(
     datasetId: string,
-    input: { model?: string; embedModel?: string; systemPrompt?: string; temperature?: number; topK?: number },
+    input: {
+      model?: string;
+      embedProvider?: RagEmbeddingProvider;
+      embedModel?: string;
+      systemPrompt?: string;
+      temperature?: number;
+      topK?: number;
+    },
   ): Promise<any> {
     const res = await jsonApi.patch(`/rag/datasets/${datasetId}/rag-settings`, input);
     return res.data;

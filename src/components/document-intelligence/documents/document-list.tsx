@@ -41,7 +41,7 @@ export function DocumentList({ documents }: { documents: RagDocumentInfo[] }) {
             className={cn(
               'rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
               filter === f.key
-                ? 'bg-emerald-600 text-white'
+                ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
             )}
           >

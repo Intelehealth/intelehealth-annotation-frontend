@@ -14,7 +14,7 @@ export function ChatMessageView({ message, onOpenCitation }: ChatMessageProps) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-lg bg-emerald-600 px-3 py-2 text-xs text-white">
+        <div className="max-w-[85%] rounded-lg bg-blue-600 px-3 py-2 text-xs text-white">
           {message.content}
         </div>
       </div>

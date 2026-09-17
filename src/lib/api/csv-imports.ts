@@ -35,7 +35,7 @@ export interface CSVImport {
 export interface AnnotationField {
   csvColumnName: string;
   fieldName: string;
-  fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'image' | 'audio' | 'video';
+  fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url' | 'image' | 'audio' | 'video';
   isRequired: boolean;
   // true if it needs annotation (right panel); false if metadata (left)
   isAnnotationField: boolean;
@@ -45,7 +45,7 @@ export interface AnnotationField {
   instructions?: string;
   isNewColumn?: boolean; // true if this is a new column, not from CSV  
   newColumnId?: string; // Reference to NewColumn if isNewColumn is true
-  columnType?: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date';
+  columnType?: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url';
   placeholder?: string;
   defaultValue?: string;
   maxLength?: number;

@@ -1287,7 +1287,7 @@ export function NewColumnDataPanel({
     const options = parseOptions(field.options ?? []);
     const isFocused = focusedFieldId === field.fieldName;
     const type = field.columnType || field.fieldType;
-    const isTextType = !type || type === 'textarea' || type === 'text' || type === 'number' || type === 'date';
+    const isTextType = !type || type === 'textarea' || type === 'text' || type === 'number' || type === 'date' || type === 'url';
     // Media fields have interactive native controls (play/seek/volume) — card-level
     // drag-and-drop must be disabled or the browser's native drag hijacks control clicks.
     const canDragCard = isDraggable && !['audio', 'video', 'image'].includes(field.fieldType);
@@ -1449,6 +1449,7 @@ export function NewColumnDataPanel({
                     <option value="checkbox">Checkbox Toggle</option>
                     <option value="rating">Star Rating</option>
                     <option value="date">Date Picker</option>
+                    <option value="url">URL Link</option>
                     <option value="image">Image Display</option>
                     <option value="audio">Audio Player</option>
                   </select>
@@ -1490,7 +1491,33 @@ export function NewColumnDataPanel({
             </div>
           ) : (
             isTextType ? (
-              field.columnType === 'text' ? (
+              field.columnType === 'url' ? (
+                <div className="w-full">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      value={value}
+                      onChange={e => onNewColumnChange(field.fieldName, e.target.value)}
+                      disabled={!fieldEditable}
+                      onFocus={() => setFocusedFieldId(field.fieldName)}
+                      placeholder={field.placeholder || 'https://…'}
+                      className="w-full text-sm h-9 border-gray-200 rounded-lg focus-visible:ring-1 focus-visible:ring-teal-500"
+                    />
+                    {value && /^https?:\/\/.+/i.test(String(value).trim()) ? (
+                      <a
+                        href={String(value).trim()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-teal-500 bg-teal-50 px-2.5 h-9 text-xs font-semibold text-teal-700 hover:bg-teal-100 transition-colors"
+                        title="Open URL in new tab"
+                      >
+                        Open
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              ) : field.columnType === 'text' ? (
                 <Input
                   type="text"
                   value={value}
@@ -2073,6 +2100,7 @@ export function NewColumnDataPanel({
                 <option value="checkbox">Checkbox Toggle</option>
                 <option value="rating">Star Rating</option>
                 <option value="date">Date Picker</option>
+                <option value="url">URL Link</option>
                 <option value="image">Image Display</option>
                 <option value="audio">Audio Player</option>
               </select>
@@ -2237,6 +2265,7 @@ export function NewColumnDataPanel({
                       <option value="checkbox">Checkbox Toggle</option>
                       <option value="rating">Star Rating</option>
                       <option value="date">Date Picker</option>
+                      <option value="url">URL Link</option>
                       <option value="image">Image Display</option>
                       <option value="audio">Audio Player</option>
                     </select>

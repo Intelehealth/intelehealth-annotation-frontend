@@ -1,27 +1,44 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import * as pdfjs from 'pdfjs-dist';
-import { Loader2, Minus, Plus, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import type * as PDFJS from 'pdfjs-dist';
+import {
+  Loader2,
+  Minus,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle,
+  RotateCw,
+  Download,
+} from 'lucide-react';
 
-// pdf.js needs workerSrc to be a URL string. The worker is copied into
-// public/ by scripts/copy-pdf-worker.mjs (prebuild/predev), so it is served
-// same-origin and always matches the installed pdfjs-dist version. Assign only
-// in the browser, never at module eval.
+// pdf.js v6 evaluates `new DOMMatrix()` at module load, which Node (used by
+// Next for SSR) does not provide. Import it lazily on the client only.
+let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
+
+function loadPdfJs(): Promise<typeof import('pdfjs-dist')> {
+  if (!pdfjsPromise) pdfjsPromise = import('pdfjs-dist');
+  return pdfjsPromise;
+}
+
 let workerConfigured = false;
-
-function ensurePdfWorker() {
+function ensurePdfWorker(pdfjs: typeof import('pdfjs-dist')) {
   if (workerConfigured || typeof window === 'undefined') return;
   workerConfigured = true;
-  try {
-    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-  } catch {
-    // never let a worker-config failure take down the app
+  const url = '/lib/pdf.worker.min.mjs';
+  if (typeof url === 'string' && url) {
+    try {
+      pdfjs.GlobalWorkerOptions.workerSrc = url;
+    } catch {
+      // never let a worker-config failure take down the app
+    }
   }
 }
 
 interface PdfPreviewProps {
   url: string;
+  name?: string;
   currentPage: number;
   zoom: number;
   onPageChange?: (page: number) => void;
@@ -30,61 +47,67 @@ interface PdfPreviewProps {
 
 export function PdfPreview({
   url,
+  name,
   currentPage,
   zoom,
   onPageChange,
   onZoomChange,
 }: PdfPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const docRef = useRef<pdfjs.PDFDocumentProxy | null>(null);
-  const renderTaskRef = useRef<pdfjs.RenderTask | null>(null);
+  const docRef = useRef<PDFJS.PDFDocumentProxy | null>(null);
+  const loadingTaskRef = useRef<PDFJS.PDFDocumentLoadingTask | null>(null);
+  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const clampPage = (p: number) => Math.min(Math.max(1, p), Math.max(1, numPages));
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    ensurePdfWorker();
     let cancelled = false;
     setLoading(true);
     setError(null);
-    docRef.current
-      ?.destroy()
-      .then(() => {
-        docRef.current = null;
+
+    // Clean up the previous loading task (v6: PDFDocumentProxy.destroy removed).
+    const prevTask = loadingTaskRef.current;
+    loadingTaskRef.current = null;
+    if (prevTask) void prevTask.destroy().catch(() => {});
+
+    loadPdfJs()
+      .then((pdfjs) => {
+        ensurePdfWorker(pdfjs);
+        const task = pdfjs.getDocument({ url });
+        loadingTaskRef.current = task;
+        return task.promise;
       })
-      .catch(() => {})
-      .finally(() => {
+      .then((doc) => {
         if (cancelled) return;
-        pdfjs
-          .getDocument(url)
-          .promise.then((doc) => {
-            if (cancelled) return;
-            docRef.current = doc;
-            setNumPages(doc.numPages || 0);
-            setLoading(false);
-          })
-          .catch(() => {
-            if (cancelled) return;
-            setError('This PDF could not be rendered.');
-            setLoading(false);
-          });
+        docRef.current = doc;
+        setNumPages(doc.numPages || 0);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError('Unable to render this PDF.');
+        setLoading(false);
       });
+
     return () => {
       cancelled = true;
+      const task = loadingTaskRef.current;
+      loadingTaskRef.current = null;
+      if (task) void task.destroy().catch(() => {});
     };
-  }, [url]);
+  }, [url, reloadKey]);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !docRef.current || loading) return;
     if (renderTaskRef.current) {
       renderTaskRef.current.cancel();
       renderTaskRef.current = null;
     }
-    const pageIndex = Math.min(currentPage, numPages || 1) ;
+    const pageIndex = Math.min(currentPage, numPages || 1);
     docRef.current
-      ?.getPage(pageIndex)
+      .getPage(pageIndex)
       .then((page) => {
         const viewport = page.getViewport({ scale: zoom });
         const canvas = canvasRef.current;
@@ -93,40 +116,57 @@ export function PdfPreview({
         canvas.height = viewport.height;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        const renderTask = page.render({ canvasContext: ctx, viewport });
+        // pdfjs-dist v6 RenderParameters requires `canvas` (canvasContext optional).
+        const renderTask = page.render({ canvas, canvasContext: ctx, viewport });
         renderTaskRef.current = renderTask;
         return renderTask.promise;
       })
       .catch(() => {
-        // cancelled or error
+        // cancelled or render error — render loop will retry on prop change
       })
       .finally(() => {
         renderTaskRef.current = null;
       });
-  }, [currentPage, numPages, zoom]);
+  }, [currentPage, numPages, zoom, loading]);
 
   const go = useCallback(
     (delta: number) => {
-      const next = clampPage((currentPage || 1) + delta);
+      const next = Math.min(Math.max(1, (currentPage || 1) + delta), Math.max(1, numPages));
       if (next !== currentPage) onPageChange?.(next);
     },
-    [currentPage, numPages, onPageChange, clampPage],
+    [currentPage, numPages, onPageChange],
   );
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+      <div className="flex h-full flex-col items-center justify-center gap-2">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+        <p className="text-sm text-gray-500">Loading PDF preview...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-sm text-red-600">
-        <AlertCircle className="h-5 w-5 mb-2" />
-        {error}
-        <span className="text-xs text-gray-500 mt-1">The original file is still available.</span>
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+        <AlertCircle className="h-6 w-6 text-red-500" />
+        <p className="text-sm text-gray-600">{error}</p>
+        <div className="mt-1 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+          >
+            <RotateCw className="h-3.5 w-3.5" /> Retry
+          </button>
+          <a
+            href={url}
+            download={name || 'document.pdf'}
+            className="inline-flex items-center gap-1 text-xs text-blue-700 hover:underline"
+          >
+            <Download className="h-3.5 w-3.5" /> Download original PDF
+          </a>
+        </div>
       </div>
     );
   }

@@ -64,7 +64,7 @@ export function ModelSettings() {
         <select
           value={datasetModel}
           onChange={(e) => setDatasetModel(e.target.value)}
-          className="h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-xs focus:border-emerald-500 focus:outline-none"
+          className="h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-xs focus:border-blue-500 focus:outline-none"
         >
           {models.map((m) => (
             <option key={m.key} value={m.key} disabled={!m.available}>
@@ -82,7 +82,7 @@ export function ModelSettings() {
         <Button
           size="sm"
           variant="outline"
-          className="mt-1.5 w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+          className="mt-1.5 w-full border-blue-200 text-blue-700 hover:bg-blue-50"
           onClick={saveDataset}
           disabled={saving}
         >
@@ -96,7 +96,7 @@ export function ModelSettings() {
         <select
           value={userModel}
           onChange={(e) => setUserModel(e.target.value)}
-          className="h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-xs focus:border-emerald-500 focus:outline-none"
+          className="h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-xs focus:border-blue-500 focus:outline-none"
         >
           <option value="">— none (use dataset/workspace/env) —</option>
           {models.map((m) => (
@@ -109,7 +109,7 @@ export function ModelSettings() {
         <Button
           size="sm"
           variant="ghost"
-          className="mt-1.5 w-full text-emerald-700"
+          className="mt-1.5 w-full text-blue-700"
           onClick={saveUser}
           disabled={saving || !userModel}
         >
