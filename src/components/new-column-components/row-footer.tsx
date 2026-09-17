@@ -28,6 +28,8 @@ interface RowFooterProps {
   totalCount?: number;
   onSaveAllNewColumnData: () => void;
   isSaving: boolean;
+  /** No saving while inspecting someone else's work. */
+  readOnly?: boolean;
 }
 
 export function RowFooter({
@@ -40,6 +42,7 @@ export function RowFooter({
   totalCount,
   onSaveAllNewColumnData,
   isSaving,
+  readOnly = false,
 }: RowFooterProps) {
   const annotatedTasks = tasks.filter(
     (task) => task.status === 'completed',
@@ -179,6 +182,9 @@ export function RowFooter({
             <span className="text-sm text-gray-600 whitespace-nowrap">
               Total Rows: {tasks.length}
             </span>
+            {readOnly ? (
+              <span className="text-xs font-semibold text-blue-700">Read only. Nothing is saved from this view.</span>
+            ) : (
             <Button
               size="sm"
               onClick={onSaveAllNewColumnData}
@@ -188,6 +194,7 @@ export function RowFooter({
               <CheckCircle className="h-4 w-4 mr-2" />
               {isSaving ? 'Saving…' : 'Save and Continue'}
             </Button>
+            )}
           </div>
 
           {/* Row 3: Status Summary */}

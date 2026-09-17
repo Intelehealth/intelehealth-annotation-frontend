@@ -418,7 +418,8 @@ export function DataOverview({
             <div className="flex-1 min-w-0 md:w-auto md:flex-none">
               <ExportDropdown
                 options={exportOptions}
-                disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+                disabled={!hasFieldConfig || !datasetData || !annotationConfig || isExporting}
+                disabledReason={!hasFieldConfig ? 'Configure fields first' : isExporting ? 'Exporting…' : 'Loading the rows…'}
               />
             </div>
             <Button
@@ -535,7 +536,8 @@ export function DataOverview({
             <div className="flex-1 min-w-0 md:w-auto md:flex-none">
               <ExportDropdown
                 options={exportOptions}
-                disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+                disabled={!hasFieldConfig || !datasetData || !annotationConfig || isExporting}
+                disabledReason={!hasFieldConfig ? 'Configure fields first' : isExporting ? 'Exporting…' : 'Loading the rows…'}
               />
             </div>
             <Button
@@ -590,7 +592,8 @@ export function DataOverview({
             <div className="flex-1 min-w-0 md:w-auto md:flex-none">
               <ExportDropdown
                 options={exportOptions}
-                disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+                disabled={!hasFieldConfig || !datasetData || !annotationConfig || isExporting}
+                disabledReason={!hasFieldConfig ? 'Configure fields first' : isExporting ? 'Exporting…' : 'Loading the rows…'}
               />
             </div>
             <Button
@@ -660,7 +663,8 @@ export function DataOverview({
           <div className="flex-1 min-w-0 md:w-auto md:flex-none">
             <ExportDropdown
               options={exportOptions}
-              disabled={!hasFieldConfig || !annotationProgress || annotationProgress.completedRows === 0 || isExporting}
+              disabled={!hasFieldConfig || !datasetData || !annotationConfig || isExporting}
+                disabledReason={!hasFieldConfig ? 'Configure fields first' : isExporting ? 'Exporting…' : 'Loading the rows…'}
             />
           </div>
           <Button

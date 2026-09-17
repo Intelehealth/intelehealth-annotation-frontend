@@ -62,6 +62,10 @@ interface NewColumnDataPanelProps {
   reviewRequestFields?: string[];
   onImageClick?: (imageUrls: string[], index: number, lens?: LensSettings | null) => void;
   onVideoClick?: (videoUrls: string[], index: number) => void;
+  /** Inspecting another annotator's work: show their answers, allow no edits. */
+  readOnly?: boolean;
+  /** Keys of required questions left blank on the last Save and Continue. */
+  missingFields?: string[];
 }
 
 /** Structured option — UI-only. value is always the original raw string for storage. */
@@ -678,6 +682,8 @@ export function NewColumnDataPanel({
   reviewRequestFields,
   onImageClick,
   onVideoClick,
+  readOnly = false,
+  missingFields = [],
 }: NewColumnDataPanelProps) {
 
   // ── UIState ──────────────────────────────────────────────────────────────────
@@ -1304,8 +1310,9 @@ export function NewColumnDataPanel({
     // drag-and-drop must be disabled or the browser's native drag hijacks control clicks.
     const canDragCard = isDraggable && !['audio', 'video', 'image'].includes(field.fieldType);
     const fieldEditable =
-      reviewRequestFields === undefined || reviewRequestFields.includes(field.fieldName);
+      !readOnly && (reviewRequestFields === undefined || reviewRequestFields.includes(field.fieldName));
     const isRequestedField = reviewRequestFields?.includes(field.fieldName) === true;
+    const missingHere = missingFields.filter((m) => m === field.fieldName || m.startsWith(`${field.fieldName}.`));
 
 
     return (
@@ -1325,7 +1332,9 @@ export function NewColumnDataPanel({
         }}
         className={cn(
           'p-3 sm:p-4 border border-gray-200 rounded-lg bg-gray-50 transition-all duration-200 relative',
-          isFocused
+          missingHere.length > 0
+            ? 'border-red-400 bg-red-50/40 shadow-[0_0_0_2px_rgba(248,113,113,0.25)]'
+            : isFocused
             ? 'border-teal-500 bg-teal-50/10 shadow-md'
             : isRequestedField
               ? 'border-violet-400 bg-violet-50/60 shadow-[0_0_0_2px_rgba(139,92,246,0.15)]'
@@ -1367,6 +1376,16 @@ export function NewColumnDataPanel({
             </Button>
           )}
         </div>
+
+        {readOnly && <AnswerSummary field={field} data={newColumnData} />}
+        {missingHere.length > 0 && (
+          <div role="alert" className="mb-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700">
+            Required, not filled
+            {missingHere.some((m) => m !== field.fieldName) && (
+              <>: {missingHere.map((m) => m.replace(`${field.fieldName}.captions.`, '').replace(`${field.fieldName}.`, '')).join(', ')}</>
+            )}
+          </div>
+        )}
 
         {/* Answer control or config editor */}
         <div className="mt-0">
@@ -1726,7 +1745,7 @@ export function NewColumnDataPanel({
         )}
 
         {/* Annotator locked action bar */}
-        {!isAdmin && !field.isDataFieldLink && (
+        {!isAdmin && !readOnly && !field.isDataFieldLink && (
           <div className="flex flex-wrap items-center gap-2 mt-3 pt-2 border-t border-gray-200">
             <button
               onClick={(e) => {
@@ -1809,7 +1828,7 @@ export function NewColumnDataPanel({
         <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
           <div className="min-w-0 flex-1">
             <h2 className="text-xl sm:text-2xl lg:text-base font-bold text-slate-900">
-              Annotation Workbench
+              {readOnly ? "Annotator's answers" : 'Annotation Workbench'}
             </h2>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               {currentRowIndex !== undefined && (
@@ -1821,6 +1840,9 @@ export function NewColumnDataPanel({
                 Progress: <span className="font-bold text-teal-700">{progressPct}%</span>
               </span>
               {/* Save status */}
+              {readOnly ? (
+                <span className="text-xs font-semibold text-blue-700">Read only</span>
+              ) : (
               <span className="text-xs flex items-center gap-1">
                 {isSaving ? (
                   <>
@@ -1831,6 +1853,7 @@ export function NewColumnDataPanel({
                   <span className="text-green-600 font-semibold">✓ Saved</span>
                 )}
               </span>
+              )}
             </div>
           </div>
           <div className="flex flex-col lg:flex-row lg:items-center flex-wrap gap-2 w-full lg:w-auto shrink-0">
@@ -2514,6 +2537,58 @@ export function NewColumnDataPanel({
         </DialogContent>
       </Dialog>
 
+    </div>
+  );
+}
+
+// What the annotator answered, in words, for the read-only inspection view.
+// Widgets stay on screen (disabled) so the layout is familiar, but a disabled
+// radio dot is easy to miss; this line is the thing a reviewer reads.
+function answerLines(field: AnnotationField, data: Record<string, any>): { label?: string; value: string }[] {
+  const val = (k: string) => {
+    const v = data[k];
+    return v === undefined || v === null ? '' : String(v);
+  };
+  const list = (raw: string) => readList(raw).filter((x) => x.trim() !== '');
+  if (field.columnType === 'group' && field.groupChildren?.length) {
+    return field.groupChildren.map((c) => {
+      const raw = val(groupKey(field.fieldName, c));
+      return { label: c.fieldName, value: c.repeatable ? list(raw).join(' / ') : raw };
+    });
+  }
+  const caps = captionInputs(field);
+  if (field.fieldType === 'image' && caps.length) {
+    const per = caps.map((c) => ({ c, values: readList(val(`${field.fieldName}.captions.${c.fieldName}`)) }));
+    const n = Math.max(0, ...per.map((p) => p.values.length));
+    return Array.from({ length: n }, (_, i) => ({
+      label: `Image ${i + 1}`,
+      value: per.map((p) => (p.values[i] ? `${p.c.fieldName}: ${p.values[i]}` : '')).filter(Boolean).join(', '),
+    }));
+  }
+  const raw = val(field.fieldName);
+  // Choice values may be stored as "value:description"; show the value.
+  const shown = raw.includes(':') && (field.options || []).some((o) => o === raw) ? raw.split(':')[0] : raw;
+  return [{ value: shown }];
+}
+
+function AnswerSummary({ field, data }: { field: AnnotationField; data: Record<string, any> }) {
+  const lines = answerLines(field, data).filter((l) => l.value.trim() !== '');
+  if (lines.length === 0) {
+    return (
+      <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800">
+        No answer given
+      </div>
+    );
+  }
+  return (
+    <div className="mb-2 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-900">
+      <span className="mr-1.5 font-bold uppercase tracking-wide text-[10px] text-emerald-700">Answered</span>
+      {lines.map((l, i) => (
+        <span key={i} className="mr-3 inline-block">
+          {l.label && <span className="text-emerald-700">{l.label}: </span>}
+          <span className="font-semibold">{l.value}</span>
+        </span>
+      ))}
     </div>
   );
 }

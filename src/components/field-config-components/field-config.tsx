@@ -1588,9 +1588,26 @@ export function FieldConfig({
                               <ChevronDown className="h-3.5 w-3.5" />
                             </button>
                           </div>
-                          <span className="mr-auto text-[11px] tabular-nums text-gray-400">
+                          <span className="text-[11px] tabular-nums text-gray-400">
                             {position + 1} of {siblings.length}
                           </span>
+                          {panelOf(field) === "annotate" && (
+                            <label
+                              className="ml-3 mr-auto flex cursor-pointer items-center gap-1.5 text-xs font-medium text-gray-700"
+                              title="Annotators cannot mark a row complete until this field is answered"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={!!field.isRequired}
+                                onChange={(e) => handleFieldChange(field.id, { isRequired: e.target.checked })}
+                                aria-label={`${field.fieldName || field.csvColumnName || "Field"} is required`}
+                                className="rounded border-gray-300"
+                              />
+                              Required
+                              {field.isRequired && <span className="font-bold text-red-500">*</span>}
+                            </label>
+                          )}
+                          {panelOf(field) !== "annotate" && <span className="mr-auto" />}
                           <button
                             type="button"
                             onClick={() =>

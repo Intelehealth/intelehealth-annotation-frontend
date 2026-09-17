@@ -36,6 +36,7 @@ import { RowFooter, NewColumnDataPanel } from '@/components/new-column-component
 import { MetadataDisplay } from './metadata-display';
 import { ImageOverlay, VideoOverlay } from './media-overlays';
 import type { LensSettings } from './magnifier';
+import { missingRequiredAnswers } from '@/lib/required-answers';
 import { useToast } from '@/components/ui/toast';
 import { exportSelectedColumnsToCSV, exportAllColumnsToCSV } from '@/lib/dataset-export-helper';
 import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
@@ -158,6 +159,8 @@ export function DatasetAnnotationWorkbench({
   const [reviewRequest, setReviewRequest] = useState<any>(null);
 
   const isInspectMode = mode === 'inspect';
+  /** Required questions the current row still lacks, shown after a blocked Save and Continue. */
+  const [missingFields, setMissingFields] = useState<string[]>([]);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [expandedTextFields, setExpandedTextFields] = useState<Set<string>>(new Set());
   const [imageOverlay, setImageOverlay] = useState<ImageOverlayState>({
@@ -420,6 +423,12 @@ export function DatasetAnnotationWorkbench({
           });
           setTasks(updatedTasks);
 
+          // Inspecting: open on the annotator's first finished row, not
+          // where they left off, so there is something to look at.
+          if (isInspectMode) {
+            const firstDone = updatedTasks.findIndex((task) => task.status === 'completed');
+            setCurrentTaskIndex(firstDone >= 0 ? firstDone : 0);
+          } else
           // Set current task index to resume position
           if (progress.lastViewedRow > 0 && progress.lastViewedRow < taskData.length) {
             setCurrentTaskIndex(progress.lastViewedRow);
@@ -539,6 +548,7 @@ export function DatasetAnnotationWorkbench({
 
   // Update metadata when current task changes
   useEffect(() => {
+    setMissingFields([]);
     if (currentTask && currentTask.metadata) {
       logger.log('Updating metadata for task:', currentTask.rowIndex, currentTask.metadata);
       setMetadata(currentTask.metadata);
@@ -1549,6 +1559,28 @@ export function DatasetAnnotationWorkbench({
     }
   }, [datasetId, currentTask, datasetData, newColumnData, annotationConfig, showToast, editingField, metadata, handleSaveIndividualField]);
 
+  // Save and Continue. Answers are already saved as they are typed; this is
+  // the moment the row is declared done, so every required question must
+  // have an answer first. Missing ones are named and highlighted, and the
+  // row stays put.
+  const handleSaveAndContinue = useCallback(async () => {
+    if (!annotationConfig || !currentTask) return;
+    const rowData = datasetData?.mergedRows?.find((r) => r.rowIndex === currentTask.rowIndex)?.data || {};
+    const missing = missingRequiredAnswers(annotationConfig.annotationFields, newColumnData, rowData);
+    if (missing.length > 0) {
+      setMissingFields(missing.map((m) => m.key));
+      showToast({
+        type: 'error',
+        title: `${missing.length} required ${missing.length === 1 ? 'field is' : 'fields are'} not filled`,
+        description: missing.map((m) => m.label).join(', '),
+      });
+      document.getElementById(`card-${missing[0].key.split('.')[0]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    setMissingFields([]);
+    await saveAllNewColumnData();
+  }, [annotationConfig, currentTask, datasetData, newColumnData, showToast, saveAllNewColumnData]);
+
   // New column data handlers - no auto-save, only manual save
   const handleNewColumnChange = useCallback((fieldName: string, value: string) => {
     setNewColumnData(prev => ({
@@ -1872,8 +1904,10 @@ export function DatasetAnnotationWorkbench({
               onAnnotationFieldDragStart={viewMode === 'annotation' ? handleDragStart : undefined}
               onAnnotationFieldDragOver={viewMode === 'annotation' ? handleUnifiedDragOver : undefined}
               onAnnotationFieldDrop={viewMode === 'annotation' ? (e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation') : undefined}
-              onUpdateFieldConfig={reviewRequestId ? undefined : handleUpdateFieldConfig}
-              isAdmin={!!user?.canManage && !reviewRequestId}
+              onUpdateFieldConfig={reviewRequestId || isInspectMode ? undefined : handleUpdateFieldConfig}
+              isAdmin={!!user?.canManage && !reviewRequestId && !isInspectMode}
+              readOnly={isInspectMode}
+              missingFields={missingFields}
               cloneId={datasetId}
               currentRowId={currentTask?.id}
               reviewRequestFields={reviewRequestId ? (reviewRequest?.fieldNames || []) : undefined}
@@ -1898,8 +1932,9 @@ export function DatasetAnnotationWorkbench({
           onMarkAsCompleted={handleMarkAsCompleted}
           completedCount={annotatedTasks.length}
           totalCount={tasks.length}
-          onSaveAllNewColumnData={flushPendingRowData}
+          onSaveAllNewColumnData={handleSaveAndContinue}
           isSaving={isSaving}
+          readOnly={isInspectMode}
         />
       )}
 
