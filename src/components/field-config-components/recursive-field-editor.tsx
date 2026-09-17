@@ -232,18 +232,7 @@ export function RecursiveFieldEditor({
                     onChange({
                       ...field,
                       fieldType: "text",
-                      columnType: val as
-                        | "text"
-                        | "number"
-                        | "select"
-                        | "selectrange"
-                        | "textarea"
-                        | "rating"
-                        | "multiselect"
-                        | "checkbox"
-                        | "radio"
-                        | "date"
-                        | "url",
+                      columnType: val as AnnotationField["columnType"],
                     });
                   }
                 }}

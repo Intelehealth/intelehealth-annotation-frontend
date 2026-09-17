@@ -305,6 +305,20 @@ export interface BranchOption {
   childFields: AnnotationField[];
 }
 
+export interface GroupChildField {
+  id: string;
+  fieldName: string;
+  columnType: 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'multiselect' | 'checkbox' | 'date' | 'rating' | 'url';
+  options?: string[];
+  placeholder?: string;
+  isRequired?: boolean;
+  /** The annotator may add more of this input. */
+  repeatable?: boolean;
+  /** Cap on how many, when repeatable. */
+  maxInstances?: number;
+  helpText?: string;
+}
+
 export interface AnnotationField {
   csvColumnName: string;
   fieldName: string;
@@ -316,7 +330,13 @@ export interface AnnotationField {
   instructions?: string;
   isNewColumn?: boolean;
   newColumnId?: string;
-  columnType?: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url';
+  columnType?: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url' | 'group';
+  /**
+   * Children of a composite ("group") field: several inputs answered together
+   * under one heading. A child marked repeatable starts with one box and the
+   * annotator adds more; its answers are stored as a JSON array.
+   */
+  groupChildren?: GroupChildField[];
   placeholder?: string;
   defaultValue?: string;
   maxLength?: number;

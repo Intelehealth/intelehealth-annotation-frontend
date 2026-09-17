@@ -31,7 +31,9 @@ import {
 import { cn } from "@/lib/utils";
 import { CSVColumnsDisplay } from "./csv-columns-display";
 import { MergeColumns } from "./merge-columns";
+import { GroupFieldEditor } from "./group-field-editor";
 import { useToast } from "@/components/ui/toast";
+import type { GroupChildField } from "@/types/feature1";
 import { FieldGroup, VisibilityRule, BranchOption } from "@/types/feature1";
 import { FieldGroupEditor } from "./field-group-editor";
 import { RecursiveFieldEditor } from "./recursive-field-editor";
@@ -128,7 +130,8 @@ interface NewColumn {
     | "checkbox"
     | "radio"
     | "date"
-    | "url";
+    | "url"
+    | "group";
   isRequired: boolean;
   defaultValue?: string;
   options?: string[]; // For select type
@@ -194,7 +197,10 @@ interface AnnotationField {
     | "checkbox"
     | "radio"
     | "date"
-    | "url";
+    | "url"
+    | "group";
+  /** Children of a composite field — see GroupChildField. */
+  groupChildren?: GroupChildField[];
   placeholder?: string;
   defaultValue?: string;
   maxLength?: number;
@@ -576,26 +582,21 @@ export function FieldConfig({
   };
 
   const getUnifiedType = (field: AnnotationField) => {
-    if (!field.isAnnotationField) {
-      if (field.fieldType === "image") return "image";
-      if (field.fieldType === "audio") return "audio";
-      if (field.fieldType === "video") return "video";
-      return "text-metadata";
-    }
+    // Media is media in either section: an image column shown beside the
+    // questions and one shown among them are both still images.
+    if (field.fieldType === "image") return "image";
+    if (field.fieldType === "audio") return "audio";
+    if (field.fieldType === "video") return "video";
+    if (!field.isAnnotationField) return "text-metadata";
     return field.columnType || "text";
   };
 
   const handleUnifiedTypeChange = (field: AnnotationField, type: string) => {
     const updates: Partial<AnnotationField> = {};
-    if (type === "image") {
-      updates.fieldType = "image";
-      updates.isAnnotationField = false;
-    } else if (type === "audio") {
-      updates.fieldType = "audio";
-      updates.isAnnotationField = false;
-    } else if (type === "video") {
-      updates.fieldType = "video";
-      updates.isAnnotationField = false;
+    if (type === "image" || type === "audio" || type === "video") {
+      // Only the type changes; which section the field sits in is the
+      // configurer's choice, kept as it is.
+      updates.fieldType = type;
     } else if (type === "text-metadata") {
       updates.fieldType = "text";
       updates.isAnnotationField = false;
@@ -1347,15 +1348,15 @@ export function FieldConfig({
       });
       return;
     }
-    // Keep media types as they are when moving back to viewing; they are
-    // already read-only presentations of the underlying column.
-    const mediaType = ["image", "audio", "video"].includes(
-      getUnifiedType(field),
-    );
-    handleUnifiedTypeChange(
-      field,
-      panel === "annotate" ? "text" : mediaType ? getUnifiedType(field) : "text-metadata",
-    );
+    // Moving a field only changes whether annotators may edit it. Its type is
+    // the configurer's decision and is left alone — except for a plain text
+    // column, whose read-only form is the metadata display.
+    const isMedia = ["image", "audio", "video"].includes(field.fieldType);
+    const updates: Partial<AnnotationField> = { isAnnotationField: panel === "annotate" };
+    if (!isMedia && panel === "annotate" && !field.columnType) {
+      updates.columnType = "text";
+    }
+    handleFieldChange(field.id, updates);
   };
 
   const renderFieldCard = (field: AnnotationField) => {
@@ -1381,6 +1382,7 @@ export function FieldConfig({
                       { value: "date", label: "Date Picker" },
                       { value: "rating", label: "Star Rating" },
                       { value: "url", label: "URL Link" },
+                      { value: "group", label: "Group (several inputs)" },
                       { value: "image", label: "Image" },
                       { value: "audio", label: "Audio" },
                       { value: "video", label: "Video" },
@@ -1676,6 +1678,18 @@ export function FieldConfig({
                                     handleFieldChange(field.id, updates)
                                   }
                                 />
+                                {/* A group field is several inputs answered together */}
+                                {currentUnifiedType === "group" && (
+                                  <div className="pt-4 border-t border-gray-200">
+                                    <GroupFieldEditor
+                                      children={field.groupChildren ?? []}
+                                      onChange={(groupChildren) =>
+                                        handleFieldChange(field.id, { groupChildren })
+                                      }
+                                    />
+                                  </div>
+                                )}
+
                                 {/* Recursive Branching Editor for choice types */}
                                 {[
                                   "radio",

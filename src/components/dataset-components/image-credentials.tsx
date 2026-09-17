@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { KeyRound, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,8 @@ export function ImageCredentials({ datasetId, sampleUrl }: { datasetId: string; 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [hasStored, setHasStored] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -30,12 +32,21 @@ export function ImageCredentials({ datasetId, sampleUrl }: { datasetId: string; 
     datasetsAPI
       .getById(datasetId)
       .then((d) => {
-        const cfg = (d as unknown as { imageAuthConfig?: { isPrivate?: boolean; username?: string } }).imageAuthConfig;
+        const cfg = (d as unknown as {
+          imageAuthConfig?: { isPrivate?: boolean; username?: string; password?: string };
+        }).imageAuthConfig;
         setIsPrivate(!!cfg?.isPrivate);
         setUsername(cfg?.username ?? '');
+        // The stored password is shown so it is obvious what is saved and can
+        // be corrected in place; the eye button reveals it.
+        setPassword(cfg?.password ?? '');
         setHasStored(!!cfg?.username);
+        setLoadError(null);
       })
-      .catch(() => undefined);
+      .catch((e: unknown) => {
+        const err = e as { response?: { data?: { message?: string } }; message?: string };
+        setLoadError(err?.response?.data?.message || err?.message || 'Could not read the stored credentials');
+      });
   }, [datasetId]);
 
   const save = async () => {
@@ -44,7 +55,7 @@ export function ImageCredentials({ datasetId, sampleUrl }: { datasetId: string; 
       await datasetsAPI.update(datasetId, {
         imageAuthConfig: { isPrivate, username: username.trim(), ...(password ? { password } : {}) },
       });
-      setPassword(''); setHasStored(!!username.trim());
+      setHasStored(!!username.trim());
       setMessage({ ok: true, text: 'Saved. Reload an annotation page to see the images.' });
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } }; message?: string };
@@ -59,9 +70,15 @@ export function ImageCredentials({ datasetId, sampleUrl }: { datasetId: string; 
     try {
       const res = await fetch(`${API_BASE_URL}/image-proxy/${datasetId}?url=${encodeURIComponent(sampleUrl)}`);
       const type = res.headers.get('content-type') || '';
-      if (res.ok && type.startsWith('image/')) setMessage({ ok: true, text: `The host returned an image (${type}).` });
-      else if (res.status === 401 || res.status === 403) setMessage({ ok: false, text: 'The host refused the login. Check the username and password.' });
-      else setMessage({ ok: false, text: `The host answered ${res.status}${type ? ` (${type})` : ''}, not an image.` });
+      if (res.ok && type.startsWith('image/')) {
+        setMessage({ ok: true, text: `The host returned an image (${type}).` });
+      } else {
+        // The proxy says whether it used the stored login, which is the thing
+        // you cannot tell from a bare 401.
+        const body = await res.json().catch(() => null);
+        const detail = body?.message || `The host answered ${res.status}${type ? ` (${type})` : ''}, not an image.`;
+        setMessage({ ok: false, text: body?.hint ? `${detail} ${body.hint}` : detail });
+      }
     } catch {
       setMessage({ ok: false, text: 'Could not reach the image host from the server.' });
     } finally { setTesting(false); }
@@ -91,18 +108,36 @@ export function ImageCredentials({ datasetId, sampleUrl }: { datasetId: string; 
             </label>
             <label className="text-sm">
               <Label className="text-[10px] font-bold uppercase text-gray-500">Password</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={hasStored ? 'unchanged' : 'password'}
-                className="mt-1 h-9"
-                autoComplete="new-password"
-              />
+              <div className="relative mt-1">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={hasStored ? 'unchanged' : 'password'}
+                  className="h-9 pr-9"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </label>
           </div>
         )}
 
+        {isPrivate && hasStored && (
+          <p className="rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600">
+            Stored for <span className="font-medium text-gray-800">{username}</span>. Edit above and save to change it.
+          </p>
+        )}
+
+        {loadError && <p className="text-sm text-red-600">{loadError}</p>}
         {message && <p className={`text-sm ${message.ok ? 'text-emerald-700' : 'text-red-600'}`}>{message.text}</p>}
 
         <div className="flex flex-wrap justify-end gap-2">
