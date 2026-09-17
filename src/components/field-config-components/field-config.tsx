@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { fieldSelectionAPI } from "@/lib/api/field-config";
+import { WorkflowTransfer } from "./workflow-transfer";
 import { datasetsAPI } from "@/lib/api/datasets";
 import { Button } from "@/components/ui/button";
 import {
@@ -2199,6 +2200,48 @@ export function FieldConfig({
                   <Plus className="h-3.5 w-3.5 mr-1.5" />
                   Add New Field
                 </Button>
+                <WorkflowTransfer
+                  datasetId={datasetId}
+                  datasetName={datasetInfo?.name || ""}
+                  availableColumns={[
+                    ...availableColumns.csvColumns,
+                    ...availableColumns.manualColumns,
+                    ...availableColumns.documentColumns,
+                  ].map((c) => c.name)}
+                  current={{ annotationFields, newColumns, fieldGroups }}
+                  onColumnsChanged={loadDatasetColumns}
+                  onError={(message) =>
+                    showToast({ title: "Import failed", description: message, type: "error" })
+                  }
+                  onImport={(next, summary) => {
+                    // The imported workflow replaces what is on screen; nothing
+                    // is saved until Save Configuration.
+                    setAnnotationFields(next.annotationFields as unknown as AnnotationField[]);
+                    setNewColumns(next.newColumns as unknown as NewColumn[]);
+                    setFieldGroups(next.fieldGroups as typeof fieldGroups);
+                    setSelectedColumns(
+                      new Set(
+                        next.annotationFields
+                          .filter((f) => !f.isNewColumn)
+                          .map((f) => f.csvColumnName),
+                      ),
+                    );
+                    setHasChanges(true);
+                    const parts = [
+                      `${summary.mapped.length} field${summary.mapped.length === 1 ? "" : "s"} linked to columns here`,
+                      summary.manual.length
+                        ? `${summary.manual.length} without a matching column became manual fields: ${summary.manual.join(", ")}`
+                        : null,
+                      summary.merged.length ? `${summary.merged.length} merged column${summary.merged.length === 1 ? "" : "s"} recreated` : null,
+                      summary.mergeSkipped.length ? `skipped merges (source columns missing): ${summary.mergeSkipped.join(", ")}` : null,
+                    ].filter(Boolean);
+                    showToast({
+                      title: "Workflow imported — review, then Save Configuration",
+                      description: parts.join(". ") + ".",
+                      type: "success",
+                    });
+                  }}
+                />
                 <Button
                   variant="outline"
                   onClick={handleSave}
