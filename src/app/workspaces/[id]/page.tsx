@@ -14,8 +14,8 @@ import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
 import { jsonApi } from '@/lib/api';
 import type { UserResponse } from '@/lib/api/users';
 import {
-  apiMessage, SHARING_MODES, WORKSPACE_DOMAINS, workspacesAPI,
-  type WorkspaceDataset, type WorkspaceDomain, type WorkspaceMember, type WorkspaceResponse, type WorkspaceSharingMode,
+  apiMessage, SHARING_MODES, workspacesAPI,
+  type WorkspaceDataset, type WorkspaceMember, type WorkspaceResponse, type WorkspaceSharingMode,
 } from '@/lib/api/workspaces';
 import { Empty, Section } from '@/components/dashboard/kpi';
 import { personName, timeAgo } from '@/components/dashboard/format';
@@ -84,30 +84,24 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Header: name, domain, description; inline edit for the owner ────────────
+// ── Header: name, description; inline edit for the owner ────────────
 
 function Header({ ws, canManage, onSave, onDelete }: {
   ws: WorkspaceResponse; canManage: boolean;
-  onSave: (patch: { name?: string; description?: string; domain?: WorkspaceDomain; sharingMode?: WorkspaceSharingMode }) => void;
+  onSave: (patch: { name?: string; description?: string; sharingMode?: WorkspaceSharingMode }) => void;
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(ws.name);
   const [description, setDescription] = useState(ws.description ?? '');
-  const [domain, setDomain] = useState<WorkspaceDomain>(ws.domain);
   const [sharingMode, setSharingMode] = useState<WorkspaceSharingMode>(ws.sharingMode);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  useEffect(() => { setName(ws.name); setDescription(ws.description ?? ''); setDomain(ws.domain); setSharingMode(ws.sharingMode); }, [ws]);
+  useEffect(() => { setName(ws.name); setDescription(ws.description ?? ''); setSharingMode(ws.sharingMode); }, [ws]);
 
   if (editing) {
     return (
-      <form className="space-y-3 rounded-lg border bg-card p-4" onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim(), description: description.trim(), domain, sharingMode }); setEditing(false); }}>
-        <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
-          <Input value={name} onChange={(e) => setName(e.target.value)} required aria-label="Workspace name" />
-          <select value={domain} onChange={(e) => setDomain(e.target.value as WorkspaceDomain)} className="h-9 rounded-md border bg-background px-3 text-sm" aria-label="Domain">
-            {WORKSPACE_DOMAINS.map((d) => <option key={d}>{d}</option>)}
-          </select>
-        </div>
+      <form className="space-y-3 rounded-lg border bg-card p-4" onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim(), description: description.trim(), sharingMode }); setEditing(false); }}>
+        <Input value={name} onChange={(e) => setName(e.target.value)} required aria-label="Workspace name" />
         <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" aria-label="Description" />
         <fieldset className="grid gap-2 sm:grid-cols-2">
           <legend className="mb-1 text-xs font-medium text-muted-foreground">How people work on datasets</legend>
@@ -132,7 +126,6 @@ function Header({ ws, canManage, onSave, onDelete }: {
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <h1 className="truncate text-xl font-semibold tracking-tight">{ws.name}</h1>
-          <Badge variant="outline">{ws.domain}</Badge>
           <Badge variant="secondary" title={SHARING_MODES.find((m) => m.value === ws.sharingMode)?.hint}>{ws.sharingMode === 'SHARED' ? 'Shared dataset' : 'Copy per person'}</Badge>
           {!ws.isActive && <Badge variant="secondary">archived</Badge>}
         </div>
