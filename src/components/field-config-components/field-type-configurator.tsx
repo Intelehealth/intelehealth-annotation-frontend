@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { IMAGE_DELIMITERS, IMAGE_FORMATS } from '@/lib/image-source';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { GroupFieldEditor } from './group-field-editor';
+import { captionInputs } from '@/components/new-column-components/caption-input';
 
 interface FieldTypeConfiguratorProps {
   type: string;
@@ -473,66 +475,14 @@ function MediaSourceConfig({
           </label>
 
           {field.captionEnabled && (
-            <div className="mt-2 space-y-2">
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div>
-                  <Label className="text-[10px] font-bold uppercase text-gray-500">Caption label</Label>
-                  <Input
-                    value={field.captionLabel ?? ''}
-                    onChange={(e) => onChange({ captionLabel: e.target.value })}
-                    placeholder="e.g. Findings"
-                    aria-label="Caption label"
-                    className="mt-1 h-8 text-xs bg-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] font-bold uppercase text-gray-500">Caption type</Label>
-                  <select
-                    value={field.captionType ?? 'text'}
-                    onChange={(e) => onChange({ captionType: e.target.value })}
-                    aria-label="Caption type"
-                    className="mt-1 h-8 w-full rounded-md border border-gray-300 bg-white px-2 text-xs"
-                  >
-                    <option value="text">Text</option>
-                    <option value="textarea">Long text</option>
-                    <option value="number">Number</option>
-                    <option value="select">Dropdown</option>
-                    <option value="radio">Radio</option>
-                    <option value="multiselect">Multi-select</option>
-                  </select>
-                </div>
-              </div>
-
-              {['select', 'radio', 'multiselect'].includes(field.captionType ?? 'text') && (
-                <div>
-                  <Label className="text-[10px] font-bold uppercase text-gray-500">Choices (one per line)</Label>
-                  <textarea
-                    defaultValue={(field.captionOptions ?? []).join(String.fromCharCode(10))}
-                    onChange={(e) =>
-                      onChange({
-                        captionOptions: e.target.value
-                          .split(String.fromCharCode(10))
-                          .map((o: string) => o.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                    placeholder={['Relevant', 'Not relevant', 'Unusable'].join(String.fromCharCode(10))}
-                    aria-label="Caption choices"
-                    rows={3}
-                    className="mt-1 w-full rounded-md border border-gray-300 p-2 text-xs"
-                  />
-                </div>
-              )}
-
-              <label className="flex items-center gap-2 text-xs text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={!!field.captionRequired}
-                  onChange={(e) => onChange({ captionRequired: e.target.checked })}
-                  className="rounded border-gray-300"
-                />
-                A caption is required for every image
-              </label>
+            <div className="mt-2">
+              <p className="mb-2 text-[11px] text-gray-500">
+                Each image gets every input below. Mix a text box with a dropdown, add more with the button.
+              </p>
+              <GroupFieldEditor
+                items={captionInputs(field)}
+                onChange={(captionFields) => onChange({ captionFields })}
+              />
             </div>
           )}
         </div>

@@ -58,6 +58,8 @@ export interface AnnotationField {
   captionType?: 'text' | 'textarea' | 'select' | 'radio' | 'multiselect' | 'number';
   captionOptions?: string[];
   captionRequired?: boolean;
+  /** Inputs filled for each image; supersedes the single caption* settings. */
+  captionFields?: GroupChildField[];
   csvColumnName: string;
   fieldName: string;
   fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url' | 'image' | 'audio' | 'video';

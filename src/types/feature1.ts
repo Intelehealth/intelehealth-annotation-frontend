@@ -363,6 +363,8 @@ export interface AnnotationField {
   captionType?: 'text' | 'textarea' | 'select' | 'radio' | 'multiselect' | 'number';
   captionOptions?: string[];
   captionRequired?: boolean;
+  /** Inputs filled for each image; supersedes the single caption* settings. */
+  captionFields?: GroupChildField[];
   id?: string;
   questionTitle?: string;
   questionDescription?: string;

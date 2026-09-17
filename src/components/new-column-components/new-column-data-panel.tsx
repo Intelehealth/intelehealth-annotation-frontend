@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { FieldInfo } from '@/components/annotation-components/metadata-display';
 import { resolveImages } from '@/lib/image-source';
-import { GroupFieldInput, readList } from './group-field-input';
-import { CaptionInput } from './caption-input';
+import { GroupFieldInput, groupKey, readList } from './group-field-input';
+import type { GroupChildField } from '@/types/feature1';
+import { captionInputs } from './caption-input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -1593,11 +1594,19 @@ export function NewColumnDataPanel({
                   return <p className="text-xs text-gray-500">No image in this row.</p>;
                 }
                 const srcs = images.map((im) => im.src);
-                const captions = readList(newColumnData[`${field.fieldName}.captions`] as string);
-                const writeCaption = (i: number, v: string) => {
-                  const next = images.map((_, idx) => captions[idx] ?? '');
+                // One answer list per caption input, indexed by image, under
+                // `<field>.captions.<input>`. Fixed keys keep consensus simple.
+                const inputs = captionInputs(field);
+                const capKey = (c: GroupChildField) => `${field.fieldName}.captions.${c.fieldName}`;
+                const lists = Object.fromEntries(inputs.map((c) => [c.id, readList(newColumnData[capKey(c)] as string)]));
+                const valuesFor = (i: number) =>
+                  Object.fromEntries(inputs.map((c) => [groupKey(field.fieldName, c), lists[c.id][i] ?? '']));
+                const writeCaption = (i: number, key: string, v: string) => {
+                  const c = inputs.find((x) => groupKey(field.fieldName, x) === key);
+                  if (!c) return;
+                  const next = images.map((_, idx) => lists[c.id][idx] ?? '');
                   next[i] = v;
-                  onNewColumnChange(`${field.fieldName}.captions`, JSON.stringify(next));
+                  onNewColumnChange(capKey(c), JSON.stringify(next));
                 };
                 return (
                   <div className="space-y-2" onMouseDown={(e) => e.stopPropagation()} draggable={false} onDragStart={(e) => e.preventDefault()}>
@@ -1615,19 +1624,13 @@ export function NewColumnDataPanel({
                             onClick={(e) => { e.stopPropagation(); onImageClick?.(srcs, i); }}
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="mb-1 flex items-baseline gap-2">
-                              <span className="text-[11px] font-semibold text-gray-700">
-                                {field.captionLabel || 'Caption'} {i + 1}
-                                {field.captionRequired && <span className="ml-1 text-red-500">*</span>}
-                              </span>
-                              <span className="text-[10px] text-gray-400">image {i + 1} of {images.length}</span>
-                            </div>
-                            <CaptionInput
-                              type={field.captionType || 'text'}
-                              options={field.captionOptions || []}
-                              value={captions[i] ?? ''}
+                            <div className="mb-1 text-[10px] text-gray-400">image {i + 1} of {images.length}</div>
+                            <GroupFieldInput
+                              fieldName={field.fieldName}
+                              childrenFields={inputs}
+                              values={valuesFor(i)}
                               disabled={!fieldEditable}
-                              onChange={(v) => writeCaption(i, v)}
+                              onChange={(key, v) => writeCaption(i, key, v)}
                             />
                           </div>
                         </div>

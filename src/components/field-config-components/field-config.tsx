@@ -168,6 +168,7 @@ interface NewColumn {
   captionType?: "text" | "textarea" | "number" | "select" | "radio" | "multiselect";
   captionOptions?: string[];
   captionRequired?: boolean;
+  captionFields?: GroupChildField[];
 }
 
 interface AnnotationField {
@@ -245,6 +246,7 @@ interface AnnotationField {
   captionType?: "text" | "textarea" | "number" | "select" | "radio" | "multiselect";
   captionOptions?: string[];
   captionRequired?: boolean;
+  captionFields?: GroupChildField[];
 }
 
 interface CSVColumn {
@@ -975,6 +977,9 @@ export function FieldConfig({
           captionType: field.captionType,
           captionOptions: field.captionOptions,
           captionRequired: field.captionRequired,
+          captionFields: field.captionFields
+            ? structuredClone(field.captionFields)
+            : undefined,
         })),
         annotationLabels: [],
         newColumns: newColumns.map((column) => {
@@ -1017,6 +1022,9 @@ export function FieldConfig({
             captionType: column.captionType,
             captionOptions: column.captionOptions,
             captionRequired: column.captionRequired,
+            captionFields: column.captionFields
+              ? structuredClone(column.captionFields)
+              : undefined,
           };
           return mapped;
         }),
