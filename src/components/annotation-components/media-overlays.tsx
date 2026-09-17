@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, type MouseEvent, type WheelEvent } from 'react';
+import React, { useState, useCallback, useRef, useEffect, type MouseEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, RotateCcw, PictureInPicture2 } from 'lucide-react';
 
@@ -22,23 +22,29 @@ interface VideoOverlayProps {
   onNavigate: (direction: 'prev' | 'next') => void;
 }
 
-type ZoomState = {
-  scale: number;
-  x: number;
-  y: number;
-};
+// Zoom is a plain pan/zoom transform in container pixels:
+// screen = translate(tx, ty) · scale(s) · image. Zooming about a point p keeps
+// p fixed: tx' = p.x − (p.x − tx)·k, k = s'/s. Panning clamps so the image box
+// never leaves the viewport.
+type ZoomState = { scale: number; tx: number; ty: number };
 
 const MIN_SCALE = 1;
-// Clinical photos are inspected closely, so allow real magnification, and step
-// by a ratio rather than a fixed amount: 1x→1.25x feels the same as 8x→10x.
 const MAX_SCALE = 16;
-const ZOOM_RATIO = 1.35;
-const ZOOM_STEP = 0.5;
-const MAGNIFIER_SIZE = 60;
-const MAGNIFICATION = 2;
+const ZOOM_RATIO = 1.25;
+const DBLCLICK_SCALE = 3;
+const RESET: ZoomState = { scale: 1, tx: 0, ty: 0 };
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
+function clampPan(z: ZoomState, w: number, h: number): ZoomState {
+  if (z.scale <= 1) return RESET;
+  return { ...z, tx: clamp(z.tx, w - w * z.scale, 0), ty: clamp(z.ty, h - h * z.scale, 0) };
+}
+
+function zoomAbout(z: ZoomState, next: number, px: number, py: number, w: number, h: number): ZoomState {
+  const scale = clamp(next, MIN_SCALE, MAX_SCALE);
+  const k = scale / z.scale;
+  return clampPan({ scale, tx: px - (px - z.tx) * k, ty: py - (py - z.ty) * k }, w, h);
 }
 
 export function ImageOverlay({
@@ -49,271 +55,142 @@ export function ImageOverlay({
   onClose,
   onNavigate,
 }: ImageOverlayProps) {
-  const [zoom, setZoom] = useState<ZoomState>({ scale: 1, x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
+  const [zoom, setZoom] = useState<ZoomState>(RESET);
+  const [dragging, setDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const lensRef = useRef<HTMLDivElement>(null);
-  const imgDisplaySizeRef = useRef({ left: 0, top: 0, width: 0, height: 0, rendW: 0, rendH: 0, offX: 0, offY: 0 });
+  const dragRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
 
+  const box = () => {
+    const r = containerRef.current?.getBoundingClientRect();
+    return { w: r?.width ?? 1, h: r?.height ?? 1, left: r?.left ?? 0, top: r?.top ?? 0 };
+  };
+
+  const resetZoom = useCallback(() => setZoom(RESET), []);
+
+  const zoomBy = useCallback((ratio: number, clientX?: number, clientY?: number) => {
+    const { w, h, left, top } = box();
+    const px = clientX === undefined ? w / 2 : clientX - left;
+    const py = clientY === undefined ? h / 2 : clientY - top;
+    setZoom((z) => zoomAbout(z, z.scale * ratio, px, py, w, h));
+  }, []);
+
+  // React attaches wheel listeners passively, so preventDefault there is a
+  // no-op and the page behind the overlay would scroll. Bind natively.
   useEffect(() => {
-    if (!imageUrl) return;
-    setNaturalSize({ width: 0, height: 0 });
-    const img = new Image();
-    img.onload = () => {
-      setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+    const el = containerRef.current;
+    if (!el || !isOpen) return;
+    const onWheel = (e: globalThis.WheelEvent) => {
+      e.preventDefault();
+      // Trackpads send many small deltas; mice send ±100. Scale the step so
+      // both feel the same.
+      const ratio = Math.exp(-e.deltaY * 0.0025);
+      zoomBy(ratio, e.clientX, e.clientY);
     };
-    img.onerror = () => {
-      setNaturalSize({ width: 0, height: 0 });
-    };
-    img.src = imageUrl;
-  }, [imageUrl]);
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [isOpen, zoomBy, imageUrl]);
 
-  const resetZoom = useCallback(() => {
-    setZoom({ scale: 1, x: 0, y: 0 });
-  }, []);
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (zoom.scale <= 1 || e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { x: e.clientX, y: e.clientY, tx: zoom.tx, ty: zoom.ty };
+    setDragging(true);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const { w, h } = box();
+    setZoom((z) => clampPan({ ...z, tx: d.tx + (e.clientX - d.x), ty: d.ty + (e.clientY - d.y) }, w, h));
+  };
+  const onPointerUp = () => { dragRef.current = null; setDragging(false); };
 
-  const handleWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) / rect.width;
-    const mouseY = (e.clientY - rect.top) / rect.height;
-
-    setZoom(prev => {
-      let newScale = e.deltaY < 0 ? prev.scale * ZOOM_RATIO : prev.scale / ZOOM_RATIO;
-      newScale = clamp(newScale, MIN_SCALE, MAX_SCALE);
-
-      if (newScale === 1) {
-        return { scale: 1, x: 0, y: 0 };
-      }
-
-      const scaleDiff = newScale / prev.scale;
-      const newX = mouseX * 100 - (mouseX * 100 - prev.x) * scaleDiff;
-      const newY = mouseY * 100 - (mouseY * 100 - prev.y) * scaleDiff;
-
-      return { scale: newScale, x: newX, y: newY };
-    });
-  }, []);
-
-  const handleMouseDown = useCallback((e: MouseEvent<HTMLDivElement>) => {
-    if (zoom.scale === 1) return;
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - zoom.x, y: e.clientY - zoom.y });
-  }, [zoom.scale, zoom.x, zoom.y]);
-
-  const handleMouseMoveForDrag = useCallback((e: MouseEvent<HTMLDivElement>) => {
-    if (!isDragging) return;
-    setZoom(prev => ({
-      ...prev,
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    }));
-  }, [isDragging, dragStart]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  const updateLens = useCallback((cx: number, cy: number, lens: HTMLDivElement, img: HTMLImageElement) => {
-    const imgRect = img.getBoundingClientRect();
-    const dw = imgRect.width || 1;
-    const dh = imgRect.height || 1;
-    const natW = naturalSize.width || 1;
-    const natH = naturalSize.height || 1;
-    const contAspect = dw / dh;
-    const imgAspect = natW / natH;
-    let rendW: number, rendH: number, offX: number, offY: number;
-    if (contAspect > imgAspect) {
-      rendH = dh;
-      rendW = rendH * imgAspect;
-      offX = (dw - rendW) / 2;
-      offY = 0;
-    } else {
-      rendW = dw;
-      rendH = rendW / imgAspect;
-      offX = 0;
-      offY = (dh - rendH) / 2;
-    }
-    const inBounds =
-      cx >= imgRect.left + offX &&
-      cx <= imgRect.left + offX + rendW &&
-      cy >= imgRect.top + offY &&
-      cy <= imgRect.top + offY + rendH;
-    if (!inBounds) {
-      lens.style.display = 'none';
-      return;
-    }
-    imgDisplaySizeRef.current = { left: imgRect.left, top: imgRect.top, width: dw, height: dh, rendW, rendH, offX, offY };
-    lens.style.display = 'block';
-    lens.style.left = `${cx - MAGNIFIER_SIZE / 2}px`;
-    lens.style.top = `${cy - MAGNIFIER_SIZE + 2}px`;
-    const relX = cx - imgRect.left - offX;
-    const relY = cy - imgRect.top - offY;
-    const nX = (relX / rendW) * natW;
-    const nY = (relY / rendH) * natH;
-    const bgX = -(nX * MAGNIFICATION - MAGNIFIER_SIZE / 2);
-    const bgY = -(nY * MAGNIFICATION - MAGNIFIER_SIZE / 2);
-    lens.style.backgroundPosition = `${bgX}px ${bgY}px`;
-  }, [naturalSize]);
-
-  const handleImageMouseMove = useCallback((e: MouseEvent<HTMLDivElement>) => {
-    if (isDragging) return;
-    if (zoom.scale > 1) {
-      if (lensRef.current) lensRef.current.style.display = 'none';
-      return;
-    }
-    const img = imageRef.current;
-    const lens = lensRef.current;
-    if (!img || !lens) return;
-    updateLens(e.clientX, e.clientY, lens, img);
-  }, [isDragging, zoom.scale, updateLens]);
-
-  const handleImageMouseLeave = useCallback(() => {
-    if (lensRef.current) lensRef.current.style.display = 'none';
-  }, []);
-
-  const zoomIn = useCallback(() => {
-    setZoom(prev => {
-      const newScale = clamp(prev.scale * ZOOM_RATIO, MIN_SCALE, MAX_SCALE);
-      if (newScale === 1) return { scale: 1, x: 0, y: 0 };
-      return { ...prev, scale: newScale };
-    });
-  }, []);
-
-  const zoomOut = useCallback(() => {
-    setZoom(prev => {
-      const newScale = clamp(prev.scale / ZOOM_RATIO, MIN_SCALE, MAX_SCALE);
-      if (newScale === 1) return { scale: 1, x: 0, y: 0 };
-      return { ...prev, scale: newScale };
-    });
-  }, []);
+  const onDoubleClick = (e: MouseEvent<HTMLDivElement>) => {
+    const { w, h, left, top } = box();
+    setZoom((z) => (z.scale > 1 ? RESET : zoomAbout(z, DBLCLICK_SCALE, e.clientX - left, e.clientY - top, w, h)));
+  };
 
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       switch (e.key) {
         case 'Escape': onClose(); break;
         case 'ArrowLeft': resetZoom(); onNavigate('prev'); break;
         case 'ArrowRight': resetZoom(); onNavigate('next'); break;
-        case '=': case '+': zoomIn(); break;
-        case '-': zoomOut(); break;
+        case '=': case '+': zoomBy(ZOOM_RATIO); break;
+        case '-': zoomBy(1 / ZOOM_RATIO); break;
         case '0': resetZoom(); break;
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, onNavigate, zoomIn, zoomOut, resetZoom]);
-
-  const isWheelZoomed = zoom.scale > 1;
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose, onNavigate, zoomBy, resetZoom]);
 
   if (!isOpen) return null;
 
+  const zoomed = zoom.scale > 1;
+  const ctl = 'p-1.5 bg-gray-700 rounded-md border border-gray-600 text-gray-200 hover:bg-gray-600 disabled:opacity-40 transition-colors';
+
   return (
-    <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-    >
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="relative bg-gray-900 border border-gray-700 rounded-lg p-3">
         <button
           onClick={onClose}
           className="absolute -top-3 -right-3 text-white z-30 bg-gray-600 hover:bg-gray-500 rounded-full p-2.5 transition-colors shadow-lg"
+          aria-label="Close"
         >
           <X className="h-5 w-5" />
         </button>
 
-        {isWheelZoomed && (
-          <div className="absolute top-4 left-4 flex items-center space-x-1 z-30">
-            <button
-              onClick={zoomOut}
-              disabled={zoom.scale <= MIN_SCALE}
-              className="p-1.5 bg-gray-700 rounded-md border border-gray-600 text-gray-200 hover:bg-gray-600 disabled:opacity-40 transition-colors"
-              title="Zoom out"
-            >
-              <ZoomOut className="h-4 w-4" />
-            </button>
-            <span className="px-2 py-1 bg-gray-700 rounded text-xs border border-gray-600 min-w-[44px] text-center text-gray-200 font-mono">
-              {Math.round(zoom.scale * 100)}%
-            </span>
-            <button
-              onClick={zoomIn}
-              disabled={zoom.scale >= MAX_SCALE}
-              className="p-1.5 bg-gray-700 rounded-md border border-gray-600 text-gray-200 hover:bg-gray-600 disabled:opacity-40 transition-colors"
-              title="Zoom in"
-            >
-              <ZoomIn className="h-4 w-4" />
-            </button>
-            <button
-              onClick={resetZoom}
-              className="p-1.5 bg-gray-700 rounded-md border border-gray-600 text-gray-200 hover:bg-gray-600 transition-colors ml-1"
-              title="Reset zoom (100%)"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </button>
-          </div>
-        )}
+        <div className="absolute top-4 left-4 flex items-center space-x-1 z-30">
+          <button onClick={() => zoomBy(1 / ZOOM_RATIO)} disabled={zoom.scale <= MIN_SCALE} className={ctl} title="Zoom out (-)">
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <span className="px-2 py-1 bg-gray-700 rounded text-xs border border-gray-600 min-w-[52px] text-center text-gray-200 font-mono">
+            {Math.round(zoom.scale * 100)}%
+          </span>
+          <button onClick={() => zoomBy(ZOOM_RATIO)} disabled={zoom.scale >= MAX_SCALE} className={ctl} title="Zoom in (+)">
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <button onClick={resetZoom} disabled={!zoomed} className={`${ctl} ml-1`} title="Fit to screen (0)">
+            <RotateCcw className="h-4 w-4" />
+          </button>
+          <span className="ml-3 hidden sm:inline text-[11px] text-gray-400">
+            Scroll to zoom · drag to pan · double-click for {DBLCLICK_SCALE}x
+          </span>
+        </div>
 
         <div
           ref={containerRef}
-          className="overflow-hidden rounded-lg relative select-none bg-gray-900"
+          className="overflow-hidden rounded-lg relative select-none bg-gray-900 touch-none"
           style={{
             width: '85vw',
             height: '85vh',
             maxWidth: '1400px',
             maxHeight: '1000px',
-            cursor: isWheelZoomed ? 'grab' : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cdefs%3E%3Cfilter id='s'%3E%3CfeDropShadow dx='0' dy='1' stdDeviation='1.5' flood-color='rgba(0,0,0,0.6)'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s)'%3E%3Ccircle cx='11' cy='11' r='7' fill='rgba(255,255,255,0.15)' stroke='white' stroke-width='1.8'/%3E%3Cline x1='16' y1='16' x2='22' y2='22' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 11 11, auto`,
+            cursor: zoomed ? (dragging ? 'grabbing' : 'grab') : 'zoom-in',
           }}
-          onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={(e) => { handleImageMouseMove(e); handleMouseMoveForDrag(e); }}
-          onMouseLeave={() => { handleImageMouseLeave(); handleMouseUp(); }}
-          onDoubleClick={(e) => {
-            // Double click zooms in on the spot you clicked, and again to reset.
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            const px = (e.clientX - rect.left) / rect.width;
-            const py = (e.clientY - rect.top) / rect.height;
-            setZoom((prev) => {
-              if (prev.scale > 1) return { scale: 1, x: 0, y: 0 };
-              const scale = 3;
-              return { scale, x: (0.5 - px) * rect.width / scale, y: (0.5 - py) * rect.height / scale };
-            });
-          }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onDoubleClick={onDoubleClick}
         >
           <img
-            ref={imageRef}
+            key={imageUrl}
             src={imageUrl}
             alt="Full size"
             draggable={false}
             className="w-full h-full select-none"
             style={{
               objectFit: 'contain',
-              transform: isWheelZoomed
-                ? `scale(${zoom.scale}) translate(${zoom.x}px, ${zoom.y}px)`
-                : 'none',
+              transform: `translate(${zoom.tx}px, ${zoom.ty}px) scale(${zoom.scale})`,
               transformOrigin: '0 0',
-              transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+              transition: dragging ? 'none' : 'transform 0.12s ease-out',
+              willChange: 'transform',
             }}
             onLoad={resetZoom}
-          />
-
-          <div
-            ref={lensRef}
-            className="pointer-events-none fixed z-20"
-            style={{
-              display: 'none',
-              width: MAGNIFIER_SIZE,
-              height: MAGNIFIER_SIZE,
-              borderRadius: '50%',
-              border: '2px solid rgba(255,255,255,0.9)',
-              boxShadow: '0 0 20px rgba(0,0,0,0.5), inset 0 0 10px rgba(0,0,0,0.1)',
-              imageRendering: 'auto',
-              backgroundImage: `url(${imageUrl})`,
-              backgroundRepeat: 'no-repeat',
-              backgroundSize: `${naturalSize.width * MAGNIFICATION}px ${naturalSize.height * MAGNIFICATION}px`,
-              backgroundPosition: '0px 0px',
-            }}
           />
         </div>
 

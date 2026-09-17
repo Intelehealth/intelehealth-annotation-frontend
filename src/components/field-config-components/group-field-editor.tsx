@@ -35,19 +35,19 @@ const newChild = (): GroupChildField => ({
 });
 
 export function GroupFieldEditor({
-  children,
+  items,
   onChange,
 }: {
-  children: GroupChildField[];
+  items: GroupChildField[];
   onChange: (next: GroupChildField[]) => void;
 }) {
   const update = (i: number, patch: Partial<GroupChildField>) =>
-    onChange(children.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
-  const remove = (i: number) => onChange(children.filter((_, idx) => idx !== i));
+    onChange(items.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+  const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir;
-    if (j < 0 || j >= children.length) return;
-    const next = [...children];
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
     [next[i], next[j]] = [next[j], next[i]];
     onChange(next);
   };
@@ -58,16 +58,16 @@ export function GroupFieldEditor({
         <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
           Inputs in this question
         </div>
-        <span className="text-[10px] font-medium text-gray-400">{children.length}</span>
+        <span className="text-[10px] font-medium text-gray-400">{items.length}</span>
       </div>
 
-      {children.length === 0 && (
+      {items.length === 0 && (
         <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50/50 py-4 text-center text-xs text-gray-500">
           No inputs yet. Add the first one below.
         </p>
       )}
 
-      {children.map((child, i) => (
+      {items.map((child, i) => (
         <div key={child.id} className="rounded-lg border border-gray-200 bg-white p-3">
           <div className="flex flex-wrap items-start gap-2">
             <div className="flex flex-col pt-1.5 text-gray-300">
@@ -112,7 +112,7 @@ export function GroupFieldEditor({
               <button
                 type="button"
                 aria-label={`Move input ${i + 1} down`}
-                disabled={i === children.length - 1}
+                disabled={i === items.length - 1}
                 onClick={() => move(i, 1)}
                 className="rounded border border-gray-200 px-1.5 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:text-gray-300"
               >
@@ -189,7 +189,7 @@ export function GroupFieldEditor({
         type="button"
         variant="outline"
         size="sm"
-        onClick={() => onChange([...children, newChild()])}
+        onClick={() => onChange([...items, newChild()])}
         className="flex h-8 w-full items-center justify-center gap-1.5 border-dashed border-gray-300 text-xs font-semibold hover:border-teal-500 hover:bg-teal-50/30 hover:text-teal-600"
       >
         <Plus className="h-3.5 w-3.5" />

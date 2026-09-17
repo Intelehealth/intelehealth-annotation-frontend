@@ -416,10 +416,12 @@ export function FieldConfig({
     try {
       const config = await fieldSelectionAPI.getDatasetFieldConfig(datasetId);
       if (config) {
-        // Clean normalization - create completely new objects
+        // Keep every saved property. This used to copy a fixed list, which
+        // dropped group inputs, image and caption settings on every reopen.
         const cleanFields = (config.annotationFields || []).map(
           (field: any, index: number) => {
             const cleanField = {
+              ...field,
               id: field.id || field.fieldName || `field-${index}`,
               csvColumnName: field.csvColumnName || "",
               fieldName: field.fieldName || "",
@@ -434,32 +436,6 @@ export function FieldConfig({
               options: field.options || [],
               isNewColumn: Boolean(field.isNewColumn),
               newColumnId: field.newColumnId || undefined,
-              columnType: field.columnType,
-              placeholder: field.placeholder,
-              defaultValue: field.defaultValue,
-              maxLength: field.maxLength,
-              min: field.min,
-              max: field.max,
-              step: field.step,
-              rangeStart: field.rangeStart,
-              rangeEnd: field.rangeEnd,
-              rangeStep: field.rangeStep,
-              maxSelections: field.maxSelections,
-              minDate: field.minDate,
-              maxDate: field.maxDate,
-              maxRating: field.maxRating,
-              allowHalf: field.allowHalf,
-              rows: field.rows,
-
-              // NEW Redesign properties
-              questionTitle: field.questionTitle,
-              questionDescription: field.questionDescription,
-              helpText: field.helpText,
-              section: field.section,
-              visibilityRule: field.visibilityRule,
-
-              // Nested Conditional Workflow
-              branching: field.branching,
             } as AnnotationField;
             // Enforce invariant: primary key cannot be an annotation field
             if (cleanField.isPrimaryKey) {
@@ -1731,7 +1707,7 @@ export function FieldConfig({
                                 {currentUnifiedType === "group" && (
                                   <div className="pt-4 border-t border-gray-200">
                                     <GroupFieldEditor
-                                      children={field.groupChildren ?? []}
+                                      items={field.groupChildren ?? []}
                                       onChange={(groupChildren) =>
                                         handleFieldChange(field.id, { groupChildren })
                                       }
