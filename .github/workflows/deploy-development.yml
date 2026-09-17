@@ -1,0 +1,116 @@
+name: Deploy to Development
+
+# Development pipeline: same build+deploy as CI/CD but targets a separate
+# Cloud Run service (data-annotation-frontend-dev) from the `dev` branch.
+# Auth is keyless via Workload Identity Federation — no stored SA key.
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch: {}   # allow manual runs from the Actions tab
+
+env:
+  PROJECT_ID: refined-outlet-249712
+  REGION: asia-south1
+  # Artifact Registry: <region>-docker.pkg.dev/<project>/<repo>/<image>
+  AR_REPO: data-annotation
+  IMAGE_NAME: frontend
+  SERVICE_NAME: data-annotation-frontend-dev
+  # Deployed backend base URL — baked into the client bundle at build time.
+  # Point this at a dev backend if/when one exists.
+  NEXT_PUBLIC_API_URL: https://annotation-backend-1045030213449.asia-south1.run.app
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build application
+        run: npm run build
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+
+    # Required for Workload Identity Federation (keyless auth to GCP).
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOYER_SA }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}" \
+            -t "${IMAGE}:dev-${GITHUB_SHA}" \
+            -t "${IMAGE}:dev-latest" \
+            .
+
+      - name: Push image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          docker push "${IMAGE}:dev-${GITHUB_SHA}"
+          docker push "${IMAGE}:dev-latest"
+
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          gcloud run deploy "${SERVICE_NAME}" \
+            --image "${IMAGE}:dev-${GITHUB_SHA}" \
+            --project "${PROJECT_ID}" \
+            --region "${REGION}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 3000 \
+            --memory 256Mi \
+            --cpu 1 \
+            --max-instances 2 \
+            --min-instances 0 \
+            --timeout 300 \
+            --concurrency 80
+
+      - name: Health check
+        run: |
+          echo "Waiting for service to be ready..."
+          sleep 20
+          URL=$(gcloud run services describe "${SERVICE_NAME}" \
+                  --project "${PROJECT_ID}" --region "${REGION}" \
+                  --format 'value(status.url)')
+          echo "Testing frontend: $URL"
+          curl -f "$URL" || echo "Health check returned non-200, but deployment completed"
+
+      - name: Deployment URL
+        run: |
+          URL=$(gcloud run services describe "${SERVICE_NAME}" \
+                  --project "${PROJECT_ID}" --region "${REGION}" \
+                  --format 'value(status.url)')
+          echo "Frontend (dev) deployed to: $URL"
+          echo "service_url=$URL" >> "$GITHUB_OUTPUT"

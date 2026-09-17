@@ -1,0 +1,39 @@
+name: Frontend PR Validation
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+env:
+  REGISTRY: gcr.io
+  IMAGE_NAME: indhic-ai/data-annotation-frontend-staging
+  REGION: asia-south1
+  SERVICE_NAME: data-annotation-frontend-pr-${{ github.event.number }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      # - name: Run linting
+      #   run: npm run lint
+
+      - name: Build application
+        run: npm run build
+
+      # - name: Security audit and fix
+      #   run: |
+      #     npm audit --audit-level moderate || npm audit fix --force
+
