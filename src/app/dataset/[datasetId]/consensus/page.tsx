@@ -334,12 +334,14 @@ export default function ReviewConsensusPage() {
     const rowCounts = progress?.rowCounts || {};
     return {
       totalRows: progress?.totalRows || gridData?.totalRows || 0,
-      agreed: rowCounts.AGREED || 0,
-      partial: rowCounts.PARTIAL || 0,
-      conflict: rowCounts.CONFLICT || 0,
-      tie: rowCounts.TIE || 0,
-      notStarted: rowCounts.NOT_STARTED || 0,
-      agreedFields: fieldCounts.AGREED || 0,
+      // GET /consensus/:id/progress returns flat row counts; rowCounts/fieldCounts
+      // are the older shape, kept as a fallback.
+      agreed: progress?.agreedRows ?? rowCounts.AGREED ?? 0,
+      partial: progress?.partialRows ?? rowCounts.PARTIAL ?? 0,
+      conflict: progress?.conflictRows ?? rowCounts.CONFLICT ?? 0,
+      tie: progress?.tieRows ?? rowCounts.TIE ?? 0,
+      notStarted: progress?.notStartedRows ?? rowCounts.NOT_STARTED ?? 0,
+      agreedFields: progress?.suggestedAgreement ?? fieldCounts.AGREED ?? 0,
     };
   }, [gridData, progress]);
 
