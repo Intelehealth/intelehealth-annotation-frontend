@@ -1781,13 +1781,50 @@ export function FieldConfig({
                                 )}
                               </div>
                             ) : (
-                              <div className="flex items-center space-x-2">
-                                <span className="font-semibold text-gray-800 text-sm truncate max-w-[250px]">
-                                  {field.csvColumnName}
-                                </span>
-                                <span className="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded uppercase font-semibold">
-                                  CSV Column
-                                </span>
+                              <div className="space-y-1.5 max-w-md">
+                                <div className="flex items-center space-x-2">
+                                  <span
+                                    className="font-mono text-xs text-gray-600 truncate max-w-[250px]"
+                                    title="Original column name in the CSV. Used to read the data and cannot be changed."
+                                  >
+                                    {field.csvColumnName}
+                                  </span>
+                                  <span className="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded uppercase font-semibold">
+                                    CSV Column
+                                  </span>
+                                </div>
+                                {/* Display name + description are only editable for data columns
+                                    shown as metadata. Annotation inputs store answers under
+                                    fieldName, so renaming those would orphan existing answers. */}
+                                {!isInputType && (
+                                  <>
+                                    <Input
+                                      value={field.fieldName}
+                                      placeholder="Display name shown to annotators"
+                                      aria-label="Display name"
+                                      onChange={(e) =>
+                                        handleFieldChange(field.id, { fieldName: e.target.value })
+                                      }
+                                      className="h-8 text-sm bg-white"
+                                    />
+                                    <Input
+                                      value={field.helpText ?? ""}
+                                      placeholder="What this field means — shown as an ⓘ tip"
+                                      aria-label="Field description"
+                                      onChange={(e) =>
+                                        handleFieldChange(field.id, { helpText: e.target.value })
+                                      }
+                                      className="h-8 text-xs bg-white"
+                                    />
+                                    <p className="text-[11px] text-gray-500">
+                                      Annotators see{" "}
+                                      <span className="font-medium text-gray-700">
+                                        {field.fieldName || field.csvColumnName}
+                                      </span>
+                                      {field.helpText ? " with an info tip." : "."}
+                                    </p>
+                                  </>
+                                )}
                               </div>
                             )}
                           </div>

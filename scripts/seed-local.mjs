@@ -44,13 +44,13 @@ const id = (o) => o?._id ?? o?.id
 // people
 async function ensureAnnotator(admin, a) {
   // invite (admin) then register (self); both tolerate "already exists"
-  try { await call('POST', '/users', { token: admin, body: { email: a.email, role: 'ANNOTATOR', firstName: a.first, lastName: a.last } }) } catch (e) { if (!/exist|409/i.test(e.message)) throw e }
+  try { await call('POST', '/users', { token: admin, body: { email: a.email, role: a.role ?? 'ANNOTATOR', firstName: a.first, lastName: a.last } }) } catch (e) { if (!/exist|409/i.test(e.message)) throw e }
   let reg
   try {
-    reg = await call('POST', '/auth/register', { body: { email: a.email, password: ANNOTATOR_PASSWORD, firstName: a.first, lastName: a.last } })
+    reg = await call('POST', '/auth/register', { body: { email: a.email, password: a.password ?? ANNOTATOR_PASSWORD, firstName: a.first, lastName: a.last } })
   } catch (e) {
     if (!/exist|409|already/i.test(e.message)) throw e
-    reg = await call('POST', '/auth/login', { body: { email: a.email, password: ANNOTATOR_PASSWORD } })
+    reg = await call('POST', '/auth/login', { body: { email: a.email, password: a.password ?? ANNOTATOR_PASSWORD } })
   }
   const userId = id(reg.user)
   // invited accounts start INACTIVE until activated; the admin activates them
@@ -290,6 +290,30 @@ async function seedDataset(admin, adminUserId, people, ds) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// a workspace owner. The platform allows exactly one ADMIN, so the owner is a
+// regular account that owns a workspace: they manage its members; the admin
+// attaches datasets to it.
+const OWNER = { email: 'owner@example.com', password: 'Owner@123456', first: 'Priya', last: 'Menon' }
+const WORKSPACE = { name: 'Intelehealth clinical review', description: 'Clinical annotation for the Intelehealth pilot: triage, documentation quality and consent checks.', domain: 'Healthcare' }
+
+async function seedWorkspace(admin, people) {
+  const owner = await ensureAnnotator(admin, OWNER)
+  log(`owner ${OWNER.email}`)
+  const existing = (await call('GET', '/workspaces', { token: owner.token })).find((w) => w.name === WORKSPACE.name)
+  const ws = existing ?? (await call('POST', '/workspaces', { token: owner.token, body: WORKSPACE }))
+  log(`workspace "${ws.name}" ${existing ? 'exists' : 'created'}`)
+  for (const m of people.slice(0, 3)) {
+    try { await call('POST', `/workspaces/${id(ws)}/members`, { token: owner.token, body: { userId: m.userId } }) } catch (e) { if (!/already/i.test(e.message)) throw e }
+  }
+  const all = await call('GET', '/datasets', { token: admin })
+  for (const name of ['Support tickets', 'Vehicle damage']) {
+    const d = all.find((x) => x.name.startsWith(name) && !x.isClone && !x.parentDatasetId)
+    if (d) await call('POST', `/workspaces/${id(ws)}/datasets`, { token: admin, body: { datasetId: id(d) } })
+  }
+  log(`workspace members + datasets attached`)
+}
+
 async function main() {
   const adminLogin = await call('POST', '/auth/login', { body: ADMIN })
   const admin = adminLogin.accessToken
@@ -297,9 +321,11 @@ async function main() {
   log(`admin ${ADMIN.email} ok`)
   const people = []
   for (const a of PEOPLE) { people.push(await ensureAnnotator(admin, a)); log(`annotator ${a.email}`); await sleep(1500) }
-  for (const ds of DATASETS) await seedDataset(admin, adminUserId, people, ds)
+  if (!process.argv.includes('--only=workspace')) for (const ds of DATASETS) await seedDataset(admin, adminUserId, people, ds)
+  await seedWorkspace(admin, people)
   log('done')
   log(`annotator logins: ${PEOPLE.map((p) => p.email).join(', ')} / ${ANNOTATOR_PASSWORD}`)
+  log(`workspace owner login: ${OWNER.email} / ${OWNER.password}`)
 }
 
 main().catch((e) => { console.error('[seed] failed:', e.message); process.exit(1) })

@@ -233,7 +233,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
 
         {/* WORKSPACES */}
         <Link
-          href="/workspaces/templates"
+          href="/workspaces"
           className={cn(
             'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
             pathname.startsWith('/workspaces')

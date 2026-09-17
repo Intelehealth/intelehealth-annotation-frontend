@@ -9,6 +9,7 @@ import {
   GripVertical,
   Eye,
   ArrowLeft,
+  Info,
 } from 'lucide-react';
 import { ImageThumbnails } from './image-thumbnails';
 import { AudioPreview, VideoPreview } from './media-preview';
@@ -177,6 +178,7 @@ export function MetadataDisplay({
                     <span className="text-red-500 ml-1">*</span>
                   )}
                 </Label>
+                {field.helpText && <FieldInfo text={field.helpText} column={field.csvColumnName} />}
               </div>
               {field.isPrimaryKey && (
                 <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded shrink-0">
@@ -308,5 +310,32 @@ export function MetadataDisplay({
         )}
       </div>
     </div>
+  );
+}
+
+// Info tip for a data field: the description the admin wrote in field
+// configuration, plus the original CSV column it comes from. Click to pin it
+// open; hover shows it as a native tooltip.
+function FieldInfo({ text, column }: { text: string; column: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="What this field means"
+        aria-expanded={open}
+        title={text}
+        onClick={() => setOpen((o) => !o)}
+        className="rounded p-0.5 text-gray-400 hover:text-gray-700 focus-visible:outline-2 focus-visible:outline-blue-500"
+      >
+        <Info className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <span role="note" className="absolute left-0 top-full z-10 mt-1 w-64 rounded-md border border-gray-200 bg-white p-2.5 text-xs text-gray-700 shadow-md">
+          {text}
+          <span className="mt-1.5 block font-mono text-[10px] text-gray-400">column: {column}</span>
+        </span>
+      )}
+    </span>
   );
 }
