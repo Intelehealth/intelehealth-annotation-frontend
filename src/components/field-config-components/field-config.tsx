@@ -157,6 +157,17 @@ interface NewColumn {
     pattern?: string;
   };
   branching?: any;
+  groupChildren?: GroupChildField[];
+  /** Image source and per-image caption settings — see MediaSourceConfig. */
+  imageFormat?: "url" | "base64" | "binary";
+  imageMultiple?: boolean;
+  imageDelimiter?: string;
+  imageMimeType?: string;
+  captionEnabled?: boolean;
+  captionLabel?: string;
+  captionType?: "text" | "textarea" | "number" | "select" | "radio" | "multiselect";
+  captionOptions?: string[];
+  captionRequired?: boolean;
 }
 
 interface AnnotationField {
@@ -224,6 +235,16 @@ interface AnnotationField {
   section?: string;
   visibilityRule?: VisibilityRule;
   branching?: any;
+  /** Image source and per-image caption settings — see MediaSourceConfig. */
+  imageFormat?: "url" | "base64" | "binary";
+  imageMultiple?: boolean;
+  imageDelimiter?: string;
+  imageMimeType?: string;
+  captionEnabled?: boolean;
+  captionLabel?: string;
+  captionType?: "text" | "textarea" | "number" | "select" | "radio" | "multiselect";
+  captionOptions?: string[];
+  captionRequired?: boolean;
 }
 
 interface CSVColumn {
@@ -964,6 +985,20 @@ export function FieldConfig({
           branching: field.branching
             ? structuredClone(field.branching)
             : undefined,
+          // Composite children and media/caption settings. Enumerating props
+          // here used to drop these, so every save wiped them.
+          groupChildren: field.groupChildren
+            ? structuredClone(field.groupChildren)
+            : undefined,
+          imageFormat: field.imageFormat,
+          imageMultiple: field.imageMultiple,
+          imageDelimiter: field.imageDelimiter,
+          imageMimeType: field.imageMimeType,
+          captionEnabled: field.captionEnabled,
+          captionLabel: field.captionLabel,
+          captionType: field.captionType,
+          captionOptions: field.captionOptions,
+          captionRequired: field.captionRequired,
         })),
         annotationLabels: [],
         newColumns: newColumns.map((column) => {
@@ -994,6 +1029,18 @@ export function FieldConfig({
             branching: column.branching
               ? structuredClone(column.branching)
               : undefined,
+            groupChildren: column.groupChildren
+              ? structuredClone(column.groupChildren)
+              : undefined,
+            imageFormat: column.imageFormat,
+            imageMultiple: column.imageMultiple,
+            imageDelimiter: column.imageDelimiter,
+            imageMimeType: column.imageMimeType,
+            captionEnabled: column.captionEnabled,
+            captionLabel: column.captionLabel,
+            captionType: column.captionType,
+            captionOptions: column.captionOptions,
+            captionRequired: column.captionRequired,
           };
           return mapped;
         }),

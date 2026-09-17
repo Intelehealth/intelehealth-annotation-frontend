@@ -460,6 +460,84 @@ function MediaSourceConfig({
         </div>
       )}
 
+      {kind === 'image' && (
+        <div className="rounded-md border border-gray-200 p-2.5">
+          <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={!!field.captionEnabled}
+              onChange={(e) => onChange({ captionEnabled: e.target.checked })}
+              className="rounded border-gray-300"
+            />
+            Annotators caption each image
+          </label>
+
+          {field.captionEnabled && (
+            <div className="mt-2 space-y-2">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <Label className="text-[10px] font-bold uppercase text-gray-500">Caption label</Label>
+                  <Input
+                    value={field.captionLabel ?? ''}
+                    onChange={(e) => onChange({ captionLabel: e.target.value })}
+                    placeholder="e.g. Findings"
+                    aria-label="Caption label"
+                    className="mt-1 h-8 text-xs bg-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] font-bold uppercase text-gray-500">Caption type</Label>
+                  <select
+                    value={field.captionType ?? 'text'}
+                    onChange={(e) => onChange({ captionType: e.target.value })}
+                    aria-label="Caption type"
+                    className="mt-1 h-8 w-full rounded-md border border-gray-300 bg-white px-2 text-xs"
+                  >
+                    <option value="text">Text</option>
+                    <option value="textarea">Long text</option>
+                    <option value="number">Number</option>
+                    <option value="select">Dropdown</option>
+                    <option value="radio">Radio</option>
+                    <option value="multiselect">Multi-select</option>
+                  </select>
+                </div>
+              </div>
+
+              {['select', 'radio', 'multiselect'].includes(field.captionType ?? 'text') && (
+                <div>
+                  <Label className="text-[10px] font-bold uppercase text-gray-500">Choices (one per line)</Label>
+                  <textarea
+                    defaultValue={(field.captionOptions ?? []).join(String.fromCharCode(10))}
+                    onChange={(e) =>
+                      onChange({
+                        captionOptions: e.target.value
+                          .split(String.fromCharCode(10))
+                          .map((o: string) => o.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    placeholder={['Relevant', 'Not relevant', 'Unusable'].join(String.fromCharCode(10))}
+                    aria-label="Caption choices"
+                    rows={3}
+                    className="mt-1 w-full rounded-md border border-gray-300 p-2 text-xs"
+                  />
+                </div>
+              )}
+
+              <label className="flex items-center gap-2 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={!!field.captionRequired}
+                  onChange={(e) => onChange({ captionRequired: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                A caption is required for every image
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+
       {format === 'url' && (
         <p className="rounded-md border border-gray-200 bg-gray-50 p-2 text-[11px] text-gray-600">
           Images load through the server, so private hosts work. Set the host&apos;s username and password in

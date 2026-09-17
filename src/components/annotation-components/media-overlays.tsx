@@ -29,7 +29,10 @@ type ZoomState = {
 };
 
 const MIN_SCALE = 1;
-const MAX_SCALE = 5;
+// Clinical photos are inspected closely, so allow real magnification, and step
+// by a ratio rather than a fixed amount: 1x→1.25x feels the same as 8x→10x.
+const MAX_SCALE = 16;
+const ZOOM_RATIO = 1.35;
 const ZOOM_STEP = 0.5;
 const MAGNIFIER_SIZE = 60;
 const MAGNIFICATION = 2;
@@ -79,7 +82,7 @@ export function ImageOverlay({
     const mouseY = (e.clientY - rect.top) / rect.height;
 
     setZoom(prev => {
-      let newScale = prev.scale + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP);
+      let newScale = e.deltaY < 0 ? prev.scale * ZOOM_RATIO : prev.scale / ZOOM_RATIO;
       newScale = clamp(newScale, MIN_SCALE, MAX_SCALE);
 
       if (newScale === 1) {
@@ -173,7 +176,7 @@ export function ImageOverlay({
 
   const zoomIn = useCallback(() => {
     setZoom(prev => {
-      const newScale = clamp(prev.scale + ZOOM_STEP, MIN_SCALE, MAX_SCALE);
+      const newScale = clamp(prev.scale * ZOOM_RATIO, MIN_SCALE, MAX_SCALE);
       if (newScale === 1) return { scale: 1, x: 0, y: 0 };
       return { ...prev, scale: newScale };
     });
@@ -181,7 +184,7 @@ export function ImageOverlay({
 
   const zoomOut = useCallback(() => {
     setZoom(prev => {
-      const newScale = clamp(prev.scale - ZOOM_STEP, MIN_SCALE, MAX_SCALE);
+      const newScale = clamp(prev.scale / ZOOM_RATIO, MIN_SCALE, MAX_SCALE);
       if (newScale === 1) return { scale: 1, x: 0, y: 0 };
       return { ...prev, scale: newScale };
     });
@@ -196,6 +199,7 @@ export function ImageOverlay({
         case 'ArrowRight': resetZoom(); onNavigate('next'); break;
         case '=': case '+': zoomIn(); break;
         case '-': zoomOut(); break;
+        case '0': resetZoom(); break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -265,6 +269,17 @@ export function ImageOverlay({
           onMouseDown={handleMouseDown}
           onMouseMove={(e) => { handleImageMouseMove(e); handleMouseMoveForDrag(e); }}
           onMouseLeave={() => { handleImageMouseLeave(); handleMouseUp(); }}
+          onDoubleClick={(e) => {
+            // Double click zooms in on the spot you clicked, and again to reset.
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            const px = (e.clientX - rect.left) / rect.width;
+            const py = (e.clientY - rect.top) / rect.height;
+            setZoom((prev) => {
+              if (prev.scale > 1) return { scale: 1, x: 0, y: 0 };
+              const scale = 3;
+              return { scale, x: (0.5 - px) * rect.width / scale, y: (0.5 - py) * rect.height / scale };
+            });
+          }}
         >
           <img
             ref={imageRef}

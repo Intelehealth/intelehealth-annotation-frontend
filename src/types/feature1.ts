@@ -357,6 +357,12 @@ export interface AnnotationField {
   imageMultiple?: boolean;
   imageDelimiter?: string;
   imageMimeType?: string;
+  /** Let annotators caption each image, and how that caption is captured. */
+  captionEnabled?: boolean;
+  captionLabel?: string;
+  captionType?: 'text' | 'textarea' | 'select' | 'radio' | 'multiselect' | 'number';
+  captionOptions?: string[];
+  captionRequired?: boolean;
   id?: string;
   questionTitle?: string;
   questionDescription?: string;

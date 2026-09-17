@@ -52,6 +52,12 @@ export interface AnnotationField {
   imageMultiple?: boolean;
   imageDelimiter?: string;
   imageMimeType?: string;
+  /** Let annotators caption each image, and how that caption is captured. */
+  captionEnabled?: boolean;
+  captionLabel?: string;
+  captionType?: 'text' | 'textarea' | 'select' | 'radio' | 'multiselect' | 'number';
+  captionOptions?: string[];
+  captionRequired?: boolean;
   csvColumnName: string;
   fieldName: string;
   fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url' | 'image' | 'audio' | 'video';

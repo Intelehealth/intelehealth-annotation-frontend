@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { FieldInfo } from '@/components/annotation-components/metadata-display';
 import { resolveImages } from '@/lib/image-source';
-import { GroupFieldInput } from './group-field-input';
+import { GroupFieldInput, readList } from './group-field-input';
+import { CaptionInput } from './caption-input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -1592,19 +1593,60 @@ export function NewColumnDataPanel({
                   return <p className="text-xs text-gray-500">No image in this row.</p>;
                 }
                 const srcs = images.map((im) => im.src);
+                const captions = readList(newColumnData[`${field.fieldName}.captions`] as string);
+                const writeCaption = (i: number, v: string) => {
+                  const next = images.map((_, idx) => captions[idx] ?? '');
+                  next[i] = v;
+                  onNewColumnChange(`${field.fieldName}.captions`, JSON.stringify(next));
+                };
                 return (
-                  <div className="flex flex-wrap gap-2" onMouseDown={(e) => e.stopPropagation()} draggable={false} onDragStart={(e) => e.preventDefault()}>
-                    {images.map((im, i) => (
-                      <img
-                        key={im.raw + i}
-                        src={im.src}
-                        alt={`Image ${i + 1}`}
-                        draggable={false}
-                        title={im.raw}
-                        className="h-16 w-16 sm:h-20 sm:w-20 max-w-full object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={(e) => { e.stopPropagation(); onImageClick?.(srcs, i); }}
-                      />
-                    ))}
+                  <div className="space-y-2" onMouseDown={(e) => e.stopPropagation()} draggable={false} onDragStart={(e) => e.preventDefault()}>
+                    {field.captionEnabled ? (
+                      // One image per row with its caption beside it, so it is
+                      // obvious which image a caption belongs to.
+                      images.map((im, i) => (
+                        <div key={im.raw + i} className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-2">
+                          <img
+                            src={im.src}
+                            alt={`Image ${i + 1}`}
+                            draggable={false}
+                            title={im.raw}
+                            className="h-20 w-20 shrink-0 cursor-zoom-in rounded-md border border-gray-200 object-cover transition-opacity hover:opacity-80"
+                            onClick={(e) => { e.stopPropagation(); onImageClick?.(srcs, i); }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 flex items-baseline gap-2">
+                              <span className="text-[11px] font-semibold text-gray-700">
+                                {field.captionLabel || 'Caption'} {i + 1}
+                                {field.captionRequired && <span className="ml-1 text-red-500">*</span>}
+                              </span>
+                              <span className="text-[10px] text-gray-400">image {i + 1} of {images.length}</span>
+                            </div>
+                            <CaptionInput
+                              type={field.captionType || 'text'}
+                              options={field.captionOptions || []}
+                              value={captions[i] ?? ''}
+                              disabled={!fieldEditable}
+                              onChange={(v) => writeCaption(i, v)}
+                            />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {images.map((im, i) => (
+                          <img
+                            key={im.raw + i}
+                            src={im.src}
+                            alt={`Image ${i + 1}`}
+                            draggable={false}
+                            title={im.raw}
+                            className="h-16 w-16 sm:h-20 sm:w-20 max-w-full object-cover rounded-lg border border-gray-200 cursor-zoom-in hover:opacity-80 transition-opacity"
+                            onClick={(e) => { e.stopPropagation(); onImageClick?.(srcs, i); }}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })()
