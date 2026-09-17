@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Plus, Trash2, UserMinus, X } from 'lucide-react';
+import { ArrowLeft, History, Plus, Trash2, UserMinus, X } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
 import { TopNav } from '@/components/top-nav';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +14,8 @@ import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
 import { jsonApi } from '@/lib/api';
 import type { UserResponse } from '@/lib/api/users';
 import {
-  apiMessage, WORKSPACE_DOMAINS, workspacesAPI,
-  type WorkspaceDataset, type WorkspaceDomain, type WorkspaceMember, type WorkspaceResponse,
+  apiMessage, SHARING_MODES, WORKSPACE_DOMAINS, workspacesAPI,
+  type WorkspaceDataset, type WorkspaceDomain, type WorkspaceMember, type WorkspaceResponse, type WorkspaceSharingMode,
 } from '@/lib/api/workspaces';
 import { Empty, Section } from '@/components/dashboard/kpi';
 import { personName, timeAgo } from '@/components/dashboard/format';
@@ -66,7 +66,7 @@ export default function WorkspacePage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Members ws={ws} canManage={canManage} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} />
-        <Datasets items={datasets} workspaceId={id} canManage={canManage} onAttach={(d) => run(() => workspacesAPI.attachDataset(id, d), 'Dataset attached')} onDetach={(d) => run(() => workspacesAPI.detachDataset(id, d), 'Dataset removed from workspace')} />
+        <Datasets items={datasets} ws={ws} canManage={canManage} onChanged={load} onAttach={(d) => run(() => workspacesAPI.attachDataset(id, d), 'Dataset attached')} onDetach={(d) => run(() => workspacesAPI.detachDataset(id, d), 'Dataset removed from workspace')} />
       </div>
     </Shell>
   );
@@ -88,19 +88,20 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function Header({ ws, canManage, onSave, onDelete }: {
   ws: WorkspaceResponse; canManage: boolean;
-  onSave: (patch: { name?: string; description?: string; domain?: WorkspaceDomain }) => void;
+  onSave: (patch: { name?: string; description?: string; domain?: WorkspaceDomain; sharingMode?: WorkspaceSharingMode }) => void;
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(ws.name);
   const [description, setDescription] = useState(ws.description ?? '');
   const [domain, setDomain] = useState<WorkspaceDomain>(ws.domain);
+  const [sharingMode, setSharingMode] = useState<WorkspaceSharingMode>(ws.sharingMode);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  useEffect(() => { setName(ws.name); setDescription(ws.description ?? ''); setDomain(ws.domain); }, [ws]);
+  useEffect(() => { setName(ws.name); setDescription(ws.description ?? ''); setDomain(ws.domain); setSharingMode(ws.sharingMode); }, [ws]);
 
   if (editing) {
     return (
-      <form className="space-y-3 rounded-lg border bg-card p-4" onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim(), description: description.trim(), domain }); setEditing(false); }}>
+      <form className="space-y-3 rounded-lg border bg-card p-4" onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim(), description: description.trim(), domain, sharingMode }); setEditing(false); }}>
         <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
           <Input value={name} onChange={(e) => setName(e.target.value)} required aria-label="Workspace name" />
           <select value={domain} onChange={(e) => setDomain(e.target.value as WorkspaceDomain)} className="h-9 rounded-md border bg-background px-3 text-sm" aria-label="Domain">
@@ -108,6 +109,16 @@ function Header({ ws, canManage, onSave, onDelete }: {
           </select>
         </div>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" aria-label="Description" />
+        <fieldset className="grid gap-2 sm:grid-cols-2">
+          <legend className="mb-1 text-xs font-medium text-muted-foreground">How people work on datasets</legend>
+          {SHARING_MODES.map((m) => (
+            <label key={m.value} className={`flex cursor-pointer gap-2 rounded-md border p-3 text-sm ${sharingMode === m.value ? 'border-foreground/60 bg-muted/40' : ''}`}>
+              <input type="radio" name="sharingModeEdit" value={m.value} checked={sharingMode === m.value} onChange={() => setSharingMode(m.value)} className="mt-0.5" />
+              <span><span className="font-medium">{m.label}</span><span className="block text-xs text-muted-foreground">{m.hint}</span></span>
+            </label>
+          ))}
+        </fieldset>
+        <p className="text-xs text-muted-foreground">Changing the mode affects new assignments only; existing copies and shares are kept.</p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
           <Button type="submit" size="sm" disabled={!name.trim()}>Save</Button>
@@ -122,6 +133,7 @@ function Header({ ws, canManage, onSave, onDelete }: {
         <div className="flex items-center gap-2">
           <h1 className="truncate text-xl font-semibold tracking-tight">{ws.name}</h1>
           <Badge variant="outline">{ws.domain}</Badge>
+          <Badge variant="secondary" title={SHARING_MODES.find((m) => m.value === ws.sharingMode)?.hint}>{ws.sharingMode === 'SHARED' ? 'Shared dataset' : 'Copy per person'}</Badge>
           {!ws.isActive && <Badge variant="secondary">archived</Badge>}
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">
@@ -222,36 +234,82 @@ function StatusDot({ status, online }: { status: string; online?: boolean }) {
 
 // ── Datasets ───────────────────────────────────────────────────────────────
 
-function Datasets({ items, workspaceId, canManage, onAttach, onDetach }: {
-  items: WorkspaceDataset[]; workspaceId: string; canManage: boolean;
+// Each dataset shows who is on it and lets the owner put a member on it. What
+// "assign" does depends on the workspace mode: CLONE creates the person's own
+// copy (clone-assign); SHARED gives them access to the one dataset (share).
+function Datasets({ items, ws, canManage, onChanged, onAttach, onDetach }: {
+  items: WorkspaceDataset[]; ws: WorkspaceResponse; canManage: boolean; onChanged: () => void;
   onAttach: (datasetId: string) => void; onDetach: (datasetId: string) => void;
 }) {
   const [all, setAll] = useState<DatasetResponse[]>([]);
   const [pick, setPick] = useState('');
+  const [assigning, setAssigning] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => { if (canManage) datasetsAPI.getAll().then(setAll).catch(() => setAll([])); }, [canManage, items]);
   const here = new Set(items.map((d) => d._id));
   const candidates = all.filter((d) => !d.isClone && !here.has(d._id));
+  const members = [ws.ownerId, ...ws.members];
+  const shared = ws.sharingMode === 'SHARED';
+
+  const assign = async (datasetId: string, userId: string) => {
+    setAssigning(datasetId); setError(null);
+    try {
+      if (shared) await datasetsAPI.shareWithUsers(datasetId, [userId]);
+      else await datasetsAPI.cloneAndAssign(datasetId, [userId]);
+      onChanged();
+    } catch (e) { setError(apiMessage(e, 'Could not assign')); }
+    finally { setAssigning(null); }
+  };
 
   return (
-    <Section title="Datasets" description="Datasets that belong to this workspace.">
-      {items.length === 0 ? <Empty>No datasets attached yet.</Empty> : (
+    <Section title="Datasets" description={shared ? 'One shared copy per dataset. Assigning gives a person access to it.' : 'Assigning gives a person their own copy to annotate.'}>
+      {error && <p className="px-4 pt-3 text-sm text-destructive">{error}</p>}
+      {items.length === 0 ? <Empty>No datasets yet.</Empty> : (
         <ul className="divide-y">
-          {items.map((d) => (
-            <li key={d._id} className="flex items-center gap-3 px-4 py-3 text-sm">
-              <div className="min-w-0 flex-1">
-                <Link href={`/dataset/${d._id}`} className="truncate font-medium hover:underline">{d.name}</Link>
-                <div className="text-xs text-muted-foreground">{d.datasetType} · updated {timeAgo(d.updatedAt)}</div>
-              </div>
-              {canManage && <Button size="sm" variant="ghost" aria-label={`Remove ${d.name} from workspace`} onClick={() => onDetach(d._id)}><X className="h-4 w-4" /></Button>}
-            </li>
-          ))}
+          {items.map((d) => {
+            const on = new Set((d.assignees ?? []).map((a) => a._id));
+            const free = members.filter((m) => !on.has(m._id));
+            return (
+              <li key={d._id} className="space-y-2 px-4 py-3 text-sm">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/dataset/${d._id}`} className="truncate font-medium hover:underline">{d.name}</Link>
+                    <div className="text-xs text-muted-foreground">{d.datasetType} · updated {timeAgo(d.updatedAt)}</div>
+                  </div>
+                  <Button asChild size="sm" variant="ghost" title="Who changed what"><Link href={`/dataset/${d._id}/history`}><History className="mr-1 h-4 w-4" /> History</Link></Button>
+                  {canManage && <Button size="sm" variant="ghost" aria-label={`Remove ${d.name} from workspace`} onClick={() => onDetach(d._id)}><X className="h-4 w-4" /></Button>}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(d.assignees ?? []).length === 0 && <span className="text-xs text-muted-foreground">Nobody assigned yet.</span>}
+                  {(d.assignees ?? []).map((a) => (
+                    <Badge key={a._id} variant="outline" className="gap-1 font-normal">
+                      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${a.isOnline ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`} />
+                      {personName(a)}
+                    </Badge>
+                  ))}
+                  {canManage && free.length > 0 && (
+                    <select
+                      value=""
+                      disabled={assigning === d._id}
+                      onChange={(e) => { if (e.target.value) assign(d._id, e.target.value); }}
+                      aria-label={`Assign someone to ${d.name}`}
+                      className="h-7 rounded-md border bg-background px-2 text-xs"
+                    >
+                      <option value="">{assigning === d._id ? 'Assigning…' : shared ? '+ Give access' : '+ Assign a copy'}</option>
+                      {free.map((m) => <option key={m._id} value={m._id}>{personName(m)}</option>)}
+                    </select>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
       {canManage && (
         <div className="space-y-3 border-t px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">Create a dataset here, then upload data, configure fields and assign people to it.</p>
-            <Button asChild size="sm"><Link href={`/dataset/add-dataset?workspaceId=${workspaceId}`}><Plus className="mr-1 h-4 w-4" /> New dataset</Link></Button>
+            <Button asChild size="sm"><Link href={`/dataset/add-dataset?workspaceId=${ws._id}`}><Plus className="mr-1 h-4 w-4" /> New dataset</Link></Button>
           </div>
           {candidates.length > 0 && (
             <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (pick) { onAttach(pick); setPick(''); } }}>

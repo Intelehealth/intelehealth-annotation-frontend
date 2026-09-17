@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiMessage, WORKSPACE_DOMAINS, workspacesAPI, type WorkspaceDomain, type WorkspaceResponse } from '@/lib/api/workspaces';
+import { apiMessage, SHARING_MODES, WORKSPACE_DOMAINS, workspacesAPI, type WorkspaceDomain, type WorkspaceResponse, type WorkspaceSharingMode } from '@/lib/api/workspaces';
 import { personName, timeAgo } from '@/components/dashboard/format';
 
 export default function WorkspacesPage() {
@@ -65,7 +65,10 @@ export default function WorkspacesPage() {
                             {mine ? 'You own this' : `Owner: ${personName(w.ownerId)}`} · updated {timeAgo(w.updatedAt)}
                           </div>
                         </div>
-                        <Badge variant="outline">{w.domain}</Badge>
+                        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                          <Badge variant="outline">{w.domain}</Badge>
+                          <Badge variant="secondary">{w.sharingMode === 'SHARED' ? 'Shared dataset' : 'Copy per person'}</Badge>
+                        </div>
                       </div>
                       {w.description && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{w.description}</p>}
                       <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
@@ -89,6 +92,7 @@ function CreateForm({ onDone }: { onDone: (created: WorkspaceResponse | null) =>
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [domain, setDomain] = useState<WorkspaceDomain>('Healthcare');
+  const [sharingMode, setSharingMode] = useState<WorkspaceSharingMode>('CLONE');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,7 +100,7 @@ function CreateForm({ onDone }: { onDone: (created: WorkspaceResponse | null) =>
     e.preventDefault();
     if (!name.trim()) return;
     setBusy(true);
-    try { onDone(await workspacesAPI.create({ name: name.trim(), description: description.trim(), domain })); }
+    try { onDone(await workspacesAPI.create({ name: name.trim(), description: description.trim(), domain, sharingMode })); }
     catch (err) { setError(apiMessage(err, 'Could not create the workspace')); }
     finally { setBusy(false); }
   };
@@ -115,6 +119,15 @@ function CreateForm({ onDone }: { onDone: (created: WorkspaceResponse | null) =>
           </select>
         </label>
       </div>
+      <fieldset className="grid gap-2 sm:grid-cols-2">
+        <legend className="mb-1 text-xs font-medium text-muted-foreground">How people work on datasets</legend>
+        {SHARING_MODES.map((m) => (
+          <label key={m.value} className={`flex cursor-pointer gap-2 rounded-md border p-3 text-sm ${sharingMode === m.value ? 'border-foreground/60 bg-muted/40' : ''}`}>
+            <input type="radio" name="sharingMode" value={m.value} checked={sharingMode === m.value} onChange={() => setSharingMode(m.value)} className="mt-0.5" />
+            <span><span className="font-medium">{m.label}</span><span className="block text-xs text-muted-foreground">{m.hint}</span></span>
+          </label>
+        ))}
+      </fieldset>
       <label className="block text-sm">
         <span className="mb-1 block text-xs font-medium text-muted-foreground">Description <span className="font-normal">(optional)</span></span>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What this workspace is for" />

@@ -12,6 +12,7 @@ import {
   Loader2,
   Settings,
   Scale,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { datasetsAPI, DatasetResponse } from '@/lib/api/datasets';
@@ -164,6 +165,16 @@ export function DatasetSidebar({
               <div className="flex-1 min-w-0">
                 <span className="font-medium text-sm truncate block">Review Consensus</span>
                 <span className="text-xs text-gray-500 truncate block">Resolve disagreements</span>
+              </div>
+            </button>
+            <button
+              onClick={() => router.push(`/dataset/${datasetId}/history`)}
+              className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900 group"
+            >
+              <History className="h-4 w-4 flex-shrink-0 text-gray-400 group-hover:text-gray-600" />
+              <div className="flex-1 min-w-0">
+                <span className="font-medium text-sm truncate block">History</span>
+                <span className="text-xs text-gray-500 truncate block">Who changed what, when</span>
               </div>
             </button>
           </div>

@@ -4,6 +4,12 @@ import { jsonApi } from '@/lib/api';
 // datasets attached to it. Admins see every workspace; others see the ones
 // they own or belong to.
 
+export type WorkspaceSharingMode = 'CLONE' | 'SHARED';
+export const SHARING_MODES: { value: WorkspaceSharingMode; label: string; hint: string }[] = [
+  { value: 'CLONE', label: 'Copy per person', hint: 'Each assignee gets their own isolated copy; the owner reviews and reconciles them (consensus).' },
+  { value: 'SHARED', label: 'Shared dataset', hint: 'Everyone works on the same dataset; the history shows who changed what.' },
+];
+
 export type WorkspaceDomain = 'Invoice' | 'Healthcare' | 'Banking' | 'Manufacturing' | 'Custom';
 export const WORKSPACE_DOMAINS: WorkspaceDomain[] = ['Healthcare', 'Invoice', 'Banking', 'Manufacturing', 'Custom'];
 
@@ -25,6 +31,7 @@ export interface WorkspaceResponse {
   ownerId: WorkspaceMember;
   members: WorkspaceMember[];
   domain: WorkspaceDomain;
+  sharingMode: WorkspaceSharingMode;
   icon?: string;
   chatModel?: string;
   systemPrompt?: string;
@@ -41,6 +48,7 @@ export interface WorkspaceDataset {
   datasetType: string;
   accessType?: string;
   userId?: string;
+  assignees?: WorkspaceMember[];
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +57,7 @@ export interface WorkspaceInput {
   name: string;
   description?: string;
   domain?: WorkspaceDomain;
+  sharingMode?: WorkspaceSharingMode;
 }
 
 const base = '/workspaces';
