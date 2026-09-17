@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
-import { usersAPI, type UserResponse } from '@/lib/api/users';
+import { jsonApi } from '@/lib/api';
+import type { UserResponse } from '@/lib/api/users';
 import {
   apiMessage, WORKSPACE_DOMAINS, workspacesAPI,
   type WorkspaceDataset, type WorkspaceDomain, type WorkspaceMember, type WorkspaceResponse,
@@ -158,7 +159,8 @@ function Members({ ws, canManage, onAdd, onRemove }: {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [pick, setPick] = useState('');
   const [email, setEmail] = useState('');
-  useEffect(() => { if (canManage) usersAPI.getAll().then(setUsers).catch(() => setUsers([])); }, [canManage]);
+  // GET /users is open to any signed-in user; usersAPI.getAll hits an admin-only route.
+  useEffect(() => { if (canManage) jsonApi.get<UserResponse[]>('/users').then((r) => setUsers(r.data)).catch(() => setUsers([])); }, [canManage]);
 
   const inWs = useMemo(() => new Set([ws.ownerId?._id, ...ws.members.map((m) => m._id)]), [ws]);
   const candidates = users.filter((u) => !inWs.has(u._id) && u.status !== 'DELETED');
