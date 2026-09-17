@@ -26,6 +26,5 @@ export const navigationData: NavItem[] = [
       { label: 'Evaluate', href: '#evaluate', description: 'Agentic evaluation & LLM judges' }
     ]
   },
-  { label: 'FAQ', href: '#faq' },
-  { label: 'Docs', href: '/documentation' }
+  { label: 'FAQ', href: '#faq' }
 ]

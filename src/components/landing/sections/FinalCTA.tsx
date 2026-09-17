@@ -28,15 +28,6 @@ export function FinalCTA() {
             <Link href="/dataset/add-dataset" className="inline-flex items-center justify-center rounded-md bg-[var(--lp-ink)] px-7 py-4 text-base font-medium text-[var(--lp-paper)] transition-colors duration-300 hover:bg-[var(--lp-accent-2)]">
               Upload a dataset
             </Link>
-            <Link
-              href="/documentation"
-              className="group inline-flex items-center gap-2 text-base font-medium text-[var(--lp-ink)]"
-            >
-              Read the docs
-              <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1">
-                &rarr;
-              </span>
-            </Link>
           </div>
 
           <ul className="mt-10 flex flex-wrap gap-x-5 gap-y-2 border-t border-[var(--lp-rule-peach)] pt-5 font-mono text-xs uppercase tracking-[0.18em] text-[var(--lp-muted)]">

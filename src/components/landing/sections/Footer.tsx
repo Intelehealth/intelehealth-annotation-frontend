@@ -14,7 +14,6 @@ const columns = [
   {
     heading: 'Resources',
     links: [
-      { label: 'Documentation', href: '/documentation' },
       { label: 'FAQ', href: '#faq' },
       { label: 'Add a dataset', href: '/dataset/add-dataset' }
     ]
