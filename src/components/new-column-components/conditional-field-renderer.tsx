@@ -1,4 +1,5 @@
 "use client";
+import { FieldInfo } from '@/components/annotation-components/metadata-display';
 
 import { useCallback } from "react";
 
@@ -165,8 +166,9 @@ export function ConditionalFieldRenderer({
       {path && (
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-1 select-none mt-2">
           <span className="font-mono text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-            {field.fieldName}
+            {field.questionTitle || field.fieldName}
           </span>
+          {field.questionDescription && <FieldInfo text={field.questionDescription} column={field.fieldName} />}
           <span className="text-[10px] uppercase tracking-wider text-slate-400 font-normal">
             ({getFriendlyTypeLabel(type)})
           </span>
@@ -263,7 +265,7 @@ function FieldInput({
             onChange={(e) => onChange(e.target.checked ? "true" : "false")}
             className="rounded text-blue-600"
           />
-          {field.fieldName}
+          {field.questionTitle || field.fieldName}
         </label>
       );
 

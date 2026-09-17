@@ -1793,40 +1793,40 @@ export function FieldConfig({
                                     CSV Column
                                   </span>
                                 </div>
-                                {/* Display name + description are only editable for data columns
-                                    shown as metadata. Annotation inputs store answers under
-                                    fieldName, so renaming those would orphan existing answers. */}
-                                {!isInputType && (
-                                  <>
-                                    <Input
-                                      value={field.fieldName}
-                                      placeholder="Display name shown to annotators"
-                                      aria-label="Display name"
-                                      onChange={(e) =>
-                                        handleFieldChange(field.id, { fieldName: e.target.value })
-                                      }
-                                      className="h-8 text-sm bg-white"
-                                    />
-                                    <Input
-                                      value={field.helpText ?? ""}
-                                      placeholder="What this field means — shown as an ⓘ tip"
-                                      aria-label="Field description"
-                                      onChange={(e) =>
-                                        handleFieldChange(field.id, { helpText: e.target.value })
-                                      }
-                                      className="h-8 text-xs bg-white"
-                                    />
-                                    <p className="text-[11px] text-gray-500">
-                                      Annotators see{" "}
-                                      <span className="font-medium text-gray-700">
-                                        {field.fieldName || field.csvColumnName}
-                                      </span>
-                                      {field.helpText ? " with an info tip." : "."}
-                                    </p>
-                                  </>
-                                )}
                               </div>
                             )}
+
+                            {/* Display name + description, for every field. Metadata columns
+                                use fieldName/helpText (the data is read via csvColumnName);
+                                annotation inputs use questionTitle/questionDescription because
+                                answers are stored under fieldName, which must stay stable. */}
+                            <div className="mt-2 grid gap-1.5 max-w-md">
+                              <Input
+                                value={isInputType ? field.questionTitle ?? "" : field.fieldName}
+                                placeholder={isInputType ? `Display name (defaults to “${field.fieldName || "field"}”)` : "Display name shown to annotators"}
+                                aria-label="Display name"
+                                onChange={(e) =>
+                                  handleFieldChange(field.id, isInputType ? { questionTitle: e.target.value } : { fieldName: e.target.value })
+                                }
+                                className="h-8 text-sm bg-white"
+                              />
+                              <Input
+                                value={(isInputType ? field.questionDescription : field.helpText) ?? ""}
+                                placeholder="What this field means — shown as an ⓘ tip"
+                                aria-label="Field description"
+                                onChange={(e) =>
+                                  handleFieldChange(field.id, isInputType ? { questionDescription: e.target.value } : { helpText: e.target.value })
+                                }
+                                className="h-8 text-xs bg-white"
+                              />
+                              <p className="text-[11px] text-gray-500">
+                                Annotators see{" "}
+                                <span className="font-medium text-gray-700">
+                                  {(isInputType ? field.questionTitle : field.fieldName) || field.fieldName || field.csvColumnName || "…"}
+                                </span>
+                                {(isInputType ? field.questionDescription : field.helpText) ? " with an info tip." : "."}
+                              </p>
+                            </div>
                           </div>
 
                           {/* Middle Part: Type Dropdown, Primary checkbox, action buttons */}

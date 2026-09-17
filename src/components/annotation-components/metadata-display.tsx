@@ -316,7 +316,7 @@ export function MetadataDisplay({
 // Info tip for a data field: the description the admin wrote in field
 // configuration, plus the original CSV column it comes from. Click to pin it
 // open; hover shows it as a native tooltip.
-function FieldInfo({ text, column }: { text: string; column: string }) {
+export function FieldInfo({ text, column }: { text: string; column: string }) {
   const [open, setOpen] = useState(false);
   return (
     <span className="relative inline-flex">

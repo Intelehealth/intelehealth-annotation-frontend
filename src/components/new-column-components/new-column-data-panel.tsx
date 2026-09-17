@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { FieldInfo } from '@/components/annotation-components/metadata-display';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -1330,6 +1331,7 @@ export function NewColumnDataPanel({
               {group ? getCleanFieldLabel(field.fieldName, group.groupName, groupInstanceIndex!) : (field.questionTitle || field.fieldName)}
               {field.isRequired && <span className="text-red-500 ml-1 font-bold">*</span>}
             </span>
+            {field.questionDescription && <FieldInfo text={field.questionDescription} column={field.fieldName} />}
           </div>
           {onUpdateFieldConfig && (
             <Button
