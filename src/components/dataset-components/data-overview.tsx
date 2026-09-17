@@ -814,7 +814,7 @@ export function DataOverview({
       </Card>
 
       {/* ── Consensus Annotation Panel (admin only, visible when clones exist) ─ */}
-      {user?.role?.toUpperCase() === 'ADMIN' && (cloneGroup || loadingCloneGroup) && (
+      {!!user?.canManage && (cloneGroup || loadingCloneGroup) && (
         <Card className="shadow-sm border-indigo-100">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">

@@ -26,10 +26,10 @@ export interface UserResponse {
 }
 
 export const usersAPI = {
-  // Get all users (Admin only)
+  // Get all users (any signed-in user; workspace owners need it to assign work)
   async getAll(): Promise<UserResponse[]> {
     const token = localStorage.getItem('accessToken');
-    const response = await axios.get(`${API_BASE_URL}/auth/users`, {
+    const response = await axios.get(`${API_BASE_URL}/users`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

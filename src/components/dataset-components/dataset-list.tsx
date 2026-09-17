@@ -222,7 +222,7 @@ export function DatasetList({
     return userId === user?._id;
   };
 
-  const isAdmin = () => user?.role?.toUpperCase() === 'ADMIN';
+  const isAdmin = () => !!user?.canManage;
 
   const handleToggleCloneGroup = async (datasetId: string) => {
     if (expandedCloneGroup === datasetId) {

@@ -145,6 +145,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
 
   const effectiveCollapsed = forceCollapsed || isCollapsed;
   const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+  const canManage = !!user?.canManage; // admin or workspace owner
   const isInvited = user?.invitedByAdmin !== false;
 
   return (
@@ -204,7 +205,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                         : 'bg-blue-100 text-blue-700 border border-blue-200',
                     )}
                   >
-                    {isAdmin ? 'Admin' : 'Annotator'}
+                    {isAdmin ? 'Admin' : canManage ? 'Workspace owner' : 'Annotator'}
                   </span>
                 )}
               </div>
@@ -247,7 +248,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
         </Link>
 
         {/* ADMIN SIDEBAR SECTIONS */}
-        {isAdmin ? (
+        {canManage ? (
           <>
             {/* DATASETS SECTION */}
             <div className="pt-2">
@@ -345,7 +346,8 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
               )}
             </div>
 
-            {/* USERS */}
+            {/* USERS — platform-wide user management stays admin-only */}
+            {isAdmin && (
             <Link
               href="/users"
               className={cn(
@@ -359,6 +361,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
               <Users className={cn('h-5 w-5 flex-shrink-0', pathname === '/users' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
               {!effectiveCollapsed && <span className="font-medium text-sm">Users</span>}
             </Link>
+            )}
           </>
         ) : (
           /* ANNOTATOR SIDEBAR SECTIONS */

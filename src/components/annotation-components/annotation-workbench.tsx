@@ -866,7 +866,7 @@ export function AnnotationWorkbench({
 
     if (result.success) {
       // Block cross-panel moves for non-admins before updating state
-      const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+      const isAdmin = !!user?.canManage;
       if (!isAdmin && result.changedPanels) {
         showToast({
           type: 'info',
@@ -1566,7 +1566,7 @@ export function AnnotationWorkbench({
               expandedTextFields={expandedTextFields}
               imageOverlay={imageOverlay}
               videoOverlay={videoOverlay}
-              isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
+              isAdmin={!!user?.canManage}
               onMetadataChange={setMetadata}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
@@ -1604,7 +1604,7 @@ export function AnnotationWorkbench({
           onAnnotationFieldDragOver={viewMode === 'document-view' ? undefined : handleDragOver}
           onAnnotationFieldDrop={viewMode === 'document-view' ? undefined : (e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation')}
           onUpdateFieldConfig={handleUpdateFieldConfig}
-          isAdmin={user?.role?.toUpperCase() === 'ADMIN'}
+          isAdmin={!!user?.canManage}
           cloneId={datasetId}
           currentRowId={currentTask?.id}
           onImageClick={openImageOverlay}

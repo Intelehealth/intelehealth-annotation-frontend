@@ -240,7 +240,7 @@ export function DatasetSettings({ datasetId }: DatasetSettingsProps) {
     );
   }
 
-  if (!isOwner && user?.role?.toUpperCase() !== 'ADMIN') {
+  if (!isOwner && !user?.canManage) {
     return (
       <div className="text-center p-8">
         <Lock className="h-16 w-16 mx-auto text-gray-300 mb-4" />
@@ -255,7 +255,7 @@ export function DatasetSettings({ datasetId }: DatasetSettingsProps) {
   }
 
   // Show admin component for admin users
-  if (user?.role?.toUpperCase() === 'ADMIN') {
+  if (!!user?.canManage) {
     return <AdminDatasetSettings datasetId={datasetId} />;
   }
 

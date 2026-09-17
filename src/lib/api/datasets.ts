@@ -43,6 +43,7 @@ export interface CreateDatasetRequest {
   description: string;
   datasetType: string;
   accessType?: "private" | "public" | "shared";
+  workspaceId?: string;
 }
 
 export interface UpdateDatasetRequest {

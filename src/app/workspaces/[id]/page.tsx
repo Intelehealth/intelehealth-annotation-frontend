@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Trash2, UserMinus, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, UserMinus, X } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
 import { TopNav } from '@/components/top-nav';
 import { Badge } from '@/components/ui/badge';
@@ -66,7 +66,7 @@ export default function WorkspacePage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Members ws={ws} canManage={canManage} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} />
-        <Datasets items={datasets} isAdmin={isAdmin} onAttach={(d) => run(() => workspacesAPI.attachDataset(id, d), 'Dataset attached')} onDetach={(d) => run(() => workspacesAPI.detachDataset(id, d), 'Dataset removed from workspace')} />
+        <Datasets items={datasets} workspaceId={id} canManage={canManage} onAttach={(d) => run(() => workspacesAPI.attachDataset(id, d), 'Dataset attached')} onDetach={(d) => run(() => workspacesAPI.detachDataset(id, d), 'Dataset removed from workspace')} />
       </div>
     </Shell>
   );
@@ -222,13 +222,13 @@ function StatusDot({ status, online }: { status: string; online?: boolean }) {
 
 // ── Datasets ───────────────────────────────────────────────────────────────
 
-function Datasets({ items, isAdmin, onAttach, onDetach }: {
-  items: WorkspaceDataset[]; isAdmin: boolean;
+function Datasets({ items, workspaceId, canManage, onAttach, onDetach }: {
+  items: WorkspaceDataset[]; workspaceId: string; canManage: boolean;
   onAttach: (datasetId: string) => void; onDetach: (datasetId: string) => void;
 }) {
   const [all, setAll] = useState<DatasetResponse[]>([]);
   const [pick, setPick] = useState('');
-  useEffect(() => { if (isAdmin) datasetsAPI.getAll().then(setAll).catch(() => setAll([])); }, [isAdmin, items]);
+  useEffect(() => { if (canManage) datasetsAPI.getAll().then(setAll).catch(() => setAll([])); }, [canManage, items]);
   const here = new Set(items.map((d) => d._id));
   const candidates = all.filter((d) => !d.isClone && !here.has(d._id));
 
@@ -242,22 +242,30 @@ function Datasets({ items, isAdmin, onAttach, onDetach }: {
                 <Link href={`/dataset/${d._id}`} className="truncate font-medium hover:underline">{d.name}</Link>
                 <div className="text-xs text-muted-foreground">{d.datasetType} · updated {timeAgo(d.updatedAt)}</div>
               </div>
-              {isAdmin && <Button size="sm" variant="ghost" aria-label={`Remove ${d.name} from workspace`} onClick={() => onDetach(d._id)}><X className="h-4 w-4" /></Button>}
+              {canManage && <Button size="sm" variant="ghost" aria-label={`Remove ${d.name} from workspace`} onClick={() => onDetach(d._id)}><X className="h-4 w-4" /></Button>}
             </li>
           ))}
         </ul>
       )}
-      {isAdmin && (
-        <form className="flex items-end gap-2 border-t px-4 py-3" onSubmit={(e) => { e.preventDefault(); if (pick) { onAttach(pick); setPick(''); } }}>
-          <label className="flex-1 text-sm">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">Attach a dataset</span>
-            <select value={pick} onChange={(e) => setPick(e.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
-              <option value="">Choose a dataset…</option>
-              {candidates.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-            </select>
-          </label>
-          <Button type="submit" size="sm" disabled={!pick}>Attach</Button>
-        </form>
+      {canManage && (
+        <div className="space-y-3 border-t px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">Create a dataset here, then upload data, configure fields and assign people to it.</p>
+            <Button asChild size="sm"><Link href={`/dataset/add-dataset?workspaceId=${workspaceId}`}><Plus className="mr-1 h-4 w-4" /> New dataset</Link></Button>
+          </div>
+          {candidates.length > 0 && (
+            <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (pick) { onAttach(pick); setPick(''); } }}>
+              <label className="flex-1 text-sm">
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">Or attach an existing dataset</span>
+                <select value={pick} onChange={(e) => setPick(e.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                  <option value="">Choose a dataset…</option>
+                  {candidates.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
+                </select>
+              </label>
+              <Button type="submit" size="sm" variant="outline" disabled={!pick}>Attach</Button>
+            </form>
+          )}
+        </div>
       )}
     </Section>
   );

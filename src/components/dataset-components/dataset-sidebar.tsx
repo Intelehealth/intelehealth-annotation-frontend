@@ -151,7 +151,7 @@ export function DatasetSidebar({
         })}
 
         {/* ── Feature 1: Consensus section (admin only, expanded) ─────────── */}
-        {user?.role?.toUpperCase() === 'ADMIN' && !isCollapsed && (
+        {!!user?.canManage && !isCollapsed && (
           <div className="pt-3 mt-2 border-t border-gray-100">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">
               Consensus
@@ -170,7 +170,7 @@ export function DatasetSidebar({
         )}
 
         {/* ── Feature 1: Consensus icons (admin only, collapsed) ─────────── */}
-        {user?.role?.toUpperCase() === 'ADMIN' && isCollapsed && (
+        {!!user?.canManage && isCollapsed && (
           <div className="pt-2 mt-1 border-t border-gray-100 space-y-1">
             <button
               onClick={() => router.push(`/dataset/${datasetId}/consensus`)}

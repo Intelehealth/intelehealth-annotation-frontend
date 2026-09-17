@@ -47,7 +47,7 @@ export default function CollaborativeReviewSessionPage() {
   const [finalizing, setFinalizing] = useState(false);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+  const isAdmin = !!user?.canManage;
 
   const load = useCallback(async () => {
     try {

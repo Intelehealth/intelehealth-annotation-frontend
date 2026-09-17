@@ -965,7 +965,7 @@ export function DatasetAnnotationWorkbench({
 
   // Drag and drop handlers for metadata field reordering
   const handleDragStart = (e: React.DragEvent, fieldName: string) => {
-    const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+    const isAdmin = !!user?.canManage;
     if (!isAdmin) {
       e.preventDefault();
       showToast({
@@ -992,7 +992,7 @@ export function DatasetAnnotationWorkbench({
     
     if (!draggedField || !annotationConfig) return;
 
-    const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+    const isAdmin = !!user?.canManage;
     if (!isAdmin) {
       showToast({
         type: 'info',
@@ -1018,7 +1018,7 @@ export function DatasetAnnotationWorkbench({
 
     if (result.success) {
       // Block cross-panel moves for non-admins before updating state
-      const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+      const isAdmin = !!user?.canManage;
       if (!isAdmin && result.changedPanels) {
         showToast({
           type: 'info',
@@ -1830,7 +1830,7 @@ export function DatasetAnnotationWorkbench({
                 imageOverlay={imageOverlay}
                 videoOverlay={videoOverlay}
                 datasetName={datasetName}
-                isAdmin={user?.role?.toUpperCase() === 'ADMIN' && !reviewRequestId}
+                isAdmin={!!user?.canManage && !reviewRequestId}
                 onMetadataChange={setMetadata}
                 onDragStart={handleDragStart}
                 onDragOver={handleUnifiedDragOver}
@@ -1865,7 +1865,7 @@ export function DatasetAnnotationWorkbench({
               onAnnotationFieldDragOver={viewMode === 'annotation' ? handleUnifiedDragOver : undefined}
               onAnnotationFieldDrop={viewMode === 'annotation' ? (e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation') : undefined}
               onUpdateFieldConfig={reviewRequestId ? undefined : handleUpdateFieldConfig}
-              isAdmin={user?.role?.toUpperCase() === 'ADMIN' && !reviewRequestId}
+              isAdmin={!!user?.canManage && !reviewRequestId}
               cloneId={datasetId}
               currentRowId={currentTask?.id}
               reviewRequestFields={reviewRequestId ? (reviewRequest?.fieldNames || []) : undefined}

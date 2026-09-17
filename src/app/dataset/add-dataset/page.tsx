@@ -172,11 +172,16 @@ export default function AddDatasetPage() {
     setIsSubmitting(true);
 
     try {
+      // /dataset/add-dataset?workspaceId=… (from a workspace page) puts the new
+      // dataset in that workspace. Read at submit time to avoid a Suspense
+      // boundary for useSearchParams.
+      const workspaceId = new URLSearchParams(window.location.search).get('workspaceId');
       const newDataset = await datasetsAPI.create({
         name: data.name.trim(),
         description: data.description?.trim() || '',
         datasetType: data.datasetType,
         accessType: data.accessType || 'private',
+        ...(workspaceId ? { workspaceId } : {}),
       });
 
       showToast({

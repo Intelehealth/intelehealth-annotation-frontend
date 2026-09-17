@@ -1,16 +1,10 @@
 'use client';
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-  useRef,
-} from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI, usersAPI } from '@/lib/api';
 import { datasetsAPI } from '@/lib/api/datasets';
+import { workspacesAPI } from '@/lib/api/workspaces';
 
 interface User {
   _id: string;
@@ -22,6 +16,8 @@ interface User {
   authProvider: 'local' | 'google';
   isActive: boolean;
   invitedByAdmin?: boolean;
+  /** Admin, or owner of at least one workspace: may create datasets, configure them and assign people. */
+  canManage?: boolean;
   createdAt: string;
   updatedAt: string;
   googleProfile?: {
@@ -333,8 +329,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isInvited = user?.invitedByAdmin !== false;
 
+  // Workspace owners get admin-level UI inside the product. Resolved once per
+  // signed-in user by checking whether they own any workspace.
+  const [ownsWorkspace, setOwnsWorkspace] = useState(false);
+  useEffect(() => {
+    if (!user?._id || user.role?.toUpperCase() === 'ADMIN') { setOwnsWorkspace(false); return; }
+    let live = true;
+    workspacesAPI.list()
+      .then((ws) => { if (live) setOwnsWorkspace(ws.some((w) => w.ownerId?._id === user._id)); })
+      .catch(() => { if (live) setOwnsWorkspace(false); });
+    return () => { live = false; };
+  }, [user?._id, user?.role]);
+  const userWithRights = useMemo<User | null>(
+    () => (user ? { ...user, canManage: user.role?.toUpperCase() === 'ADMIN' || ownsWorkspace } : null),
+    [user, ownsWorkspace],
+  );
+
   const value: AuthContextType = {
-    user,
+    user: userWithRights,
     isLoading,
     isAuthenticated: !!user,
     isInvited,
