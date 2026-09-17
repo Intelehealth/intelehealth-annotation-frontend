@@ -26,6 +26,7 @@ export function ImageThumbnails({
   config,
 }: ImageThumbnailsProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [failed, setFailed] = useState<number[]>([]);
 
   // One entry per image, already turned into something <img> can load: data
   // URIs pass through, remote URLs go via the dataset's image proxy (which
@@ -62,6 +63,24 @@ export function ImageThumbnails({
           const trimmedUrl = url.trim();
           if (!trimmedUrl) return null;
 
+          if (failed.includes(index)) {
+            const needsLogin = images[index]?.kind === 'proxied-url';
+            return (
+              <div
+                key={index}
+                title={images[index]?.raw}
+                className="flex h-20 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-2 text-center"
+              >
+                <span className="text-[11px] font-medium text-gray-600">
+                  {needsLogin ? 'Image needs a login' : 'Image did not load'}
+                </span>
+                <span className="text-[10px] text-gray-400">
+                  {needsLogin ? 'Settings → Image credentials' : `#${index + 1}`}
+                </span>
+              </div>
+            );
+          }
+
           return (
             <div
               key={index}
@@ -81,22 +100,10 @@ export function ImageThumbnails({
                   const target = e.target as HTMLImageElement;
                   target.style.opacity = '1';
                 }}
-                onError={(e) => {
-                  console.log('Thumbnail image failed to load:', trimmedUrl);
-                  const target = e.target as HTMLImageElement;
-                  // Create a fallback SVG
-                  const svgContent = `
-                    <svg width="100%" height="100%" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="100" height="100" fill="#e5e7eb"/>
-                      <rect x="20" y="20" width="60" height="60" fill="#d1d5db" stroke="#9ca3af" stroke-width="2"/>
-                      <circle cx="50" cy="50" r="15" fill="#9ca3af"/>
-                      <text x="50" y="55" font-family="Arial, sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="#374151">${
-                        index + 1
-                      }</text>
-                    </svg>
-                  `;
-                  target.src = `data:image/svg+xml;base64,${btoa(svgContent)}`;
-                  target.style.opacity = '1';
+                onError={() => {
+                  // Say why rather than showing an anonymous grey box: the
+                  // common cause is a host that needs a login.
+                  setFailed((f) => (f.includes(index) ? f : [...f, index]));
                 }}
                 onLoadStart={() => {
                   console.log('Starting to load thumbnail image:', trimmedUrl);

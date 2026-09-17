@@ -1850,6 +1850,7 @@ export function DatasetAnnotationWorkbench({
           }
           rightPanel={
             <NewColumnDataPanel
+              datasetId={datasetId}
               annotationConfig={annotationConfig}
               newColumnData={newColumnData}
               onNewColumnChange={handleNewColumnChange}

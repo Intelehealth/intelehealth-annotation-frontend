@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { FieldInfo } from '@/components/annotation-components/metadata-display';
+import { resolveImages } from '@/lib/image-source';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,8 @@ interface NewColumnData {
 }
 
 interface NewColumnDataPanelProps {
+  /** Enables the authenticated image proxy for remote images. */
+  datasetId?: string;
   annotationConfig: AnnotationConfig | null;
   newColumnData: NewColumnData;
   onNewColumnChange: (fieldName: string, value: string) => void;
@@ -648,6 +651,7 @@ function ValidationMessage({ field, value }: { field: AnnotationField; value: st
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function NewColumnDataPanel({
+  datasetId,
   annotationConfig,
   newColumnData,
   onNewColumnChange,
@@ -1563,21 +1567,35 @@ export function NewColumnDataPanel({
                 />
               )
             ) : field.fieldType === 'image' ? (
-              <div className="flex flex-wrap gap-2" onMouseDown={(e) => e.stopPropagation()} draggable={false} onDragStart={(e) => e.preventDefault()}>
-                {value.split(/[,;\n]+/).filter(Boolean).map((url, i) => {
-                  const urls = value.split(/[,;\n]+/).filter(Boolean).map((u: string) => u.trim());
-                  return (
-                    <img
-                      key={url.trim() + i}
-                      src={url.trim()}
-                      alt={`Image ${i + 1}`}
-                      draggable={false}
-                      className="h-16 w-16 sm:h-20 sm:w-20 max-w-full object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={(e) => { e.stopPropagation(); onImageClick?.(urls, i); }}
-                    />
-                  );
-                })}
-              </div>
+              (() => {
+                // url / base64 / binary, one or many — remote URLs are fetched
+                // by the server, so private hosts and cross-origin work.
+                const images = resolveImages(value, {
+                  imageFormat: field.imageFormat,
+                  imageMultiple: field.imageMultiple,
+                  imageDelimiter: field.imageDelimiter,
+                  imageMimeType: field.imageMimeType,
+                }, datasetId);
+                if (images.length === 0) {
+                  return <p className="text-xs text-gray-500">No image in this row.</p>;
+                }
+                const srcs = images.map((im) => im.src);
+                return (
+                  <div className="flex flex-wrap gap-2" onMouseDown={(e) => e.stopPropagation()} draggable={false} onDragStart={(e) => e.preventDefault()}>
+                    {images.map((im, i) => (
+                      <img
+                        key={im.raw + i}
+                        src={im.src}
+                        alt={`Image ${i + 1}`}
+                        draggable={false}
+                        title={im.raw}
+                        className="h-16 w-16 sm:h-20 sm:w-20 max-w-full object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={(e) => { e.stopPropagation(); onImageClick?.(srcs, i); }}
+                      />
+                    ))}
+                  </div>
+                );
+              })()
             ) : field.fieldType === 'audio' ? (
               <div className="space-y-2">
                 {value.split(/[,;\n]+/).filter(Boolean).map((url, i) => (
