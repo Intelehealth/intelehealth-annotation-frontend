@@ -125,7 +125,7 @@ export function MetadataDisplay({
       }}
     >
       {/* Navigation Header */}
-<div className="p-3 sm:p-4 pb-2">
+<div className="px-3 pt-3 sm:px-4 sm:pt-4 pb-2">
           <Button
             onClick={onNavigateBack}
             className="bg-black hover:bg-gray-800 text-white font-medium px-4 py-2 justify-center"
@@ -137,13 +137,13 @@ export function MetadataDisplay({
 
       {/* Data Fields Header */}
       <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-b border-gray-100 min-w-0">
-        <h2 className="text-lg font-semibold text-gray-900 flex items-center whitespace-nowrap">
+        <h2 className="text-lg font-semibold text-gray-900 flex items-center whitespace-nowrap leading-8">
           {datasetName && (
             <span className="text-lg sm:text-2xl">{datasetName} - </span>
           )}
           Data Fields
         </h2>
-        <p className="text-sm text-gray-500 mt-1 break-words">
+        <p className="text-sm text-gray-500 mt-1 leading-5 break-words">
           {isAdmin ? 'Drag fields to reorder • Drop to annotation panel' : 'View metadata (admin can configure layout)'}
         </p>
       </div>

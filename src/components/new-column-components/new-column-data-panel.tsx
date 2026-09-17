@@ -1823,14 +1823,16 @@ export function NewColumnDataPanel({
       </div>
 
       {/* ── Header ── */}
-      <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 bg-white">
-        <div className="h-10 hidden sm:block" /> {/* spacer for nav */}
+      <div className="px-4 sm:px-5 pt-3 sm:pt-4 pb-3 sm:pb-4 border-b border-gray-100 bg-white">
+        {/* Spacer matching the "Back to Dataset" button row in the left panel (h-9 button + pb-2),
+            so both panel headers share the same baseline when shown side by side. */}
+        <div className="hidden lg:block h-9 mb-2" aria-hidden="true" />
         <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl sm:text-2xl lg:text-base font-bold text-slate-900">
+            <h2 className="text-xl sm:text-2xl lg:text-base font-bold text-slate-900 leading-8">
               {readOnly ? "Annotator's answers" : 'Annotation Workbench'}
             </h2>
-            <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <div className="flex items-center gap-3 mt-1 min-h-5 flex-wrap">
               {currentRowIndex !== undefined && (
                 <span className="text-xs text-slate-500 font-mono">
                   Case {currentRowIndex + 1}
