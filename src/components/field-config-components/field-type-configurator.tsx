@@ -476,33 +476,23 @@ function MediaSourceConfig({
           </label>
           {lensOf(field).enabled && (
             <div className="mt-2 space-y-2">
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div>
-                  <Label className="text-[10px] font-bold uppercase text-gray-500">Zoom (%)</Label>
-                  <Input
-                    type="number"
-                    min={LENS_ZOOM_RANGE.min * 100}
-                    max={LENS_ZOOM_RANGE.max * 100}
-                    step={10}
-                    value={Math.round(lensOf(field).zoom * 100)}
-                    onChange={(e) => onChange({ lensZoom: Number(e.target.value) / 100 })}
-                    aria-label="Magnifier zoom percent"
-                    className="mt-1 h-8 text-xs bg-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] font-bold uppercase text-gray-500">Circle radius (px)</Label>
-                  <Input
-                    type="number"
-                    min={LENS_RADIUS_RANGE.min}
-                    max={LENS_RADIUS_RANGE.max}
-                    step={10}
-                    value={lensOf(field).radius}
-                    onChange={(e) => onChange({ lensRadius: Number(e.target.value) })}
-                    aria-label="Magnifier radius"
-                    className="mt-1 h-8 text-xs bg-white"
-                  />
-                </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <NumberSetting
+                  label="Zoom (%)"
+                  value={Math.round(lensOf(field).zoom * 100)}
+                  min={LENS_ZOOM_RANGE.min * 100}
+                  max={LENS_ZOOM_RANGE.max * 100}
+                  step={10}
+                  onCommit={(v) => onChange({ lensZoom: v / 100 })}
+                />
+                <NumberSetting
+                  label="Circle radius (px)"
+                  value={lensOf(field).radius}
+                  min={LENS_RADIUS_RANGE.min}
+                  max={LENS_RADIUS_RANGE.max}
+                  step={5}
+                  onCommit={(v) => onChange({ lensRadius: v })}
+                />
               </div>
               <LensPreview lens={lensOf(field)} />
             </div>
@@ -542,6 +532,77 @@ function MediaSourceConfig({
           Settings → Image credentials if the images need a login.
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * A slider with a number box. The box is free to type in — clear it, type
+ * half a number — and the value is committed only once it is a number in
+ * range, or clamped when you leave the box. A controlled box that clamped on
+ * every keystroke made backspace impossible.
+ */
+function NumberSetting({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onCommit: (v: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!focused) setText(String(value));
+  }, [value, focused]);
+  const clamp = (n: number) => Math.min(max, Math.max(min, n));
+  return (
+    <div>
+      <Label className="text-[10px] font-bold uppercase text-gray-500">{label}</Label>
+      <div className="mt-1 flex items-center gap-2">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onCommit(Number(e.target.value))}
+          aria-label={`${label} slider`}
+          className="h-1.5 flex-1 cursor-pointer accent-teal-600"
+        />
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={min}
+          max={max}
+          step={step}
+          value={text}
+          onFocus={() => setFocused(true)}
+          onChange={(e) => {
+            setText(e.target.value);
+            const n = Number(e.target.value);
+            if (e.target.value !== '' && Number.isFinite(n) && n >= min && n <= max) onCommit(n);
+          }}
+          onBlur={() => {
+            setFocused(false);
+            const n = Number(text);
+            const v = text === '' || !Number.isFinite(n) ? value : clamp(n);
+            setText(String(v));
+            if (v !== value) onCommit(v);
+          }}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+          aria-label={label}
+          className="h-8 w-20 text-xs bg-white"
+        />
+      </div>
+      <p className="mt-0.5 text-[10px] text-gray-400">{min} – {max}</p>
     </div>
   );
 }
