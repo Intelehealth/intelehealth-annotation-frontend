@@ -12,48 +12,46 @@ function LoginContent() {
   }, [])
 
   return (
-    <main className="dark relative min-h-screen w-full overflow-hidden bg-background text-foreground">
+    <main className="relative min-h-screen w-full overflow-hidden bg-[#F5F6FF] text-[#0B1020]">
       {/* Parent card containing both panels */}
       <div className="relative z-10 flex min-h-screen w-full items-center justify-center p-4 md:p-8">
-        <div className="flex w-full max-w-[1100px] overflow-hidden rounded-2xl border border-border shadow-2xl">
-          {/* Left card: aura background + marketing copy */}
-          <section className="relative hidden min-h-[620px] flex-col justify-between overflow-hidden border-2 border-white lg:flex lg:w-1/2">
+        <div className="flex w-full max-w-[1100px] overflow-hidden rounded-2xl border border-[#DFE3F5] shadow-2xl">
+          {/* Left card: Intelehealth blue -> indigo, the same gradient as the
+              sign-in panel on annotation.intelehealth.org */}
+          <section className="relative hidden min-h-[620px] flex-col justify-between overflow-hidden bg-[linear-gradient(135deg,#2563EB_0%,#3B4FE8_55%,#4F46E5_100%)] text-white lg:flex lg:w-1/2">
             <AuraBackground />
 
-            <header className="relative z-10 flex items-center justify-between p-10">
-              <span className="font-mono text-xs uppercase tracking-[0.25em] text-muted-foreground">
-                SYS.CORE // online
-              </span>
-              <span className="rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                v3.1
-              </span>
+            <header className="relative z-10 flex items-center p-10">
+              <img src="/intelehealth-logo.png" alt="Intelehealth" className="h-9 w-auto rounded-md" />
             </header>
 
             <div className="relative z-10 max-w-lg p-10">
-              <h2 className="text-balance text-4xl font-semibold leading-tight tracking-tight text-foreground xl:text-5xl">
-                Turn raw data into <span className="text-shimmer">precision-labeled</span> training sets.
+              <h2 className="text-balance text-4xl font-semibold leading-tight tracking-tight xl:text-5xl">
+                Welcome back to Intelehealth Data Annotation.
               </h2>
-              <p className="mt-5 max-w-md text-pretty leading-relaxed text-muted-foreground">
-                Bounding boxes, segmentation, text spans, and RLHF — one collaborative workspace with review
-                queues, quality metrics, and audit-ready exports.
+              <p className="mt-5 max-w-md text-pretty leading-relaxed text-white/75">
+                Sign in to continue labelling, reviewing and signing off datasets with your team.
               </p>
 
-              <dl className="mt-10 grid grid-cols-3 gap-6">
+              <ul className="mt-10 space-y-5">
                 {[
-                  { k: "40M+", v: "labels shipped" },
-                  { k: "99.2%", v: "review accuracy" },
-                  { k: "12k", v: "active annotators" },
-                ].map((s) => (
-                  <div key={s.v}>
-                    <dt className="font-mono text-2xl font-semibold text-foreground">{s.k}</dt>
-                    <dd className="mt-1 text-xs leading-relaxed text-muted-foreground">{s.v}</dd>
-                  </div>
+                  { t: "Guided annotation", d: "Fields, options and help text configured per dataset" },
+                  { t: "Review and consensus", d: "Multiple annotators per row, disagreements surfaced" },
+                  { t: "Audit-ready history", d: "Every edit recorded with who changed what, and when" },
+                ].map((f) => (
+                  <li key={f.t} className="flex gap-4">
+                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-white/70" aria-hidden="true" />
+                    <span>
+                      <span className="block font-medium">{f.t}</span>
+                      <span className="mt-0.5 block text-sm leading-relaxed text-white/70">{f.d}</span>
+                    </span>
+                  </li>
                 ))}
-              </dl>
+              </ul>
             </div>
 
-            <footer className="relative z-10 p-10 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              uplink_established_
+            <footer className="relative z-10 p-10 text-xs text-white/55">
+              Intelehealth &middot; quality healthcare where there is no doctor
             </footer>
           </section>
 

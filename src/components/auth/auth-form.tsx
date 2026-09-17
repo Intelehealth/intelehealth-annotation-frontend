@@ -183,7 +183,7 @@ export function AuthForm() {
             }`}
           >
             {mode === m && (
-              <span className="absolute inset-0 rounded-lg bg-gray-900 transition-all" aria-hidden="true" />
+              <span className="absolute inset-0 rounded-lg bg-[linear-gradient(90deg,#2563EB_0%,#4F46E5_100%)] transition-all" aria-hidden="true" />
             )}
             <span className="relative z-10">{m === "login" ? "Sign in" : "Sign up"}</span>
           </button>
@@ -255,7 +255,7 @@ export function AuthForm() {
                 placeholder="••••••••••"
                 autoComplete="current-password"
                 {...loginRegister("password")}
-                className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-900 outline-none ring-gray-900/40 transition-all placeholder:text-gray-400 focus:border-gray-900/60 focus:ring-4"
+                className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-900 outline-none ring-[#2563EB]/25 transition-all placeholder:text-gray-400 focus:border-[#2563EB] focus:ring-4"
               />
               <button
                 type="button"
@@ -332,7 +332,7 @@ export function AuthForm() {
                 placeholder="••••••••••"
                 autoComplete="new-password"
                 {...signupRegister("password")}
-                className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-900 outline-none ring-gray-900/40 transition-all placeholder:text-gray-400 focus:border-gray-900/60 focus:ring-4"
+                className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-900 outline-none ring-[#2563EB]/25 transition-all placeholder:text-gray-400 focus:border-[#2563EB] focus:ring-4"
               />
               <button
                 type="button"
@@ -377,7 +377,7 @@ export function AuthForm() {
                 placeholder="••••••••••"
                 autoComplete="new-password"
                 {...signupRegister("confirmPassword")}
-                className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-900 outline-none ring-gray-900/40 transition-all placeholder:text-gray-400 focus:border-gray-900/60 focus:ring-4"
+                className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-11 text-sm text-gray-900 outline-none ring-[#2563EB]/25 transition-all placeholder:text-gray-400 focus:border-[#2563EB] focus:ring-4"
               />
               <button
                 type="button"
@@ -423,7 +423,7 @@ export function AuthForm() {
       )}
 
       <p className="mt-6 text-center text-sm text-gray-600 animate-float-up" style={{ animationDelay: "440ms" }}>
-        {mode === "login" ? "New to Labelform? " : "Already have an account? "}
+        {mode === "login" ? "New here? " : "Already have an account? "}
         <button
           type="button"
           onClick={() => switchMode(mode === "login" ? "signup" : "login")}
@@ -472,7 +472,7 @@ function Field({
           placeholder={placeholder}
           autoComplete={autoComplete}
           {...register}
-          className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-4 text-sm text-gray-900 outline-none ring-gray-900/40 transition-all placeholder:text-gray-400 focus:border-gray-900/60 focus:ring-4"
+          className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-4 text-sm text-gray-900 outline-none ring-[#2563EB]/25 transition-all placeholder:text-gray-400 focus:border-[#2563EB] focus:ring-4"
         />
       </div>
       {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
@@ -497,7 +497,7 @@ function SubmitButton({
     <button
       type="submit"
       disabled={submitting || disabled}
-      className="group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gray-900 text-sm font-semibold text-white transition-transform active:scale-[0.99] disabled:opacity-80 animate-float-up"
+      className="group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(90deg,#2563EB_0%,#4F46E5_100%)] text-sm font-semibold text-white transition-transform active:scale-[0.99] disabled:opacity-80 animate-float-up"
       style={{ animationDelay: delay }}
     >
       {submitting ? (

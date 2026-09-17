@@ -8,11 +8,11 @@ export function Brand({ size = 'sm' }: BrandProps) {
   return (
     <>
       <img
-        src="/logo.png"
-        alt="Logo"
+        src="/intelehealth-logo.png"
+        alt="Intelehealth"
         className={cn(
           'w-auto rounded-xl',
-          size === 'sm' ? 'h-10' : 'h-12 w-auto rounded-xl sm:h-[3.25rem]',
+          size === 'sm' ? 'h-9' : 'h-11 w-auto rounded-xl sm:h-12',
         )}
       />
       <div>
@@ -30,7 +30,7 @@ export function Brand({ size = 'sm' }: BrandProps) {
             size === 'sm' ? 'text-sm' : 'text-lg sm:text-xl',
           )}
         >
-          Latent Verify
+          Data Annotation
         </p>
       </div>
     </>
