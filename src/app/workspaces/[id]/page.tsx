@@ -169,13 +169,22 @@ function Members({ ws, canManage, onAdd, onRemove }: {
   onRemove: (m: WorkspaceMember) => void;
 }) {
   const [users, setUsers] = useState<UserResponse[]>([]);
-  const [pick, setPick] = useState('');
-  const [email, setEmail] = useState('');
+  const [query, setQuery] = useState('');
   // GET /users is open to any signed-in user; usersAPI.getAll hits an admin-only route.
   useEffect(() => { if (canManage) jsonApi.get<UserResponse[]>('/users').then((r) => setUsers(r.data)).catch(() => setUsers([])); }, [canManage]);
 
   const inWs = useMemo(() => new Set([ws.ownerId?._id, ...ws.members.map((m) => m._id)]), [ws]);
-  const candidates = users.filter((u) => !inWs.has(u._id) && u.status !== 'DELETED');
+  // Search across every registered user, ignoring case, spaces and dots so
+  // "priya menon" and "priya.menon@" both find her.
+  const norm = (v: string) => v.toLowerCase().replace(/[\s._-]+/g, '');
+  const matches = useMemo(() => {
+    const q = norm(query.trim());
+    if (!q) return [];
+    return users
+      .filter((u) => u.status !== 'DELETED')
+      .filter((u) => norm(`${u.firstName ?? ''}${u.lastName ?? ''}${u.email}`).includes(q) || norm(u.email.split('@')[0]).includes(q))
+      .slice(0, 20);
+  }, [users, query]);
   const people: (WorkspaceMember & { isOwner?: boolean })[] = [{ ...ws.ownerId, isOwner: true }, ...ws.members];
 
   return (
@@ -200,23 +209,54 @@ function Members({ ws, canManage, onAdd, onRemove }: {
       </ul>
 
       {canManage && (
-        <form className="flex flex-wrap items-end gap-2 border-t px-4 py-3" onSubmit={(e) => { e.preventDefault(); if (pick) { onAdd({ userId: pick }); setPick(''); } else if (email.trim()) { onAdd({ email: email.trim() }); setEmail(''); } }}>
-          <label className="min-w-[200px] flex-1 text-sm">
+        <div className="border-t px-4 py-3">
+          <label className="block text-sm">
             <span className="mb-1 block text-xs font-medium text-muted-foreground">Add a person</span>
-            {candidates.length > 0 ? (
-              <select value={pick} onChange={(e) => { setPick(e.target.value); setEmail(''); }} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
-                <option value="">Choose from existing users…</option>
-                {candidates.map((u) => <option key={u._id} value={u._id}>{personName(u)} · {u.email}</option>)}
-              </select>
-            ) : (
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email of an existing user" />
-            )}
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search every user by name or email"
+              aria-label="Search users"
+            />
           </label>
-          <Button type="submit" size="sm" disabled={!pick && !email.trim()}>Add</Button>
-          <p className="basis-full text-xs text-muted-foreground">
-            Only registered users can be added. New people are invited from <Link href="/users" className="underline">Users</Link> first.
-          </p>
-        </form>
+          {query.trim() !== '' && (
+            <ul className="mt-2 max-h-64 divide-y overflow-y-auto rounded-md border" aria-label="Matching users">
+              {matches.length === 0 && (
+                <li className="px-3 py-2 text-xs text-muted-foreground">
+                  No user matches &quot;{query.trim()}&quot;. Only registered users can be added; invite new people from{' '}
+                  <Link href="/users" className="underline">Users</Link> first.
+                </li>
+              )}
+              {matches.map((u) => {
+                const already = inWs.has(u._id);
+                return (
+                  <li key={u._id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium">
+                      {(u.firstName?.[0] ?? u.email[0] ?? '?').toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{personName(u)}</div>
+                      <div className="truncate text-xs text-muted-foreground">{u.email}</div>
+                    </div>
+                    <Badge variant="outline">{u.role === 'ADMIN' ? 'Admin' : 'Annotator'}</Badge>
+                    {already ? (
+                      <span className="text-xs text-muted-foreground">In workspace</span>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => { onAdd({ userId: u._id }); setQuery(''); }}>
+                        <Plus className="mr-1 h-3.5 w-3.5" /> Add
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {query.trim() === '' && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {users.length} registered user{users.length === 1 ? '' : 's'}. Start typing to find one.
+            </p>
+          )}
+        </div>
       )}
     </Section>
   );
