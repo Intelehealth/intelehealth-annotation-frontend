@@ -33,6 +33,11 @@ export interface CSVImport {
 }
 
 export interface AnnotationField {
+  /** How an image column stores its value — see lib/image-source.ts */
+  imageFormat?: 'url' | 'base64' | 'binary';
+  imageMultiple?: boolean;
+  imageDelimiter?: string;
+  imageMimeType?: string;
   csvColumnName: string;
   fieldName: string;
   fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url' | 'image' | 'audio' | 'video';

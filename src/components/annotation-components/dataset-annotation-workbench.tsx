@@ -1822,6 +1822,7 @@ export function DatasetAnnotationWorkbench({
           <ResizablePanels
           leftPanel={
               <MetadataDisplay
+                datasetId={datasetId}
                 metadata={metadata}
                 orderedMetadataFields={orderedMetadataFields}
                 draggedField={draggedField}

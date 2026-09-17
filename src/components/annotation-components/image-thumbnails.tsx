@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Label } from '@/components/ui/label';
+import { resolveImages, type ImageFieldConfig } from '@/lib/image-source';
 
 interface ImageThumbnailsProps {
   imageUrls: string | string[];
@@ -9,6 +10,10 @@ interface ImageThumbnailsProps {
   onImageClick?: (imageUrls: string[], index: number) => void;
   maxDisplay?: number;
   className?: string;
+  /** Enables the authenticated image proxy for remote URLs. */
+  datasetId?: string;
+  /** How the cell stores images: url / base64 / binary, single or delimited. */
+  config?: ImageFieldConfig;
 }
 
 export function ImageThumbnails({
@@ -17,22 +22,19 @@ export function ImageThumbnails({
   onImageClick,
   maxDisplay = 4,
   className = '',
+  datasetId,
+  config,
 }: ImageThumbnailsProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // Memoize URL parsing to prevent unnecessary recalculations
-  const parsedUrls = useMemo(() => {
-    // Handle both string and string array inputs
-    const urls = Array.isArray(imageUrls) 
-      ? imageUrls 
-      : typeof imageUrls === 'string'
-        ? imageUrls.split(/[,\n]/) // Handle both comma and newline separators
-        : [];
-    
-    return (urls || [])
-      .map((url) => typeof url === 'string' ? url.trim() : '')
-      .filter((url) => url && url.startsWith('http'));
-  }, [imageUrls]);
+  // One entry per image, already turned into something <img> can load: data
+  // URIs pass through, remote URLs go via the dataset's image proxy (which
+  // adds stored credentials and avoids CORS/hotlink blocks).
+  const images = useMemo(
+    () => resolveImages(imageUrls, config ?? {}, datasetId),
+    [imageUrls, config, datasetId],
+  );
+  const parsedUrls = useMemo(() => images.map((i) => i.src), [images]);
 
   const handleImageClick = (index: number) => {
     setSelectedIndex(index);
@@ -58,13 +60,7 @@ export function ImageThumbnails({
       <div className="grid grid-cols-2 gap-2">
         {parsedUrls.slice(0, maxDisplay).map((url, index) => {
           const trimmedUrl = url.trim();
-          if (
-            !trimmedUrl ||
-            trimmedUrl === '[object Object]' ||
-            !trimmedUrl.startsWith('http')
-          ) {
-            return null;
-          }
+          if (!trimmedUrl) return null;
 
           return (
             <div

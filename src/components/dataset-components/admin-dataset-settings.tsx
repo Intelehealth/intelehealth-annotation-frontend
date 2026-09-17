@@ -46,6 +46,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { datasetsAPI, DatasetResponse, UpdateDatasetRequest } from '@/lib/api/datasets';
+import { jsonApi } from '@/lib/api';
+import { ImageCredentials } from './image-credentials';
 import { usersAPI, UserResponse } from '@/lib/api/users';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/toast';
@@ -73,6 +75,21 @@ export function AdminDatasetSettings({ datasetId }: AdminDatasetSettingsProps) {
   const [pendingAccessType, setPendingAccessType] = useState<'private' | 'public' | 'shared' | null>(null);
   const [originalAccessType, setOriginalAccessType] = useState<'private' | 'public' | 'shared'>('private');
   // Feature 1: Clone & Assign modal
+  // A real image URL from the dataset, so the credentials can be tested for real.
+  const [firstImageUrl, setFirstImageUrl] = useState<string | null>(null);
+  useEffect(() => {
+    jsonApi
+      .get(`/dataset-merged-rows/dataset/${datasetId}/rows`, { params: { page: 1, limit: 1 } })
+      .then((r) => {
+        const data = r.data?.rows?.[0]?.data ?? {};
+        for (const value of Object.values(data)) {
+          const match = String(value ?? '').match(/https?:\/\/[^\s,;|]+/);
+          if (match) { setFirstImageUrl(match[0]); return; }
+        }
+      })
+      .catch(() => undefined);
+  }, [datasetId]);
+
   const [cloneModalOpen, setCloneModalOpen] = useState(false);
 
   // User management state
@@ -460,6 +477,9 @@ export function AdminDatasetSettings({ datasetId }: AdminDatasetSettingsProps) {
               </div>
             </CardContent>
           </Card>
+
+          {/* Image credentials, for datasets whose image columns need a login */}
+          <ImageCredentials datasetId={datasetId} sampleUrl={firstImageUrl ?? undefined} />
 
           {/* ── Feature 1: Consensus Annotation Card ──────────────────────────
               Visible to admin only. Opens CloneAssignModal which calls

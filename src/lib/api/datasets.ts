@@ -52,6 +52,7 @@ export interface UpdateDatasetRequest {
   datasetType?: string;
   accessType?: "private" | "public" | "shared";
   sharedWith?: { userId: string; email: string }[];
+  imageAuthConfig?: { isPrivate: boolean; username?: string; password?: string };
 }
 
 // ─── Shared header helpers ─────────────────────────────────────────────────────

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { IMAGE_DELIMITERS, IMAGE_FORMATS } from '@/lib/image-source';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
@@ -354,7 +355,117 @@ export function FieldTypeConfigurator({
         </div>
       );
 
+    case 'image':
+    case 'audio':
+    case 'video':
+      return <MediaSourceConfig field={field} onChange={onChange} kind={type} />;
+
     default:
       return null;
   }
+}
+
+// How a media column stores its value. Getting this wrong is the usual reason
+// images "don't show": the cell holds several URLs, or base64, not one link.
+function MediaSourceConfig({
+  field,
+  onChange,
+  kind,
+}: {
+  field: any;
+  onChange: (updates: any) => void;
+  kind: string;
+}) {
+  const format = field.imageFormat ?? 'url';
+  const multiple = field.imageMultiple !== false;
+  const delimiter = field.imageDelimiter ?? ',';
+  const custom = !IMAGE_DELIMITERS.some((d) => d.value === delimiter);
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-[10px] font-bold uppercase text-gray-500">What the column holds</Label>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {IMAGE_FORMATS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              title={f.hint}
+              onClick={() => onChange({ imageFormat: f.value })}
+              className={`rounded-md border px-2 py-1 text-xs ${format === f.value ? 'border-blue-300 bg-blue-50 font-medium text-blue-800' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[11px] text-gray-500">
+          {IMAGE_FORMATS.find((f) => f.value === format)?.hint}
+        </p>
+      </div>
+
+      <div>
+        <Label className="text-[10px] font-bold uppercase text-gray-500">How many per row</Label>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => onChange({ imageMultiple: false })}
+            className={`rounded-md border px-2 py-1 text-xs ${!multiple ? 'border-blue-300 bg-blue-50 font-medium text-blue-800' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            Single
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ imageMultiple: true })}
+            className={`rounded-md border px-2 py-1 text-xs ${multiple ? 'border-blue-300 bg-blue-50 font-medium text-blue-800' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            Several
+          </button>
+        </div>
+      </div>
+
+      {multiple && (
+        <div>
+          <Label className="text-[10px] font-bold uppercase text-gray-500">Separator between them</Label>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {IMAGE_DELIMITERS.map((d) => (
+              <button
+                key={d.label}
+                type="button"
+                onClick={() => onChange({ imageDelimiter: d.value })}
+                className={`rounded-md border px-2 py-1 text-xs ${!custom && delimiter === d.value ? 'border-blue-300 bg-blue-50 font-medium text-blue-800' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+              >
+                {d.label}
+              </button>
+            ))}
+            <Input
+              value={custom ? delimiter : ''}
+              onChange={(e) => onChange({ imageDelimiter: e.target.value })}
+              placeholder="custom"
+              aria-label="Custom separator"
+              className="h-7 w-20 text-xs"
+            />
+          </div>
+        </div>
+      )}
+
+      {format !== 'url' && (
+        <div>
+          <Label className="text-[10px] font-bold uppercase text-gray-500">Media type</Label>
+          <Input
+            value={field.imageMimeType || ''}
+            onChange={(e) => onChange({ imageMimeType: e.target.value })}
+            placeholder={kind === 'image' ? 'image/jpeg' : kind === 'audio' ? 'audio/mpeg' : 'video/mp4'}
+            className="mt-1 h-8 text-xs bg-white"
+          />
+          <p className="mt-1 text-[11px] text-gray-500">Only needed when the stored value has no data: prefix.</p>
+        </div>
+      )}
+
+      {format === 'url' && (
+        <p className="rounded-md border border-gray-200 bg-gray-50 p-2 text-[11px] text-gray-600">
+          Images load through the server, so private hosts work. Set the host&apos;s username and password in
+          Settings → Image credentials if the images need a login.
+        </p>
+      )}
+    </div>
+  );
 }

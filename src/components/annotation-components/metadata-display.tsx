@@ -30,6 +30,8 @@ interface VideoOverlayState {
 }
 
 interface MetadataDisplayProps {
+  /** Enables the authenticated image proxy for remote images. */
+  datasetId?: string;
   metadata: Record<string, any>;
   orderedMetadataFields: AnnotationField[];
   draggedField: string | null;
@@ -86,6 +88,7 @@ const formatTextContent = (content: any, fieldName: string): string => {
 };
 
 export function MetadataDisplay({
+  datasetId,
   metadata,
   orderedMetadataFields,
   draggedField,
@@ -225,6 +228,13 @@ export function MetadataDisplay({
                       columnName={field.fieldName}
                       onImageClick={onOpenImageOverlay}
                       maxDisplay={4}
+                      datasetId={datasetId}
+                      config={{
+                        imageFormat: field.imageFormat,
+                        imageMultiple: field.imageMultiple,
+                        imageDelimiter: field.imageDelimiter,
+                        imageMimeType: field.imageMimeType,
+                      }}
                     />
                   )}
 

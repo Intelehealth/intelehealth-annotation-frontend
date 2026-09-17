@@ -332,6 +332,11 @@ export interface AnnotationField {
   maxRating?: number;
   allowHalf?: boolean;
   rows?: number;
+  /** How an image column stores its value — see lib/image-source.ts */
+  imageFormat?: 'url' | 'base64' | 'binary';
+  imageMultiple?: boolean;
+  imageDelimiter?: string;
+  imageMimeType?: string;
   id?: string;
   questionTitle?: string;
   questionDescription?: string;
