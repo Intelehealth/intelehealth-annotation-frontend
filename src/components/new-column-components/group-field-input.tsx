@@ -52,7 +52,9 @@ export function GroupFieldInput({
         if (child.repeatable) {
           const list = readList(raw);
           const atMax = child.maxInstances ? list.length >= child.maxInstances : false;
-          const write = (next: string[]) => onChange(key, JSON.stringify(next.filter((v, i) => v !== '' || i === 0)));
+          // Store exactly what is on screen, empty boxes included: dropping them
+          // here deleted the box the moment "add another" created it.
+          const write = (next: string[]) => onChange(key, JSON.stringify(next));
           return (
             <div key={child.id} className="rounded-lg border border-gray-200 bg-white p-3">
               <Label className="text-xs font-semibold text-gray-700">

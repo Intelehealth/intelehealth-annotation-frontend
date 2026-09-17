@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { FieldInfo } from '@/components/annotation-components/metadata-display';
 import { resolveImages } from '@/lib/image-source';
+import { GroupFieldInput } from './group-field-input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -1569,6 +1570,14 @@ export function NewColumnDataPanel({
                   className="resize-y border-gray-200 rounded-lg focus-visible:ring-1 focus-visible:ring-teal-500 text-sm"
                 />
               )
+            ) : type === 'group' ? (
+              <GroupFieldInput
+                fieldName={field.fieldName}
+                childrenFields={field.groupChildren ?? []}
+                values={newColumnData as Record<string, string>}
+                onChange={(key, v) => (fieldEditable ? onNewColumnChange(key, v) : undefined)}
+                disabled={!fieldEditable}
+              />
             ) : field.fieldType === 'image' ? (
               (() => {
                 // url / base64 / binary, one or many — remote URLs are fetched

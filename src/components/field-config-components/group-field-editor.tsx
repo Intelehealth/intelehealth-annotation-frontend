@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { GripVertical, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -133,13 +134,10 @@ export function GroupFieldEditor({
           {NEEDS_OPTIONS.includes(child.columnType) && (
             <div className="mt-2">
               <Label className="text-[10px] font-bold uppercase text-gray-500">Choices (one per line)</Label>
-              <textarea
-                value={(child.options ?? []).join('\n')}
-                onChange={(e) => update(i, { options: e.target.value.split('\n').map((o) => o.trim()).filter(Boolean) })}
-                placeholder={'Confirmed\nProvisional\nRuled out'}
-                aria-label={`Input ${i + 1} choices`}
-                rows={3}
-                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm"
+              <ChoicesBox
+                options={child.options ?? []}
+                label={`Input ${i + 1} choices`}
+                onChange={(options) => update(i, { options })}
               />
             </div>
           )}
@@ -198,5 +196,47 @@ export function GroupFieldEditor({
         Add an input
       </Button>
     </div>
+  );
+}
+
+/**
+ * The choices of a radio or dropdown, one per line.
+ *
+ * It keeps the text you typed rather than re-deriving it from the saved list:
+ * deriving it removed the blank line the instant you pressed Enter, so a second
+ * choice could never be started. Blank lines are dropped on the way out only.
+ */
+function ChoicesBox({
+  options,
+  label,
+  onChange,
+}: {
+  options: string[];
+  label: string;
+  onChange: (options: string[]) => void;
+}) {
+  const NL = String.fromCharCode(10);
+  const [text, setText] = useState(options.join(NL));
+
+  // Follow changes made elsewhere, but never fight what is being typed here.
+  useEffect(() => {
+    const saved = options.join(NL);
+    const typed = text.split(NL).map((o) => o.trim()).filter(Boolean).join(NL);
+    if (saved !== typed) setText(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.join('|')]);
+
+  return (
+    <textarea
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(e.target.value.split(NL).map((o) => o.trim()).filter(Boolean));
+      }}
+      placeholder={['Confirmed', 'Provisional', 'Ruled out'].join(NL)}
+      aria-label={label}
+      rows={3}
+      className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm"
+    />
   );
 }
