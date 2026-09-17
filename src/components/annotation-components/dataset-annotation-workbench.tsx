@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -45,11 +45,6 @@ import { ResizablePanels } from '@/components/ui/resizable-panels';
 import { logger } from '@/lib/logger';
 import { TopNav } from '@/components/top-nav';
 import { motion } from 'framer-motion';
-import { AnnotationViewSwitcher, ViewMode } from './annotation-view-switcher';
-import {
-  DocumentViewProvider,
-  DocumentIntelligencePage,
-} from '@/components/document-intelligence';
 
 interface Task {
   id: string;
@@ -137,7 +132,6 @@ export function DatasetAnnotationWorkbench({
   const { user } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [metadata, setMetadata] = useState<Record<string, any>>({});
@@ -186,9 +180,6 @@ export function DatasetAnnotationWorkbench({
     completionTime: string;
   } | null>(null);
   const [datasetName, setDatasetName] = useState<string>('');
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    (searchParams.get('view') as ViewMode) || 'annotation'
-  );
 
   // Initialize ordered metadata fields when annotation config changes
   useEffect(() => {
@@ -1842,22 +1833,9 @@ export function DatasetAnnotationWorkbench({
           </div>
         </div>
       )}
-      {/* View Mode Switcher */}
-      <AnnotationViewSwitcher
-        datasetId={datasetId}
-        mode={viewMode}
-        onModeChange={setViewMode}
-        returnTo={returnTo}
-      />
-
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden">
-        {viewMode === 'document-view' ? (
-          <DocumentViewProvider datasetId={datasetId}>
-            <DocumentIntelligencePage datasetName={datasetName} />
-          </DocumentViewProvider>
-        ) : (
-          <ResizablePanels
+        <ResizablePanels
           leftPanel={
               <MetadataDisplay
                 datasetId={datasetId}
@@ -1898,12 +1876,12 @@ export function DatasetAnnotationWorkbench({
               completedCount={annotatedTasks.length}
               pendingCount={unannotatedTasks.length}
               currentRowIndex={currentTask?.rowIndex}
-              onPanelDragOver={viewMode === 'annotation' ? handleUnifiedDragOver : undefined}
-              onDropFromMetadata={viewMode === 'annotation' ? () => handleUnifiedDrop(null, '', 'annotation') : undefined}
-              draggedField={viewMode === 'annotation' ? draggedField : null}
-              onAnnotationFieldDragStart={viewMode === 'annotation' ? handleDragStart : undefined}
-              onAnnotationFieldDragOver={viewMode === 'annotation' ? handleUnifiedDragOver : undefined}
-              onAnnotationFieldDrop={viewMode === 'annotation' ? (e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation') : undefined}
+              onPanelDragOver={handleUnifiedDragOver}
+              onDropFromMetadata={() => handleUnifiedDrop(null, '', 'annotation')}
+              draggedField={draggedField}
+              onAnnotationFieldDragStart={handleDragStart}
+              onAnnotationFieldDragOver={handleUnifiedDragOver}
+              onAnnotationFieldDrop={(e, targetFieldName) => handleUnifiedDrop(e, targetFieldName, 'annotation')}
               onUpdateFieldConfig={reviewRequestId || isInspectMode ? undefined : handleUpdateFieldConfig}
               isAdmin={!!user?.canManage && !reviewRequestId && !isInspectMode}
               readOnly={isInspectMode}
@@ -1919,24 +1897,21 @@ export function DatasetAnnotationWorkbench({
           minLeftWidth={25}
           maxLeftWidth={75}
         />
-        )}
       </div>
 
-      {/* Fixed Footer: Row Navigation — annotation mode only */}
-      {viewMode === 'annotation' && (
-        <RowFooter
-          tasks={tasks}
-          currentTaskIndex={currentTaskIndex}
-          onNavigateTask={navigateTask}
-          onJumpToRow={jumpToRow}
-          onMarkAsCompleted={handleMarkAsCompleted}
-          completedCount={annotatedTasks.length}
-          totalCount={tasks.length}
-          onSaveAllNewColumnData={handleSaveAndContinue}
-          isSaving={isSaving}
-          readOnly={isInspectMode}
-        />
-      )}
+      {/* Fixed Footer: Row Navigation */}
+      <RowFooter
+        tasks={tasks}
+        currentTaskIndex={currentTaskIndex}
+        onNavigateTask={navigateTask}
+        onJumpToRow={jumpToRow}
+        onMarkAsCompleted={handleMarkAsCompleted}
+        completedCount={annotatedTasks.length}
+        totalCount={tasks.length}
+        onSaveAllNewColumnData={handleSaveAndContinue}
+        isSaving={isSaving}
+        readOnly={isInspectMode}
+      />
 
       {/* Image Overlay */}
       <ImageOverlay
