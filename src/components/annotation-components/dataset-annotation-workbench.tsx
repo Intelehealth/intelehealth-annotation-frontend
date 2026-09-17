@@ -35,6 +35,7 @@ import { consensusAPI } from '@/lib/api/consensus';
 import { RowFooter, NewColumnDataPanel } from '@/components/new-column-components';
 import { MetadataDisplay } from './metadata-display';
 import { ImageOverlay, VideoOverlay } from './media-overlays';
+import type { LensSettings } from './magnifier';
 import { useToast } from '@/components/ui/toast';
 import { exportSelectedColumnsToCSV, exportAllColumnsToCSV } from '@/lib/dataset-export-helper';
 import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
@@ -77,6 +78,7 @@ interface ImageOverlayState {
   imageUrl: string;
   imageUrls: string[];
   currentIndex: number;
+  lens?: LensSettings | null;
 }
 
 interface VideoOverlayState {
@@ -1247,12 +1249,16 @@ export function DatasetAnnotationWorkbench({
   };
 
   // Image overlay handlers
-  const openImageOverlay = (imageUrls: string[], startIndex: number = 0) => {
+  const openImageOverlay = (imageUrls: string[], startIndex: number = 0, lens?: LensSettings | null) => {
+    // Thumbnails that do not know their field fall back to the first image
+    // field's magnifier settings.
+    const fallback = (annotationConfig?.annotationFields || []).find((f: any) => f.fieldType === 'image') as LensSettings | undefined;
     setImageOverlay({
       isOpen: true,
       imageUrl: imageUrls[startIndex] || '',
       imageUrls,
       currentIndex: startIndex,
+      lens: lens ?? fallback ?? null,
     });
   };
 
@@ -1903,6 +1909,7 @@ export function DatasetAnnotationWorkbench({
         imageUrl={imageOverlay.imageUrl}
         imageUrls={imageOverlay.imageUrls}
         currentIndex={imageOverlay.currentIndex}
+        lens={imageOverlay.lens}
         onClose={closeImageOverlay}
         onNavigate={navigateImage}
       />

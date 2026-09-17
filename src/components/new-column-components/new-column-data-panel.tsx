@@ -3,6 +3,7 @@ import { FieldInfo } from '@/components/annotation-components/metadata-display';
 import { resolveImages } from '@/lib/image-source';
 import { GroupFieldInput, groupKey, readList } from './group-field-input';
 import type { GroupChildField } from '@/types/feature1';
+import type { LensSettings } from '@/components/annotation-components/magnifier';
 import { captionInputs } from './caption-input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -59,7 +60,7 @@ interface NewColumnDataPanelProps {
   cloneId?: string;
   currentRowId?: string;
   reviewRequestFields?: string[];
-  onImageClick?: (imageUrls: string[], index: number) => void;
+  onImageClick?: (imageUrls: string[], index: number, lens?: LensSettings | null) => void;
   onVideoClick?: (videoUrls: string[], index: number) => void;
 }
 
@@ -1621,7 +1622,7 @@ export function NewColumnDataPanel({
                             draggable={false}
                             title={im.raw}
                             className="h-20 w-20 shrink-0 cursor-zoom-in rounded-md border border-gray-200 object-cover transition-opacity hover:opacity-80"
-                            onClick={(e) => { e.stopPropagation(); onImageClick?.(srcs, i); }}
+                            onClick={(e) => { e.stopPropagation(); onImageClick?.(srcs, i, field); }}
                           />
                           <div className="min-w-0 flex-1">
                             <div className="mb-1 text-[10px] text-gray-400">image {i + 1} of {images.length}</div>
@@ -1645,7 +1646,7 @@ export function NewColumnDataPanel({
                             draggable={false}
                             title={im.raw}
                             className="h-16 w-16 sm:h-20 sm:w-20 max-w-full object-cover rounded-lg border border-gray-200 cursor-zoom-in hover:opacity-80 transition-opacity"
-                            onClick={(e) => { e.stopPropagation(); onImageClick?.(srcs, i); }}
+                            onClick={(e) => { e.stopPropagation(); onImageClick?.(srcs, i, field); }}
                           />
                         ))}
                       </div>

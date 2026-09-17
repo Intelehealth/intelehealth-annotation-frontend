@@ -60,6 +60,10 @@ export interface AnnotationField {
   captionRequired?: boolean;
   /** Inputs filled for each image; supersedes the single caption* settings. */
   captionFields?: GroupChildField[];
+  /** Hover magnifier on the full-size image: on/off, zoom (1.5 = 150%), radius px. */
+  lensEnabled?: boolean;
+  lensZoom?: number;
+  lensRadius?: number;
   csvColumnName: string;
   fieldName: string;
   fieldType: 'text' | 'number' | 'select' | 'selectrange' | 'textarea' | 'rating' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'url' | 'image' | 'audio' | 'video';

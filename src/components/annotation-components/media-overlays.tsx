@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect, type MouseEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, RotateCcw, PictureInPicture2 } from 'lucide-react';
+import { MagnifierLens, lensOf, type LensSettings } from './magnifier';
 
 interface ImageOverlayProps {
   isOpen: boolean;
@@ -11,6 +12,8 @@ interface ImageOverlayProps {
   currentIndex: number;
   onClose: () => void;
   onNavigate: (direction: 'prev' | 'next') => void;
+  /** Hover magnifier settings from the image field; defaults apply when absent. */
+  lens?: LensSettings | null;
 }
 
 interface VideoOverlayProps {
@@ -54,7 +57,10 @@ export function ImageOverlay({
   currentIndex,
   onClose,
   onNavigate,
+  lens,
 }: ImageOverlayProps) {
+  const magnifier = lensOf(lens);
+  const imgRef = useRef<HTMLImageElement>(null);
   const [zoom, setZoom] = useState<ZoomState>(RESET);
   const [dragging, setDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -157,7 +163,7 @@ export function ImageOverlay({
             <RotateCcw className="h-4 w-4" />
           </button>
           <span className="ml-3 hidden sm:inline text-[11px] text-gray-400">
-            Scroll to zoom · drag to pan · double-click for {DBLCLICK_SCALE}x
+            {magnifier.enabled ? `Hover magnifies ${Math.round(magnifier.zoom * 100)}% · ` : ''}Scroll to zoom · drag to pan · double-click for {DBLCLICK_SCALE}x
           </span>
         </div>
 
@@ -169,7 +175,7 @@ export function ImageOverlay({
             height: '85vh',
             maxWidth: '1400px',
             maxHeight: '1000px',
-            cursor: zoomed ? (dragging ? 'grabbing' : 'grab') : 'zoom-in',
+            cursor: zoomed ? (dragging ? 'grabbing' : 'grab') : magnifier.enabled ? 'crosshair' : 'zoom-in',
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -178,6 +184,7 @@ export function ImageOverlay({
           onDoubleClick={onDoubleClick}
         >
           <img
+            ref={imgRef}
             key={imageUrl}
             src={imageUrl}
             alt="Full size"
@@ -192,6 +199,16 @@ export function ImageOverlay({
             }}
             onLoad={resetZoom}
           />
+          {magnifier.enabled && (
+            <MagnifierLens
+              containerRef={containerRef}
+              imgRef={imgRef}
+              src={imageUrl}
+              zoom={magnifier.zoom}
+              radius={magnifier.radius}
+              active={!zoomed && !dragging}
+            />
+          )}
         </div>
 
         {imageUrls.length > 1 && (

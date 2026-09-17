@@ -169,6 +169,10 @@ interface NewColumn {
   captionOptions?: string[];
   captionRequired?: boolean;
   captionFields?: GroupChildField[];
+  /** Hover magnifier on the full-size image: on/off, zoom (1.5 = 150%), radius px. */
+  lensEnabled?: boolean;
+  lensZoom?: number;
+  lensRadius?: number;
 }
 
 interface AnnotationField {
@@ -247,6 +251,10 @@ interface AnnotationField {
   captionOptions?: string[];
   captionRequired?: boolean;
   captionFields?: GroupChildField[];
+  /** Hover magnifier on the full-size image: on/off, zoom (1.5 = 150%), radius px. */
+  lensEnabled?: boolean;
+  lensZoom?: number;
+  lensRadius?: number;
 }
 
 interface CSVColumn {
@@ -905,129 +913,29 @@ export function FieldConfig({
       // Build payload with full deep-cloned recursive structures
       const payload = {
         datasetId,
-        annotationFields: fieldsToSave.map((field) => ({
-          id:
-            field.id ||
-            field.fieldName ||
-            `field-${Math.random().toString(36).substr(2, 9)}`,
-          csvColumnName: field.csvColumnName,
-          fieldName: field.fieldName,
-          fieldType:
-            field.fieldType === "radio" ||
-            field.fieldType === "rating" ||
-            field.fieldType === "multiselect" ||
-            field.fieldType === "select" ||
-            field.fieldType === "checkbox" ||
-            field.fieldType === "selectrange" ||
-            field.fieldType === "textarea" ||
-            field.fieldType === "number" ||
-            field.fieldType === "date"
-              ? "text"
-              : field.fieldType || "text",
-          isRequired: field.isRequired,
-          isAnnotationField: field.isAnnotationField,
-          isPrimaryKey: field.isPrimaryKey,
-          options: Array.isArray(field.options)
-            ? field.options.map((o) => o.trim()).filter(Boolean)
-            : field.options,
-          isNewColumn: field.isNewColumn,
-          newColumnId: field.newColumnId,
-          columnType:
-            field.columnType ||
-            (field.fieldType !== "text" &&
-            field.fieldType !== "image" &&
-            field.fieldType !== "audio" &&
-            field.fieldType !== "video"
-              ? field.fieldType
-              : undefined),
-          placeholder: field.placeholder,
-          defaultValue: field.defaultValue,
-          maxLength: field.maxLength,
-          min: field.min,
-          max: field.max,
-          step: field.step,
-          rangeStart: field.rangeStart,
-          rangeEnd: field.rangeEnd,
-          rangeStep: field.rangeStep,
-          maxSelections: field.maxSelections,
-          minDate: field.minDate,
-          maxDate: field.maxDate,
-          maxRating: field.maxRating,
-          allowHalf: field.allowHalf,
-          rows: field.rows,
-          questionTitle: field.questionTitle,
-          questionDescription: field.questionDescription,
-          helpText: field.helpText,
-          section: field.section,
-          visibilityRule: field.visibilityRule,
-          branching: field.branching
-            ? structuredClone(field.branching)
-            : undefined,
-          // Composite children and media/caption settings. Enumerating props
-          // here used to drop these, so every save wiped them.
-          groupChildren: field.groupChildren
-            ? structuredClone(field.groupChildren)
-            : undefined,
-          imageFormat: field.imageFormat,
-          imageMultiple: field.imageMultiple,
-          imageDelimiter: field.imageDelimiter,
-          imageMimeType: field.imageMimeType,
-          captionEnabled: field.captionEnabled,
-          captionLabel: field.captionLabel,
-          captionType: field.captionType,
-          captionOptions: field.captionOptions,
-          captionRequired: field.captionRequired,
-          captionFields: field.captionFields
-            ? structuredClone(field.captionFields)
-            : undefined,
-        })),
-        annotationLabels: [],
-        newColumns: newColumns.map((column) => {
-          const mapped = {
-            id: column.id,
-            columnName: column.columnName,
-            columnType: column.columnType,
-            isRequired: column.isRequired,
-            defaultValue: column.defaultValue,
-            options: Array.isArray(column.options)
-              ? column.options.map((o) => o.trim()).filter(Boolean)
-              : column.options,
-            placeholder: column.placeholder,
-            maxLength: column.maxLength,
-            min: column.min,
-            max: column.max,
-            step: column.step,
-            rangeStart: column.rangeStart,
-            rangeEnd: column.rangeEnd,
-            rangeStep: column.rangeStep,
-            maxSelections: column.maxSelections,
-            minDate: column.minDate,
-            maxDate: column.maxDate,
-            maxRating: column.maxRating,
-            allowHalf: column.allowHalf,
-            rows: column.rows,
-            validation: column.validation,
-            branching: column.branching
-              ? structuredClone(column.branching)
-              : undefined,
-            groupChildren: column.groupChildren
-              ? structuredClone(column.groupChildren)
-              : undefined,
-            imageFormat: column.imageFormat,
-            imageMultiple: column.imageMultiple,
-            imageDelimiter: column.imageDelimiter,
-            imageMimeType: column.imageMimeType,
-            captionEnabled: column.captionEnabled,
-            captionLabel: column.captionLabel,
-            captionType: column.captionType,
-            captionOptions: column.captionOptions,
-            captionRequired: column.captionRequired,
-            captionFields: column.captionFields
-              ? structuredClone(column.captionFields)
-              : undefined,
+        // Send the field as it is. An enumerated copy here dropped every
+        // property added later; the server discards what it does not know.
+        annotationFields: fieldsToSave.map((field) => {
+          const WIDGETS = ["radio", "rating", "multiselect", "select", "checkbox", "selectrange", "textarea", "number", "date"];
+          const MEDIA = ["text", "image", "audio", "video"];
+          return {
+            ...structuredClone(field),
+            id: field.id || field.fieldName || `field-${Math.random().toString(36).substr(2, 9)}`,
+            fieldType: WIDGETS.includes(field.fieldType) ? "text" : field.fieldType || "text",
+            options: Array.isArray(field.options)
+              ? field.options.map((o) => o.trim()).filter(Boolean)
+              : field.options,
+            columnType:
+              field.columnType || (!MEDIA.includes(field.fieldType) ? field.fieldType : undefined),
           };
-          return mapped;
         }),
+        annotationLabels: [],
+        newColumns: newColumns.map((column) => ({
+          ...structuredClone(column),
+          options: Array.isArray(column.options)
+            ? column.options.map((o) => o.trim()).filter(Boolean)
+            : column.options,
+        })),
         fieldGroups: fieldGroups ? structuredClone(fieldGroups) : [],
       };
 

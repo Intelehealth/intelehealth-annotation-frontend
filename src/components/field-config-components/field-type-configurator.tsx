@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { GroupFieldEditor } from './group-field-editor';
 import { captionInputs } from '@/components/new-column-components/caption-input';
+import { LensPreview, LENS_RADIUS_RANGE, LENS_ZOOM_RANGE, lensOf } from '@/components/annotation-components/magnifier';
 
 interface FieldTypeConfiguratorProps {
   type: string;
@@ -459,6 +460,53 @@ function MediaSourceConfig({
             className="mt-1 h-8 text-xs bg-white"
           />
           <p className="mt-1 text-[11px] text-gray-500">Only needed when the stored value has no data: prefix.</p>
+        </div>
+      )}
+
+      {kind === 'image' && (
+        <div className="rounded-md border border-gray-200 p-2.5">
+          <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={lensOf(field).enabled}
+              onChange={(e) => onChange({ lensEnabled: e.target.checked })}
+              className="rounded border-gray-300"
+            />
+            Magnify under the cursor on the full-size image
+          </label>
+          {lensOf(field).enabled && (
+            <div className="mt-2 space-y-2">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <Label className="text-[10px] font-bold uppercase text-gray-500">Zoom (%)</Label>
+                  <Input
+                    type="number"
+                    min={LENS_ZOOM_RANGE.min * 100}
+                    max={LENS_ZOOM_RANGE.max * 100}
+                    step={10}
+                    value={Math.round(lensOf(field).zoom * 100)}
+                    onChange={(e) => onChange({ lensZoom: Number(e.target.value) / 100 })}
+                    aria-label="Magnifier zoom percent"
+                    className="mt-1 h-8 text-xs bg-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] font-bold uppercase text-gray-500">Circle radius (px)</Label>
+                  <Input
+                    type="number"
+                    min={LENS_RADIUS_RANGE.min}
+                    max={LENS_RADIUS_RANGE.max}
+                    step={10}
+                    value={lensOf(field).radius}
+                    onChange={(e) => onChange({ lensRadius: Number(e.target.value) })}
+                    aria-label="Magnifier radius"
+                    className="mt-1 h-8 text-xs bg-white"
+                  />
+                </div>
+              </div>
+              <LensPreview lens={lensOf(field)} />
+            </div>
+          )}
         </div>
       )}
 
