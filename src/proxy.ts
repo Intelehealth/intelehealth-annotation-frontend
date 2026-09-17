@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// The API serves proxied images and media, so its origin must be allowed as an
+// image/media source. On localhost it is http, which the https: source does not
+// cover — without this every proxied image is blocked by the browser.
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
 export function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
@@ -8,8 +13,8 @@ export function proxy(request: NextRequest) {
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
-    "media-src 'self' data: blob: https:",
+    `img-src 'self' data: blob: https: ${API_ORIGIN}`,
+    `media-src 'self' data: blob: https: ${API_ORIGIN}`,
     "font-src 'self' data:",
     "connect-src 'self' https: http://localhost:4000",
     "frame-ancestors 'none'",

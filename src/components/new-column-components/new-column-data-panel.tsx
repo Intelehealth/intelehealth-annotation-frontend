@@ -1291,7 +1291,10 @@ export function NewColumnDataPanel({
     const value = newColumnData[field.fieldName] ?? (field.defaultValue ? String(field.defaultValue) : '');
     const options = parseOptions(field.options ?? []);
     const isFocused = focusedFieldId === field.fieldName;
-    const type = field.columnType || field.fieldType;
+    // fieldType wins for media: a column switched from text to image keeps a
+    // stale columnType, and honouring that would render a text box over images.
+    const isMediaField = ['image', 'audio', 'video'].includes(field.fieldType);
+    const type = isMediaField ? field.fieldType : field.columnType || field.fieldType;
     const isTextType = !type || type === 'textarea' || type === 'text' || type === 'number' || type === 'date' || type === 'url';
     // Media fields have interactive native controls (play/seek/volume) — card-level
     // drag-and-drop must be disabled or the browser's native drag hijacks control clicks.

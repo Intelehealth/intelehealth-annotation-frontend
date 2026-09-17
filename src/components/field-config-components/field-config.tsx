@@ -595,8 +595,10 @@ export function FieldConfig({
     const updates: Partial<AnnotationField> = {};
     if (type === "image" || type === "audio" || type === "video") {
       // Only the type changes; which section the field sits in is the
-      // configurer's choice, kept as it is.
+      // configurer's choice, kept as it is. columnType is cleared so a value
+      // left over from a text field cannot win over the media type later.
       updates.fieldType = type;
+      updates.columnType = undefined;
     } else if (type === "text-metadata") {
       updates.fieldType = "text";
       updates.isAnnotationField = false;
