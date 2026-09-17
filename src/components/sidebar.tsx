@@ -25,14 +25,11 @@ import {
   FileText,
   Scale,
   BookOpen,
-  Moon,
-  Sun,
   LayoutTemplate,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from 'next-themes';
 import { Brand } from '@/components/brand';
 
 function timeAgo(dateStr: string): string {
@@ -51,16 +48,10 @@ interface SidebarProps {
 }
 
 export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
-  const [mounted, setMounted] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(forceCollapsed);
   const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [datasetName, setDatasetName] = useState<string>('');
@@ -492,19 +483,6 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
 
       {/* Footer Actions */}
       <div className="p-4 border-t border-gray-100 space-y-2">
-        {mounted && (
-          <Button
-            variant="ghost"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className={cn(
-              'w-full justify-start text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors rounded-xl h-11 px-4',
-              effectiveCollapsed && 'justify-center px-2',
-            )}
-          >
-            {theme === 'dark' ? <Sun className="h-5 w-5 mr-3 flex-shrink-0" /> : <Moon className="h-5 w-5 mr-3 flex-shrink-0" />}
-            {!effectiveCollapsed && <span className="font-semibold text-sm">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
-          </Button>
-        )}
         <Button
           onClick={logout}
           variant="ghost"

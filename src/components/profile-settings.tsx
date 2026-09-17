@@ -10,7 +10,6 @@ import {
   Mail,
   Bell,
   Shield,
-  Palette,
   Save,
   Camera,
   Eye,
@@ -33,8 +32,7 @@ export function ProfileSettings() {
       email: true,
       desktop: true,
       mobile: false
-    },
-    theme: "light"
+    }
   });
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -266,33 +264,6 @@ export function ProfileSettings() {
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-5 w-5"
                   />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Appearance */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="h-5 w-5 text-blue-600" />
-                Appearance
-              </CardTitle>
-              <CardDescription>
-                Customize your interface preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label htmlFor="theme">Theme</Label>
-                <select
-                  value={formData.theme}
-                  onChange={(e) => handleInputChange("theme", e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-xl px-3 py-2 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
-                >
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="system">System</option>
-                </select>
               </div>
             </CardContent>
           </Card>
