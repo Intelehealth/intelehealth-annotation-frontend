@@ -1,9 +1,15 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Database, FileText, Plus, File } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Database, FileText, Plus, File, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// Matching ignores case, underscores, hyphens and spaces, so "visit id" finds
+// "Visit_id" — the shapes column names actually come in.
+const normalise = (v: string) => v.toLowerCase().replace(/[\s_-]+/g, '');
 
 interface CSVColumn {
   name: string;
@@ -37,6 +43,23 @@ export function CSVColumnsDisplay({
   title = 'Available Columns',
   description = 'Columns available for annotation configuration',
 }: CSVColumnsDisplayProps) {
+  const [query, setQuery] = useState('');
+  const q = normalise(query.trim());
+
+  const match = (c: CSVColumn) => !q || normalise(c.name).includes(q);
+  const shownCsv = useMemo(() => csvColumns.filter(match), [csvColumns, q]);
+  const shownManual = useMemo(() => manualColumns.filter(match), [manualColumns, q]);
+  const shownDocument = useMemo(() => documentColumns.filter(match), [documentColumns, q]);
+
+  const total = csvColumns.length + manualColumns.length + documentColumns.length;
+  const shownTotal = shownCsv.length + shownManual.length + shownDocument.length;
+  const matched = [...shownCsv, ...shownManual, ...shownDocument];
+  const unselectedMatches = matched.filter((c) => !selectedColumns.has(c.name));
+
+  // With a search active, "select all" means the matches, not the whole sheet —
+  // the point of searching 100 columns is to act on the handful you found.
+  const selectMatches = () => unselectedMatches.forEach((c) => onColumnClick(c.name));
+
   return (
     <Card className="w-full">
       <CardHeader className="pb-3 border-b border-gray-100/80">
@@ -48,9 +71,39 @@ export function CSVColumnsDisplay({
               <p className="text-xs text-gray-600 mt-1">{description}</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2 self-start md:self-auto">
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search columns"
+                aria-label="Search columns"
+                className="h-8 w-48 pl-7 pr-7 text-xs"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear column search"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:text-gray-700"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
             <div className="flex items-center space-x-1.5">
-              {onSelectAll && (
+              {q && (
+                <button
+                  type="button"
+                  onClick={selectMatches}
+                  disabled={unselectedMatches.length === 0}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-md border border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-50 transition-all active:scale-95 cursor-pointer shadow-3xs disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Add {unselectedMatches.length} match{unselectedMatches.length === 1 ? '' : 'es'}
+                </button>
+              )}
+              {!q && onSelectAll && (
                 <button
                   type="button"
                   onClick={onSelectAll}
@@ -79,7 +132,7 @@ export function CSVColumnsDisplay({
               )}
             </div>
             <Badge variant="outline" className="text-xs py-0.5 px-2 bg-gray-50 border-gray-200 font-medium">
-              {csvColumns.length + manualColumns.length + documentColumns.length} columns
+              {q ? `${shownTotal} of ${total}` : `${total} columns`}
             </Badge>
           </div>
         </div>
@@ -88,15 +141,15 @@ export function CSVColumnsDisplay({
       <CardContent className="pt-0">
         <div className="space-y-4">
           {/* CSV Columns */}
-          {csvColumns.length > 0 && (
+          {shownCsv.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                 <FileText className="h-4 w-4 mr-2 text-blue-600" />
-                CSV Columns ({csvColumns.length})
+                CSV Columns ({shownCsv.length})
               </h4>
               <div className="w-full">
                 <div className="flex flex-wrap gap-2 gap-y-2 items-start w-full">
-                  {csvColumns.map((column) => {
+                  {shownCsv.map((column) => {
                     const isSelected = selectedColumns.has(column.name);
                     return (
                       <span
@@ -120,15 +173,15 @@ export function CSVColumnsDisplay({
           )}
 
           {/* Manual Columns (merged columns land here, and are clickable) */}
-          {manualColumns.length > 0 && (
+          {shownManual.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                 <Plus className="h-4 w-4 mr-2 text-green-600" />
-                Manual Columns ({manualColumns.length})
+                Manual Columns ({shownManual.length})
               </h4>
               <div className="w-full">
                 <div className="flex flex-wrap gap-2 gap-y-2 items-start w-full">
-                  {manualColumns.map((column) => {
+                  {shownManual.map((column) => {
                     const isSelected = selectedColumns.has(column.name);
                     return (
                       <span
@@ -152,15 +205,15 @@ export function CSVColumnsDisplay({
           )}
 
           {/* Document Columns */}
-          {documentColumns.length > 0 && (
+          {shownDocument.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                 <File className="h-4 w-4 mr-2 text-purple-600" />
-                Document Columns ({documentColumns.length})
+                Document Columns ({shownDocument.length})
               </h4>
               <div className="overflow-x-auto">
                 <div className="grid grid-cols-10 gap-2 min-w-max">
-                  {documentColumns.map((column) => {
+                  {shownDocument.map((column) => {
                     const isSelected = selectedColumns.has(column.name);
                     return (
                       <span
@@ -184,9 +237,11 @@ export function CSVColumnsDisplay({
           )}
 
           {/* No Columns State */}
-          {csvColumns.length === 0 && manualColumns.length === 0 && documentColumns.length === 0 && (
+          {shownTotal === 0 && (
             <div className="text-center py-8 text-gray-500">
-              <p className="text-sm">No columns available</p>
+              <p className="text-sm">
+                {total === 0 ? 'No columns available' : `No column matches "${query.trim()}"`}
+              </p>
             </div>
           )}
         </div>
