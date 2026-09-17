@@ -344,6 +344,32 @@ export function DataOverview({
     }
   }, [datasetData, annotationConfig, showToast, datasetId]);
 
+  // Every annotator's copy, one CSV each, zipped. Owners and admins only;
+  // an annotator's own Export CSV covers just their clone.
+  const handleExportAllAnnotators = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/clones/dataset/${datasetId}/export-all`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message || `The server answered ${res.status}`);
+      }
+      const name = (res.headers.get('Content-Disposition') || '').match(/filename="?([^"]+)"?/)?.[1] || 'annotators.zip';
+      const url = URL.createObjectURL(await res.blob());
+      const a = Object.assign(document.createElement('a'), { href: url, download: name });
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      showToast({ type: 'success', title: 'Export Complete', description: `Downloaded ${name}` });
+    } catch (e) {
+      showToast({ type: 'error', title: 'Export Failed', description: (e as Error).message });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [datasetId, showToast]);
+
   // Export options for the dropdown
   const exportOptions: ExportOption[] = [
     {
@@ -358,6 +384,14 @@ export function DataOverview({
       description: 'Export all original CSV columns plus annotation fields',
       action: handleExportAllColumns,
     },
+    ...(user?.canManage
+      ? [{
+          id: 'all-annotators',
+          label: 'All annotators (ZIP)',
+          description: "One CSV per annotator's copy, zipped",
+          action: handleExportAllAnnotators,
+        }]
+      : []),
   ];
 
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useRef, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { authAPI, usersAPI } from '@/lib/api';
 import { datasetsAPI } from '@/lib/api/datasets';
 import { workspacesAPI } from '@/lib/api/workspaces';
@@ -329,8 +329,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isInvited = user?.invitedByAdmin !== false;
 
-  // Workspace owners get admin-level UI inside the product. Resolved once per
-  // signed-in user by checking whether they own any workspace.
+  // Workspace owners get admin-level UI inside the product. Re-checked on
+  // every navigation, so someone who creates their first workspace mid-session
+  // gets owner rights without signing in again.
+  const pathname = usePathname();
   const [ownsWorkspace, setOwnsWorkspace] = useState(false);
   useEffect(() => {
     if (!user?._id || user.role?.toUpperCase() === 'ADMIN') { setOwnsWorkspace(false); return; }
@@ -339,7 +341,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((ws) => { if (live) setOwnsWorkspace(ws.some((w) => w.ownerId?._id === user._id)); })
       .catch(() => { if (live) setOwnsWorkspace(false); });
     return () => { live = false; };
-  }, [user?._id, user?.role]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id, user?.role, pathname]);
   const userWithRights = useMemo<User | null>(
     () => (user ? { ...user, canManage: user.role?.toUpperCase() === 'ADMIN' || ownsWorkspace } : null),
     [user, ownsWorkspace],
