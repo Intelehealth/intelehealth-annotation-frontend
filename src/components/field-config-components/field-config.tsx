@@ -32,7 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CSVColumnsDisplay } from "./csv-columns-display";
 import { MergeColumns } from "./merge-columns";
-import { GroupFieldEditor } from "./group-field-editor";
+import { GroupFieldEditor, GroupRepeatSettings } from "./group-field-editor";
 import { useToast } from "@/components/ui/toast";
 import type { GroupChildField } from "@/types/feature1";
 import { FieldGroup, VisibilityRule, BranchOption } from "@/types/feature1";
@@ -159,6 +159,9 @@ interface NewColumn {
   };
   branching?: any;
   groupChildren?: GroupChildField[];
+  groupRepeatable?: boolean;
+  groupMaxEntries?: number;
+  groupEntryLabel?: string;
   /** Image source and per-image caption settings — see MediaSourceConfig. */
   imageFormat?: "url" | "base64" | "binary";
   imageMultiple?: boolean;
@@ -218,6 +221,9 @@ interface AnnotationField {
     | "group";
   /** Children of a composite field — see GroupChildField. */
   groupChildren?: GroupChildField[];
+  groupRepeatable?: boolean;
+  groupMaxEntries?: number;
+  groupEntryLabel?: string;
   placeholder?: string;
   defaultValue?: string;
   maxLength?: number;
@@ -1639,7 +1645,13 @@ export function FieldConfig({
                                 />
                                 {/* A group field is several inputs answered together */}
                                 {currentUnifiedType === "group" && (
-                                  <div className="pt-4 border-t border-gray-200">
+                                  <div className="pt-4 border-t border-gray-200 space-y-3">
+                                    <GroupRepeatSettings
+                                      repeatable={field.groupRepeatable}
+                                      maxEntries={field.groupMaxEntries}
+                                      entryLabel={field.groupEntryLabel}
+                                      onChange={(patch) => handleFieldChange(field.id, patch)}
+                                    />
                                     <GroupFieldEditor
                                       items={field.groupChildren ?? []}
                                       onChange={(groupChildren) =>

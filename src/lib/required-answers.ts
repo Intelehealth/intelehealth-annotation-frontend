@@ -6,8 +6,8 @@ import { captionInputs } from '@/components/new-column-components/caption-input'
 // check on "mark complete" (expandQuestions + assertRequiredAnswered), so the
 // annotator is told before the request is refused.
 //
-// A group input is required on its own; a repeatable one needs at least one
-// non-blank entry. A required caption must be filled for every image in the
+// A group input is required on its own; a repeatable one (or any input of a
+// group whose whole set of inputs repeats) needs at least one non-blank entry. A required caption must be filled for every image in the
 // row. A plain field just needs a value.
 //
 // An option flagged `completesRow` finishes the case on its own: once it is
@@ -89,7 +89,10 @@ export function missingRequiredAnswers(
       for (const c of f.groupChildren as GroupChildField[]) {
         if (!c.isRequired) continue;
         const key = `${f.fieldName}.${c.fieldName}`;
-        const ok = c.repeatable ? list(answers[key]).some((v) => !blank(v)) : !blank(answers[key]);
+        // A repeatable input, or any input of a group whose whole set repeats,
+        // holds a list: one filled entry satisfies it.
+        const asList = c.repeatable || f.groupRepeatable;
+        const ok = asList ? list(answers[key]).some((v) => !blank(v)) : !blank(answers[key]);
         if (!ok) out.push({ key, label: `${title(f)} · ${c.fieldName}` });
       }
       continue;

@@ -34,6 +34,57 @@ const newChild = (): GroupChildField => ({
   repeatable: false,
 });
 
+/** Whether the whole set of inputs repeats (e.g. one set per medication), and how. */
+export function GroupRepeatSettings({
+  repeatable,
+  maxEntries,
+  entryLabel,
+  onChange,
+}: {
+  repeatable?: boolean;
+  maxEntries?: number;
+  entryLabel?: string;
+  onChange: (patch: { groupRepeatable?: boolean; groupMaxEntries?: number; groupEntryLabel?: string }) => void;
+}) {
+  return (
+    <div className="rounded-md border border-gray-200 p-2.5 space-y-2">
+      <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+        <input
+          type="checkbox"
+          checked={!!repeatable}
+          onChange={(e) => onChange({ groupRepeatable: e.target.checked })}
+          className="rounded border-gray-300"
+        />
+        Annotators can add more sets of these inputs
+      </label>
+      {repeatable && (
+        <div className="grid grid-cols-2 gap-2 pl-6">
+          <label className="text-[11px] text-gray-600">
+            Name of one set
+            <input
+              type="text"
+              value={entryLabel ?? ''}
+              placeholder="e.g. Medication"
+              onChange={(e) => onChange({ groupEntryLabel: e.target.value || undefined })}
+              className="mt-1 h-8 w-full rounded-md border border-gray-300 bg-white px-2 text-xs"
+            />
+          </label>
+          <label className="text-[11px] text-gray-600">
+            Maximum sets (blank = no limit)
+            <input
+              type="number"
+              min={1}
+              value={maxEntries ?? ''}
+              onChange={(e) => onChange({ groupMaxEntries: e.target.value ? Number(e.target.value) : undefined })}
+              className="mt-1 h-8 w-full rounded-md border border-gray-300 bg-white px-2 text-xs"
+            />
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GroupFieldEditor({
   items,
   onChange,
