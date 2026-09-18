@@ -2,12 +2,17 @@ services:
 
   # ── Next.js Frontend ───────────────────────────────────────────────────────
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
-    image: dyno-frontend:latest
+    # No 'build:' here on purpose: this compose file runs on the remote
+    # deploy server, which only ever has the pre-built image loaded via
+    # `docker load` (from the GitHub Actions workflow). If 'build:' is
+    # present, Compose falls back to building locally whenever the named
+    # image can't be pulled — which fails here since there's no Dockerfile
+    # or source checked out on the server, and no registry to pull from.
+    #
+    # Note: NEXT_PUBLIC_API_URL is baked into the JS bundle at build time
+    # (see the Dockerfile's ARG), so it no longer needs to be passed here —
+    # it was only ever relevant to the 'build.args' that used to live above.
+    image: intelehealth-annotation-frontend:latest
     container_name: dyno-frontend
     restart: always              # always restart — even after Docker Desktop restarts
     ports:
@@ -16,7 +21,6 @@ services:
       - PORT=3000
       - HOSTNAME=0.0.0.0
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     # Limit RAM so the container never OOMs and crashes the whole WSL2 instance
     deploy:
       resources:
