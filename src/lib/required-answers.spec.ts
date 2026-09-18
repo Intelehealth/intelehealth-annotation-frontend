@@ -110,3 +110,33 @@ describe('missingRequiredAnswers', () => {
     expect(missingRequiredAnswers(fields, { Completeness: 'Complete:desc' }, rowData)).toHaveLength(2);
   });
 });
+
+describe('missingRequiredAnswers — repeatable group (whole set of inputs repeats)', () => {
+  const plan: AnnotationField = {
+    csvColumnName: '',
+    fieldName: 'Treatment Plan 1',
+    fieldType: 'text',
+    columnType: 'group',
+    isRequired: false,
+    isAnnotationField: true,
+    groupRepeatable: true,
+    groupEntryLabel: 'Medication',
+    groupChildren: [
+      { id: 'a', fieldName: 'Drug', columnType: 'select', isRequired: true, options: ['A', 'B'] },
+      { id: 'b', fieldName: 'Dose', columnType: 'select', isRequired: false, options: ['1', '2'] },
+    ],
+  } as AnnotationField;
+
+  it('is satisfied when any entry has the required input filled', () => {
+    expect(missingRequiredAnswers([plan], { 'Treatment Plan 1.Drug': JSON.stringify(['', 'B']) })).toEqual([]);
+  });
+  it('reports the input when every entry is blank or nothing was entered', () => {
+    expect(missingRequiredAnswers([plan], { 'Treatment Plan 1.Drug': JSON.stringify(['', '']) }).map((m) => m.key)).toEqual(['Treatment Plan 1.Drug']);
+    expect(missingRequiredAnswers([plan], {}).map((m) => m.key)).toEqual(['Treatment Plan 1.Drug']);
+  });
+  it('keeps the plain-value rule for a non-repeatable group', () => {
+    const plain = { ...plan, groupRepeatable: false } as AnnotationField;
+    expect(missingRequiredAnswers([plain], { 'Treatment Plan 1.Drug': 'A' })).toEqual([]);
+    expect(missingRequiredAnswers([plain], { 'Treatment Plan 1.Drug': '' })).toHaveLength(1);
+  });
+});

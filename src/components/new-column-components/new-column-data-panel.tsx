@@ -1612,6 +1612,9 @@ export function NewColumnDataPanel({
                 values={newColumnData as Record<string, string>}
                 onChange={(key, v) => (fieldEditable ? onNewColumnChange(key, v) : undefined)}
                 disabled={!fieldEditable}
+                repeatable={!!field.groupRepeatable}
+                maxEntries={field.groupMaxEntries}
+                entryLabel={field.groupEntryLabel || 'Entry'}
               />
             ) : field.fieldType === 'image' ? (
               (() => {
@@ -2577,6 +2580,16 @@ function answerLines(field: AnnotationField, data: Record<string, any>): { label
   };
   const list = (raw: string) => readList(raw).filter((x) => x.trim() !== '');
   if (field.columnType === 'group' && field.groupChildren?.length) {
+    if (field.groupRepeatable) {
+      // One line per entry ("Medication 1: Drug: …, Dose: …"), entries aligned by index.
+      const per = field.groupChildren.map((c) => ({ c, values: readList(val(groupKey(field.fieldName, c))) }));
+      const n = Math.max(0, ...per.map((p) => p.values.length));
+      const label = field.groupEntryLabel || 'Entry';
+      return Array.from({ length: n }, (_, i) => ({
+        label: `${label} ${i + 1}`,
+        value: per.map((p) => (p.values[i]?.trim() ? `${p.c.fieldName}: ${p.values[i]}` : '')).filter(Boolean).join(', '),
+      }));
+    }
     return field.groupChildren.map((c) => {
       const raw = val(groupKey(field.fieldName, c));
       return { label: c.fieldName, value: c.repeatable ? list(raw).join(' / ') : raw };

@@ -36,15 +36,36 @@ export function GroupFieldInput({
   values,
   onChange,
   disabled,
+  repeatable = false,
+  maxEntries,
+  entryLabel = 'Entry',
 }: {
   fieldName: string;
   childrenFields: GroupChildField[];
   values: Record<string, string>;
   onChange: (key: string, value: string) => void;
   disabled?: boolean;
+  /** The whole set of inputs repeats (e.g. one set per medication). */
+  repeatable?: boolean;
+  maxEntries?: number;
+  entryLabel?: string;
 }) {
   if (childrenFields.length === 0) {
     return <p className="text-xs text-gray-500">This question has no inputs configured yet.</p>;
+  }
+
+  if (repeatable) {
+    return (
+      <RepeatedEntries
+        fieldName={fieldName}
+        childrenFields={childrenFields}
+        values={values}
+        onChange={onChange}
+        disabled={disabled}
+        maxEntries={maxEntries}
+        entryLabel={entryLabel}
+      />
+    );
   }
 
   return (
@@ -116,6 +137,102 @@ export function GroupFieldInput({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// Every input repeated as one "entry" (Medication 1, Medication 2, …). Each
+// input keeps its own key and stores a JSON array; entry i is index i of every
+// input's array, so the set of keys is unchanged and lists stay aligned. Empty
+// slots are kept on purpose: dropping them would shift later entries.
+function RepeatedEntries({
+  fieldName,
+  childrenFields,
+  values,
+  onChange,
+  disabled,
+  maxEntries,
+  entryLabel,
+}: {
+  fieldName: string;
+  childrenFields: GroupChildField[];
+  values: Record<string, string>;
+  onChange: (key: string, value: string) => void;
+  disabled?: boolean;
+  maxEntries?: number;
+  entryLabel: string;
+}) {
+  const lists = childrenFields.map((child) => readList(values[groupKey(fieldName, child)] ?? ''));
+  const count = Math.max(1, ...lists.map((l) => l.length));
+  const atMax = maxEntries ? count >= maxEntries : false;
+  const padded = (list: string[], n: number) => [...list, ...Array(Math.max(0, n - list.length)).fill('')];
+
+  const setEntry = (childIdx: number, entry: number, v: string) => {
+    const next = padded(lists[childIdx], count);
+    next[entry] = v;
+    onChange(groupKey(fieldName, childrenFields[childIdx]), JSON.stringify(next));
+  };
+  const addEntry = () => {
+    // Growing one input's list is enough: the others read as blank at the new index.
+    onChange(groupKey(fieldName, childrenFields[0]), JSON.stringify(padded(lists[0], count + 1)));
+  };
+  const removeEntry = (entry: number) => {
+    childrenFields.forEach((child, ci) => {
+      const next = padded(lists[ci], count).filter((_, i) => i !== entry);
+      onChange(groupKey(fieldName, child), JSON.stringify(next));
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: count }, (_, entry) => (
+        <div key={entry} className="rounded-lg border border-gray-300 bg-white p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wide text-gray-600">
+              {entryLabel} {entry + 1}
+            </span>
+            {count > 1 && !disabled && (
+              <button
+                type="button"
+                aria-label={`Remove ${entryLabel} ${entry + 1}`}
+                onClick={() => removeEntry(entry)}
+                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-gray-400 hover:bg-red-50 hover:text-red-600"
+              >
+                <X className="h-3.5 w-3.5" /> Remove
+              </button>
+            )}
+          </div>
+          <div className="space-y-3">
+            {childrenFields.map((child, ci) => (
+              <div key={child.id} className="rounded-md border border-gray-200 bg-gray-50/60 p-2.5">
+                <Label className="text-xs font-semibold text-gray-700">
+                  {child.fieldName || 'Untitled'}
+                  {child.isRequired && <span className="ml-1 text-red-500">*</span>}
+                </Label>
+                <div className="mt-1.5">
+                  <ChildInput
+                    child={child}
+                    value={lists[ci][entry] ?? ''}
+                    disabled={disabled}
+                    onChange={(v) => setEntry(ci, entry, v)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {!disabled && (
+        <button
+          type="button"
+          disabled={atMax}
+          onClick={addEntry}
+          className="inline-flex items-center gap-1 rounded-md border border-dashed border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-400 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {atMax ? `Maximum ${maxEntries} ${entryLabel.toLowerCase()}s` : `Add another ${entryLabel.toLowerCase()}`}
+        </button>
+      )}
     </div>
   );
 }

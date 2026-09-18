@@ -83,6 +83,12 @@ export interface AnnotationField {
    * annotator adds more; its answers are stored as a JSON array.
    */
   groupChildren?: GroupChildField[];
+  /** Annotators may add more sets of this group's inputs (e.g. several medications). */
+  groupRepeatable?: boolean;
+  /** Cap on how many sets, when groupRepeatable. */
+  groupMaxEntries?: number;
+  /** Name of one set, shown numbered: "Medication 1", "Medication 2". */
+  groupEntryLabel?: string;
   placeholder?: string;
   defaultValue?: string;
   maxLength?: number;
