@@ -5,6 +5,7 @@ import { GroupFieldInput, groupKey, readList } from './group-field-input';
 import type { GroupChildField } from '@/types/feature1';
 import type { LensSettings } from '@/components/annotation-components/magnifier';
 import { captionInputs } from './caption-input';
+import { rowCompletedBy } from '@/lib/required-answers';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -1173,6 +1174,12 @@ export function NewColumnDataPanel({
     [annotationConfig]
   );
 
+  // A chosen option flagged "completes case" finishes the row on its own.
+  const completedBy = useMemo(
+    () => rowCompletedBy(annotationFields, newColumnData),
+    [annotationFields, newColumnData]
+  );
+
   // ── GroupInstance builder ────────────────────────────────────────────────────
   const groupInstances = useMemo((): GroupInstance[] => {
     if (!annotationConfig?.fieldGroups) return [];
@@ -1312,7 +1319,8 @@ export function NewColumnDataPanel({
     const fieldEditable =
       !readOnly && (reviewRequestFields === undefined || reviewRequestFields.includes(field.fieldName));
     const isRequestedField = reviewRequestFields?.includes(field.fieldName) === true;
-    const missingHere = missingFields.filter((m) => m === field.fieldName || m.startsWith(`${field.fieldName}.`));
+    // Once a "completes case" option is chosen the red "required" highlights no longer apply.
+    const missingHere = completedBy ? [] : missingFields.filter((m) => m === field.fieldName || m.startsWith(`${field.fieldName}.`));
 
 
     return (
@@ -1352,6 +1360,11 @@ export function NewColumnDataPanel({
               {field.isRequired && <span className="text-red-500 ml-1 font-bold">*</span>}
             </span>
             {field.questionDescription && <FieldInfo text={field.questionDescription} column={field.fieldName} />}
+            {completedBy?.field.fieldName === field.fieldName && (
+              <span className="shrink-0 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                Completes case
+              </span>
+            )}
           </div>
           {onUpdateFieldConfig && (
             <Button
@@ -1793,7 +1806,7 @@ export function NewColumnDataPanel({
         <ValidationMessage field={field} value={value} />
       </div>
     );
-  }, [newColumnData, focusedFieldId, draggedField, isFieldVisible, onNewColumnChange, editingFields]);
+  }, [newColumnData, completedBy, focusedFieldId, draggedField, isFieldVisible, onNewColumnChange, editingFields]);
 
   // ── Progress totals ──────────────────────────────────────────────────────────
   const { totalVisible, totalAnswered } = useMemo(() => {
@@ -1805,7 +1818,7 @@ export function NewColumnDataPanel({
     return { totalVisible: all.length, totalAnswered: answered.length };
   }, [annotationFields, newColumnData, isFieldVisible]);
 
-  const progressPct = totalVisible > 0 ? Math.round((totalAnswered / totalVisible) * 100) : 0;
+  const progressPct = completedBy ? 100 : totalVisible > 0 ? Math.round((totalAnswered / totalVisible) * 100) : 0;
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
@@ -1901,6 +1914,17 @@ export function NewColumnDataPanel({
 
         {/* Questions column */}
         <div className="flex-1 min-w-0 overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5 scroll-smooth">
+
+          {/* Case finished early by a "completes case" option */}
+          {completedBy && !readOnly && (
+            <div
+              role="status"
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800"
+            >
+              <span className="font-semibold">“{completedBy.option}”</span> completes this case.
+              The remaining questions are optional — click <span className="font-semibold">Save and Continue</span> to close it.
+            </div>
+          )}
 
           {/* Empty state */}
           {totalVisible === 0 && (

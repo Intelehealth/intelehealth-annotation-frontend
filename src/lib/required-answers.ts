@@ -9,6 +9,9 @@ import { captionInputs } from '@/components/new-column-components/caption-input'
 // A group input is required on its own; a repeatable one needs at least one
 // non-blank entry. A required caption must be filled for every image in the
 // row. A plain field just needs a value.
+//
+// An option flagged `completesRow` finishes the case on its own: once it is
+// chosen, nothing else on the row is required (server: rowCompletedBy).
 
 export type MissingAnswer = { key: string; label: string };
 
@@ -25,11 +28,57 @@ function list(raw: unknown): string[] {
   return [raw];
 }
 
+/** Option label without its ":description" suffix, trimmed. */
+export function cleanOptionValue(val: unknown): string {
+  if (val === undefined || val === null) return '';
+  const s = String(val).trim();
+  const colonIdx = s.indexOf(':');
+  return colonIdx === -1 ? s : s.slice(0, colonIdx).trim();
+}
+
+/** Labels chosen in a stored answer: a JSON array, a comma list, or one value. */
+export function selectedLabels(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(cleanOptionValue).filter(Boolean);
+  if (blank(raw)) return [];
+  const s = String(raw);
+  try {
+    const parsed = JSON.parse(s);
+    if (Array.isArray(parsed)) return parsed.map(cleanOptionValue).filter(Boolean);
+  } catch {
+    // not JSON
+  }
+  const one = cleanOptionValue(s);
+  if (one.includes(',')) return s.split(',').map(cleanOptionValue).filter(Boolean);
+  return one ? [one] : [];
+}
+
+/**
+ * The top-level question whose chosen option completes the row, or null.
+ * Only top-level fields are considered; nested child options never complete a row.
+ */
+export function rowCompletedBy(
+  fields: AnnotationField[],
+  answers: Record<string, unknown>,
+): { field: AnnotationField; option: string } | null {
+  for (const f of fields) {
+    if (!f.isAnnotationField || !f.branching?.enabled) continue;
+    const completing = (f.branching.options || []).filter((o) => o.completesRow);
+    if (completing.length === 0) continue;
+    const chosen = selectedLabels(answers[f.fieldName]).map((v) => v.toLowerCase());
+    if (chosen.length === 0) continue;
+    const hit = completing.find((o) => chosen.includes(cleanOptionValue(o.value).toLowerCase()));
+    if (hit) return { field: f, option: cleanOptionValue(hit.value) };
+  }
+  return null;
+}
+
 export function missingRequiredAnswers(
   fields: AnnotationField[],
   answers: Record<string, unknown>,
   rowData: Record<string, unknown> = {},
 ): MissingAnswer[] {
+  if (rowCompletedBy(fields, answers)) return [];
+
   const out: MissingAnswer[] = [];
   const title = (f: AnnotationField) => f.questionTitle || f.fieldName;
 

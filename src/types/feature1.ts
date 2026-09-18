@@ -302,6 +302,8 @@ export interface BranchOption {
   value: string;
   requireDescription?: boolean;
   descriptionPlaceholder?: string;
+  /** Choosing this option finishes the case: other required questions may stay blank. */
+  completesRow?: boolean;
   childFields: AnnotationField[];
 }
 
