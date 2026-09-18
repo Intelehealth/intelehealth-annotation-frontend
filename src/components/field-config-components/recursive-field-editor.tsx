@@ -458,6 +458,27 @@ function OptionBranch({
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
+          {/* Choosing this option finishes the case (top-level questions only) */}
+          {depth === 0 && !isRating && (
+            <label
+              className={cn(
+                "flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border cursor-pointer select-none transition-colors",
+                option.completesRow
+                  ? "text-emerald-700 border-emerald-200 bg-emerald-50"
+                  : "text-gray-500 border-gray-200 bg-white hover:bg-gray-50",
+              )}
+              title="When the annotator picks this option the case can be saved and closed even if other required questions are blank"
+            >
+              <input
+                type="checkbox"
+                className="h-3 w-3 accent-emerald-600"
+                checked={!!option.completesRow}
+                onChange={(e) => onUpdate({ completesRow: e.target.checked })}
+              />
+              Completes case
+            </label>
+          )}
+
           {/* Add child question */}
           {!isMaxDepth && (
             <button

@@ -32,13 +32,14 @@ function TreeNode({ field, depth, isLast }: { field: AnnotationField; depth: num
   const typeLabel = getTypeLabel(field);
 
   // Extract options structurally
-  const options: { value: string; childFields?: AnnotationField[] }[] = [];
+  const options: { value: string; childFields?: AnnotationField[]; completesRow?: boolean }[] = [];
   if (isBranchable) {
     if (field.branching?.enabled && field.branching.options && field.branching.options.length > 0) {
       field.branching.options.forEach(opt => {
         options.push({
           value: opt.value,
-          childFields: opt.childFields
+          childFields: opt.childFields,
+          completesRow: opt.completesRow,
         });
       });
     } else if (type === 'rating') {
@@ -100,6 +101,11 @@ function TreeNode({ field, depth, isLast }: { field: AnnotationField; depth: num
                   {i === options.length - 1 && !opt.childFields?.length ? '└── ' : '├── '}
                 </span>
                 <span>{type === 'rating' ? `★${opt.value}` : opt.value}</span>
+                {opt.completesRow && (
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded" title="Choosing this option completes the case">
+                    completes case
+                  </span>
+                )}
               </div>
 
               {/* Child fields of this option */}
