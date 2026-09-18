@@ -1,0 +1,91 @@
+name: Build and Deploy Frontend Container
+
+on:
+  push:
+    branches: [ "main" ]  # Change to your deployment branch if different
+  workflow_dispatch: {}
+
+env:
+  IMAGE_NAME: intelehealth-annotation-frontend
+  IMAGE_TAG: latest
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # --- 1. BUILD DOCKER IMAGE ON GITHUB RUNNER ---
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+        run: |
+          # NEXT_PUBLIC_API_URL is compiled INTO the JS bundle at build time
+          # (see Dockerfile ARG), so it must be passed here, not at runtime.
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
+            -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+
+      - name: Export Image to Tarball
+        run: |
+          docker save ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} | gzip > image.tar.gz
+
+      # --- 2. PREPARE SSH ACCESS ---
+      - name: Set up SSH Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add Remote Host to Known Hosts
+        env:
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # ssh-keyscan pulls the server's CURRENT host key at run time,
+          # instead of relying on a static secret that can go stale.
+          ssh-keyscan -v -H "$REMOTE_HOST" >> ~/.ssh/known_hosts \
+            || (echo "::error::ssh-keyscan failed to reach $REMOTE_HOST on port 22 - check security group / firewall" && exit 1)
+          chmod 600 ~/.ssh/known_hosts
+
+      # --- 3. COPY IMAGE & DOCKER-COMPOSE FILE TO REMOTE HOST ---
+      - name: Transfer Image & Compose File
+        env:
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_DIR: ${{ secrets.REMOTE_FRONTEND_DIR }}
+        run: |
+          # Ensure deployment directory exists on remote server
+          ssh "$REMOTE_USER@$REMOTE_HOST" "mkdir -p '$REMOTE_DIR'"
+
+          # Transfer the docker image tarball and docker-compose file
+          rsync -avz image.tar.gz docker-compose.yml "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/"
+
+      # --- 4. LOAD IMAGE & START SERVICES ON REMOTE HOST ---
+      - name: Load Image and Run Container
+        env:
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_DIR: ${{ secrets.REMOTE_FRONTEND_DIR }}
+        run: |
+          ssh "$REMOTE_USER@$REMOTE_HOST" \
+            "REMOTE_DIR='$REMOTE_DIR' bash -s" << 'EOF'
+            set -e
+            cd "$REMOTE_DIR"
+
+            # Load the new Docker image into local Docker engine
+            gunzip -c image.tar.gz | docker load
+            rm image.tar.gz
+
+            # Restart the frontend container using the pre-built image
+            docker compose down
+            docker compose up -d
+
+            # Prune unused images to save disk space
+            docker image prune -f
+          EOF
