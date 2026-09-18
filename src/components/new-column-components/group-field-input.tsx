@@ -3,6 +3,7 @@
 import { Plus, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import type { GroupChildField } from '@/types/feature1';
 
 // The annotator's side of a group field: each configured input, one after the
@@ -12,6 +13,9 @@ import type { GroupChildField } from '@/types/feature1';
 // keeps its answers as a JSON array under that single key, so the set of keys
 // stays fixed no matter how many boxes the annotator adds — which is what
 // consensus and export rely on.
+
+/** A dropdown with at least this many options becomes searchable. */
+export const SEARCHABLE_FROM = 10;
 
 export const groupKey = (fieldName: string, child: GroupChildField) => `${fieldName}.${child.fieldName}`;
 
@@ -177,6 +181,10 @@ function ChildInput({
     }
 
     case 'select':
+      // Long lists (drug names, doses) get a type-to-filter box; short ones stay native.
+      if (options.length >= SEARCHABLE_FROM) {
+        return <SearchableSelect value={value} options={options} onChange={onChange} disabled={disabled} />;
+      }
       return (
         <select
           value={value}
