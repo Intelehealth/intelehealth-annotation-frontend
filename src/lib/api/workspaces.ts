@@ -1,8 +1,12 @@
 import { jsonApi } from '@/lib/api';
 
-// Mirrors backend src/workspace. A workspace has one owner, a member list and
+// Mirrors backend src/workspace. A workspace has one owner, a member list,
+// up to MAX_WORKSPACE_REVIEWERS reviewers picked from the members, and
 // datasets attached to it. Admins see every workspace; others see the ones
-// they own or belong to.
+// they own or belong to. A reviewer oversees everyone's work on the
+// workspace's datasets (progress, copies, exports, consensus) read-only.
+
+export const MAX_WORKSPACE_REVIEWERS = 2;
 
 export type WorkspaceSharingMode = 'CLONE' | 'SHARED';
 export const SHARING_MODES: { value: WorkspaceSharingMode; label: string; hint: string }[] = [
@@ -30,6 +34,7 @@ export interface WorkspaceResponse {
   description?: string;
   ownerId: WorkspaceMember;
   members: WorkspaceMember[];
+  reviewers?: WorkspaceMember[];
   domain: WorkspaceDomain;
   sharingMode: WorkspaceSharingMode;
   icon?: string;
@@ -74,6 +79,11 @@ export const workspacesAPI = {
     jsonApi.post<WorkspaceResponse>(`${base}/${id}/members`, who).then((r) => r.data),
   removeMember: (id: string, memberId: string) =>
     jsonApi.delete<WorkspaceResponse>(`${base}/${id}/members/${memberId}`).then((r) => r.data),
+
+  addReviewer: (id: string, userId: string) =>
+    jsonApi.post<WorkspaceResponse>(`${base}/${id}/reviewers/${userId}`).then((r) => r.data),
+  removeReviewer: (id: string, userId: string) =>
+    jsonApi.delete<WorkspaceResponse>(`${base}/${id}/reviewers/${userId}`).then((r) => r.data),
 
   datasets: (id: string) => jsonApi.get<WorkspaceDataset[]>(`${base}/${id}/datasets`).then((r) => r.data),
   attachDataset: (id: string, datasetId: string) =>

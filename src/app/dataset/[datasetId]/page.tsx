@@ -42,7 +42,7 @@ export default function DatasetDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, isReviewOnly } = useAuth();
   const [dataset, setDataset] = useState<DatasetResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +116,9 @@ export default function DatasetDetailPage() {
       );
     }
 
-    switch (activeTab) {
+    // Reviewers watch a dataset without managing it: only the overview.
+    const tab = isReviewOnly(dataset) ? "overview" : activeTab;
+    switch (tab) {
       case "overview":
         return (
           <div className="space-y-4">

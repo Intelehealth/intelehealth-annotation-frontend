@@ -38,7 +38,7 @@ import { ImageOverlay, VideoOverlay } from './media-overlays';
 import type { LensSettings } from './magnifier';
 import { missingRequiredAnswers } from '@/lib/required-answers';
 import { useToast } from '@/components/ui/toast';
-import { exportSelectedColumnsToCSV, exportAllColumnsToCSV } from '@/lib/dataset-export-helper';
+import { exportSelectedColumnsToCSV } from '@/lib/dataset-export-helper';
 import { DragDropHelper, DragDropParams } from '@/lib/drag-drop-helper';
 import { CompletionModal } from '@/components/ui/completion-modal';
 import { ResizablePanels } from '@/components/ui/resizable-panels';
@@ -641,66 +641,6 @@ export function DatasetAnnotationWorkbench({
         onError: (error) => {
           console.error('Error exporting selected columns CSV:', error);
           setError('Failed to export selected columns CSV');
-        },
-      }
-    );
-  }, [datasetData, annotationConfig, showToast, datasetId, taskId, flushPendingRowData]);
-
-  // Export annotations to CSV - All Columns
-  const handleExportAllColumns = useCallback(async () => {
-    if (!annotationConfig) {
-      logger.log('Cannot export: missing annotation config');
-      return;
-    }
-
-    // Persist any unsaved right-panel data on the current row (e.g. a
-    // duplicated field that hasn't been explicitly "Saved" yet) BEFORE
-    // fetching fresh data, so the export doesn't miss it.
-    await flushPendingRowData();
-
-    // Always fetch fresh data from backend so is_completed reflects the true DB state
-    let freshData = datasetData;
-    try {
-      logger.log('🔄 [Workbench] Fetching fresh dataset data for export...');
-      freshData = await DatasetMergedRowsAPI.getDatasetData(datasetId, taskId);
-      if (freshData) setDatasetData(freshData);
-    } catch (fetchErr) {
-      console.warn('⚠️ [Workbench] Could not refresh data before export, using cached data:', fetchErr);
-    }
-
-    if (!freshData) {
-      logger.log('Cannot export: missing dataset data');
-      return;
-    }
-
-    logger.log('🔍 [Workbench] Export All Columns - Fresh Dataset Data:', {
-      totalRows: freshData.totalRows,
-      mergedRowsLength: freshData.mergedRows?.length,
-      completedRows: freshData.mergedRows?.filter(r => r.completed).length,
-    });
-
-    await exportAllColumnsToCSV(
-      freshData,
-      {
-        annotationFields: annotationConfig.annotationFields.map(field => ({
-          ...field,
-          isNewColumn: field.isNewColumn ?? false
-        }))
-      },
-      datasetId,
-      {
-        cleanHtml: true,
-        showSuccess: true,
-        onSuccess: (message) => {
-          showToast({
-            type: 'success',
-            title: 'Export Complete',
-            description: message,
-          });
-        },
-        onError: (error) => {
-          console.error('Error exporting all columns CSV:', error);
-          setError('Failed to export all columns CSV');
         },
       }
     );
@@ -1871,7 +1811,6 @@ export function DatasetAnnotationWorkbench({
               newColumnData={newColumnData}
               onNewColumnChange={handleNewColumnChange}
               onExportSelectedColumns={handleExportSelectedColumns}
-              onExportAllColumns={handleExportAllColumns}
               isSaving={isSaving}
               completedCount={annotatedTasks.length}
               pendingCount={unannotatedTasks.length}

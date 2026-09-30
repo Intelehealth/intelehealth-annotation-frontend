@@ -46,6 +46,12 @@ export interface DatasetReliability {
   totalRows: number;
 }
 
+export interface AnnotatorSelection {
+  excludedAnnotatorIds: string[];
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
 const authHeaders = () => {
   const token = localStorage.getItem('accessToken');
   return { Authorization: `Bearer ${token}` };
@@ -211,12 +217,33 @@ export const consensusAPI = {
     return res.data;
   },
 
+  // Annotators left out of the consensus, saved per dataset for every reviewer.
+  async getAnnotatorSelection(datasetId: string): Promise<AnnotatorSelection> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/annotator-selection`, {
+      headers: authHeaders(),
+    });
+    return res.data;
+  },
+
+  async saveAnnotatorSelection(datasetId: string, excludedAnnotatorIds: string[]): Promise<AnnotatorSelection> {
+    const res = await axios.put(
+      `${API_BASE_URL}/consensus/${datasetId}/annotator-selection`,
+      { excludedAnnotatorIds },
+      { headers: jsonHeaders() },
+    );
+    return res.data;
+  },
+
   async getReliability(
     datasetId: string,
     metric?: ReliabilityMetricKey | string,
+    excludeAnnotatorIds?: string[],
   ): Promise<DatasetReliability> {
+    const params: Record<string, string> = {};
+    if (metric) params.metric = metric;
+    if (excludeAnnotatorIds?.length) params.excludeAnnotatorIds = excludeAnnotatorIds.join(',');
     const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/reliability`, {
-      params: metric ? { metric } : {},
+      params,
       headers: authHeaders(),
     });
     return res.data;
@@ -258,9 +285,12 @@ export const consensusAPI = {
   async getConsensusGrid(datasetId: string, params: {
     page?: number; pageSize?: number; status?: string; search?: string;
     sortField?: string; sortDir?: 'asc' | 'desc';
+    /** annotatorIds left out of the aggregation; omitted from the query when empty. */
+    excludeAnnotatorIds?: string[];
   }): Promise<{
     rows: any[]; totalRows: number; totalPages: number;
     currentPage: number; pageSize: number; fieldColumns: string[];
+    annotators?: { annotatorId: string; annotatorName: string }[];
   }> {
     const qs = new URLSearchParams();
     if (params.page) qs.set('page', String(params.page));
@@ -269,6 +299,7 @@ export const consensusAPI = {
     if (params.search) qs.set('search', params.search);
     if (params.sortField) qs.set('sortField', params.sortField);
     if (params.sortDir) qs.set('sortDir', params.sortDir);
+    if (params.excludeAnnotatorIds?.length) qs.set('excludeAnnotatorIds', params.excludeAnnotatorIds.join(','));
     const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/grid?${qs.toString()}`, { headers: authHeaders() });
     return res.data;
   },

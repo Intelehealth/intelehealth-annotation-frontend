@@ -14,7 +14,7 @@ import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
 import { jsonApi } from '@/lib/api';
 import type { UserResponse } from '@/lib/api/users';
 import {
-  apiMessage, SHARING_MODES, workspacesAPI,
+  apiMessage, MAX_WORKSPACE_REVIEWERS, SHARING_MODES, workspacesAPI,
   type WorkspaceDataset, type WorkspaceMember, type WorkspaceResponse, type WorkspaceSharingMode,
 } from '@/lib/api/workspaces';
 import { Empty, Section } from '@/components/dashboard/kpi';
@@ -65,7 +65,7 @@ export default function WorkspacePage() {
       {notice && !error && <p className="text-sm text-muted-foreground">{notice}</p>}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Members ws={ws} canManage={canManage} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} />
+        <Members ws={ws} canManage={canManage} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} onToggleReviewer={(m, on) => run(() => (on ? workspacesAPI.addReviewer(id, m._id) : workspacesAPI.removeReviewer(id, m._id)), on ? 'Reviewer added' : 'Reviewer removed')} />
         <Datasets items={datasets} ws={ws} canManage={canManage} onChanged={load} onAttach={(d) => run(() => workspacesAPI.attachDataset(id, d), 'Dataset attached')} onDetach={(d) => run(() => workspacesAPI.detachDataset(id, d), 'Dataset removed from workspace')} />
       </div>
     </Shell>
@@ -156,10 +156,11 @@ function Header({ ws, canManage, onSave, onDelete }: {
 
 // ── Members ────────────────────────────────────────────────────────────────
 
-function Members({ ws, canManage, onAdd, onRemove }: {
+function Members({ ws, canManage, onAdd, onRemove, onToggleReviewer }: {
   ws: WorkspaceResponse; canManage: boolean;
   onAdd: (who: { userId?: string; email?: string }) => void;
   onRemove: (m: WorkspaceMember) => void;
+  onToggleReviewer: (m: WorkspaceMember, on: boolean) => void;
 }) {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [query, setQuery] = useState('');
@@ -179,9 +180,15 @@ function Members({ ws, canManage, onAdd, onRemove }: {
       .slice(0, 20);
   }, [users, query]);
   const people: (WorkspaceMember & { isOwner?: boolean })[] = [{ ...ws.ownerId, isOwner: true }, ...ws.members];
+  // Reviewers watch everyone's work on this workspace's datasets, read-only.
+  const reviewerIds = new Set((ws.reviewers ?? []).map((r) => r._id));
+  const reviewersFull = reviewerIds.size >= MAX_WORKSPACE_REVIEWERS;
 
   return (
-    <Section title="People" description={`${people.length} in this workspace.`}>
+    <Section
+      title="People"
+      description={`${people.length} in this workspace. Reviewers (up to ${MAX_WORKSPACE_REVIEWERS}) see every annotator's progress, work and consensus, without managing anything.`}
+    >
       <ul className="divide-y">
         {people.map((m) => (
           <li key={m._id} className="flex items-center gap-3 px-4 py-3 text-sm">
@@ -193,7 +200,19 @@ function Members({ ws, canManage, onAdd, onRemove }: {
               <div className="truncate text-xs text-muted-foreground">{m.email}</div>
             </div>
             {m.isOwner ? <Badge>Owner</Badge> : <Badge variant="outline">{m.role === 'ADMIN' ? 'Admin' : 'Annotator'}</Badge>}
+            {reviewerIds.has(m._id) && <Badge variant="secondary">Reviewer</Badge>}
             <StatusDot status={m.status} online={m.isOnline} />
+            {canManage && !m.isOwner && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!reviewerIds.has(m._id) && reviewersFull}
+                title={!reviewerIds.has(m._id) && reviewersFull ? `A workspace can have at most ${MAX_WORKSPACE_REVIEWERS} reviewers` : undefined}
+                onClick={() => onToggleReviewer(m, !reviewerIds.has(m._id))}
+              >
+                {reviewerIds.has(m._id) ? 'Remove reviewer' : 'Make reviewer'}
+              </Button>
+            )}
             {canManage && !m.isOwner && (
               <Button size="sm" variant="ghost" aria-label={`Remove ${personName(m)}`} onClick={() => onRemove(m)}><UserMinus className="h-4 w-4" /></Button>
             )}

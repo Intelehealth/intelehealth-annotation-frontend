@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode, useRef, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { authAPI, usersAPI } from '@/lib/api';
 import { datasetsAPI } from '@/lib/api/datasets';
@@ -18,6 +18,8 @@ interface User {
   invitedByAdmin?: boolean;
   /** Admin, or owner of at least one workspace: may create datasets, configure them and assign people. */
   canManage?: boolean;
+  /** Reviews at least one workspace it does not own: may watch everyone's work there, read-only. */
+  isReviewer?: boolean;
   createdAt: string;
   updatedAt: string;
   googleProfile?: {
@@ -32,6 +34,11 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isInvited: boolean;
+  /**
+   * True on a parent dataset the user reviews but does not run: they see
+   * every annotator's work and the consensus, and manage nothing.
+   */
+  isReviewOnly: (dataset?: { isClone?: boolean; workspaceId?: string; userId?: string | { _id: string } } | null) => boolean;
   login: (
     email: string,
     password: string,
@@ -334,25 +341,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // gets owner rights without signing in again.
   const pathname = usePathname();
   const [ownsWorkspace, setOwnsWorkspace] = useState(false);
+  // Workspaces this user reviews and does not own.
+  const [reviewedWorkspaceIds, setReviewedWorkspaceIds] = useState<string[]>([]);
   useEffect(() => {
-    if (!user?._id || user.role?.toUpperCase() === 'ADMIN') { setOwnsWorkspace(false); return; }
+    if (!user?._id || user.role?.toUpperCase() === 'ADMIN') { setOwnsWorkspace(false); setReviewedWorkspaceIds([]); return; }
     let live = true;
     workspacesAPI.list()
-      .then((ws) => { if (live) setOwnsWorkspace(ws.some((w) => w.ownerId?._id === user._id)); })
-      .catch(() => { if (live) setOwnsWorkspace(false); });
+      .then((ws) => {
+        if (!live) return;
+        setOwnsWorkspace(ws.some((w) => w.ownerId?._id === user._id));
+        setReviewedWorkspaceIds(
+          ws.filter((w) => w.ownerId?._id !== user._id && w.reviewers?.some((r) => r._id === user._id)).map((w) => w._id),
+        );
+      })
+      .catch(() => { if (live) { setOwnsWorkspace(false); setReviewedWorkspaceIds([]); } });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id, user?.role, pathname]);
   const userWithRights = useMemo<User | null>(
-    () => (user ? { ...user, canManage: user.role?.toUpperCase() === 'ADMIN' || ownsWorkspace } : null),
-    [user, ownsWorkspace],
+    () => (user ? {
+      ...user,
+      canManage: user.role?.toUpperCase() === 'ADMIN' || ownsWorkspace,
+      isReviewer: reviewedWorkspaceIds.length > 0,
+    } : null),
+    [user, ownsWorkspace, reviewedWorkspaceIds],
   );
+  const isReviewOnly = useCallback<AuthContextType['isReviewOnly']>((dataset) => {
+    if (!dataset || dataset.isClone || !dataset.workspaceId || !user) return false;
+    const creator = typeof dataset.userId === 'object' ? dataset.userId?._id : dataset.userId;
+    return creator !== user._id && reviewedWorkspaceIds.includes(String(dataset.workspaceId));
+  }, [user, reviewedWorkspaceIds]);
 
   const value: AuthContextType = {
     user: userWithRights,
     isLoading,
     isAuthenticated: !!user,
     isInvited,
+    isReviewOnly,
     login,
     signup,
     signupAdmin,
