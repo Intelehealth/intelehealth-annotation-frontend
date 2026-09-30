@@ -27,6 +27,7 @@ export interface DatasetResponse {
   cloneParentId?: string;
   cloneIndex?: number;
   assignedAnnotatorId?: string;
+  workspaceId?: string;
   availableColumns?: Array<{
     name: string;
     source: "CSV" | "MANUAL" | "DOCUMENT";

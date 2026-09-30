@@ -9,7 +9,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { notificationsAPI, NotificationResponse } from '@/lib/api/notifications';
-import { datasetsAPI } from '@/lib/api/datasets';
+import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
 import {
   Settings,
   ChevronLeft,
@@ -48,12 +48,13 @@ interface SidebarProps {
 
 export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(forceCollapsed);
-  const { user, logout } = useAuth();
+  const { user, logout, isReviewOnly } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [datasetName, setDatasetName] = useState<string>('');
+  const [activeDataset, setActiveDataset] = useState<DatasetResponse | null>(null);
 
   // Extract active dataset ID from path
   const pathParts = pathname?.split('/') || [];
@@ -101,12 +102,15 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
         try {
           const data = await datasetsAPI.getById(datasetId);
           setDatasetName(data.name);
+          setActiveDataset(data);
         } catch (error) {
           console.error('Error fetching dataset name for sidebar:', error);
           setDatasetName('Untitled Dataset');
+          setActiveDataset(null);
         }
       } else {
         setDatasetName('');
+        setActiveDataset(null);
       }
     };
     loadDatasetName();
@@ -137,6 +141,8 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
   const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
   const canManage = !!user?.canManage; // admin or workspace owner
   const isInvited = user?.invitedByAdmin !== false;
+  const isReviewer = !!user?.isReviewer; // reviews a workspace it does not own
+  const reviewOnly = !!datasetId && isReviewOnly(activeDataset);
 
   return (
     <aside
@@ -195,7 +201,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                         : 'bg-blue-100 text-blue-700 border border-blue-200',
                     )}
                   >
-                    {isAdmin ? 'Admin' : canManage ? 'Workspace owner' : 'Annotator'}
+                    {isAdmin ? 'Admin' : canManage ? 'Workspace owner' : isReviewer ? 'Reviewer' : 'Annotator'}
                   </span>
                 )}
               </div>
@@ -371,8 +377,9 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
               {!effectiveCollapsed && <span className="font-medium text-sm">My Tasks</span>}
             </Link>
 
-            {/* PERSONAL DATASETS (only for non-invited users) */}
-            {!isInvited && (
+            {/* DATASETS: personal ones for non-invited users, and the
+                datasets of workspaces this user reviews */}
+            {(!isInvited || isReviewer) && (
               <Link
                 href="/dataset"
                 className={cn(
@@ -384,8 +391,41 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                 )}
               >
                 <Database className={cn('h-5 w-5 flex-shrink-0', pathname === '/dataset' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
-                {!effectiveCollapsed && <span className="font-medium text-sm">Personal Datasets</span>}
+                {!effectiveCollapsed && <span className="font-medium text-sm">{isReviewer ? 'Datasets' : 'Personal Datasets'}</span>}
               </Link>
+            )}
+
+            {/* Reviewing a dataset: its overview and consensus, nothing to manage */}
+            {reviewOnly && !effectiveCollapsed && (
+              <div className="ml-4 pl-3 border-l border-gray-150 mt-1.5 space-y-1 animate-slideDown">
+                <div className="px-2.5 py-1 mb-1 text-[11px] font-bold text-indigo-600 truncate max-w-[200px]" title={datasetName}>
+                  REVIEWING: {datasetName}
+                </div>
+                <Link
+                  href={`/dataset/${datasetId}`}
+                  className={cn(
+                    'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
+                    pathname === `/dataset/${datasetId}`
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                  )}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                  <span>Data Overview</span>
+                </Link>
+                <Link
+                  href={`/dataset/${datasetId}/consensus`}
+                  className={cn(
+                    'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
+                    pathname === `/dataset/${datasetId}/consensus`
+                      ? 'bg-blue-50 text-blue-700 font-semibold'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                  )}
+                >
+                  <Scale className="h-3.5 w-3.5 text-gray-400" />
+                  <span>Review Consensus</span>
+                </Link>
+              </div>
             )}
           </>
         )}

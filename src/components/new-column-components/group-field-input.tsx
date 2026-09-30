@@ -1,6 +1,16 @@
 'use client';
 
-import { Plus, X } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, Plus, Trash2, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -162,6 +172,7 @@ function RepeatedEntries({
   maxEntries?: number;
   entryLabel: string;
 }) {
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const lists = childrenFields.map((child) => readList(values[groupKey(fieldName, child)] ?? ''));
   const count = Math.max(1, ...lists.map((l) => l.length));
   const atMax = maxEntries ? count >= maxEntries : false;
@@ -182,6 +193,15 @@ function RepeatedEntries({
       onChange(groupKey(fieldName, child), JSON.stringify(next));
     });
   };
+  // Back to a single blank entry so the annotator can redo the whole set.
+  // Written as [""] rather than "": saving skips empty values, which would
+  // leave the old answers on the server.
+  const hasAnswers = count > 1 || lists.some((l) => l.some((v) => v.trim() !== ''));
+  const clearAll = () => {
+    childrenFields.forEach((child) => onChange(groupKey(fieldName, child), JSON.stringify([''])));
+    setConfirmingClear(false);
+  };
+  const clearing = count > 1 ? `all ${count} ${entryLabel.toLowerCase()}s` : `${entryLabel.toLowerCase()} 1`;
 
   return (
     <div className="space-y-3">
@@ -223,16 +243,51 @@ function RepeatedEntries({
         </div>
       ))}
       {!disabled && (
-        <button
-          type="button"
-          disabled={atMax}
-          onClick={addEntry}
-          className="inline-flex items-center gap-1 rounded-md border border-dashed border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-400 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          {atMax ? `Maximum ${maxEntries} ${entryLabel.toLowerCase()}s` : `Add another ${entryLabel.toLowerCase()}`}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={atMax}
+            onClick={addEntry}
+            className="inline-flex items-center gap-1 rounded-md border border-dashed border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-teal-400 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {atMax ? `Maximum ${maxEntries} ${entryLabel.toLowerCase()}s` : `Add another ${entryLabel.toLowerCase()}`}
+          </button>
+          {hasAnswers && (
+            <button
+              type="button"
+              onClick={() => setConfirmingClear(true)}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {count > 1 ? `Delete all ${entryLabel.toLowerCase()}s` : `Clear ${entryLabel.toLowerCase()}`}
+            </button>
+          )}
+        </div>
       )}
+
+      <Dialog open={confirmingClear} onOpenChange={setConfirmingClear}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Delete {clearing}?
+            </DialogTitle>
+            <DialogDescription>
+              Everything entered for {clearing} will be removed, and you can start this set again from a
+              blank {entryLabel.toLowerCase()} 1. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmingClear(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={clearAll}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

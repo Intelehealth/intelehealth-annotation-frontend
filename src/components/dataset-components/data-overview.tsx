@@ -24,12 +24,14 @@ import {
   Scale,
   CheckCircle,
   Clock,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CSVImport, CSVImportsAPI } from '@/lib/api/csv-imports';
 import { DatasetMergedRowsAPI, AnnotationProgress } from '@/lib/api/dataset-merged-rows';
 import { fieldSelectionAPI } from '@/lib/api/field-config';
-import { datasetsAPI } from '@/lib/api/datasets';
+import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
+import { consensusAPI } from '@/lib/api/consensus';
 import { processingAPI, DocumentAssetResponse } from '@/lib/api/processing';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/toast';
@@ -49,7 +51,7 @@ export function DataOverview({
   className,
 }: DataOverviewProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isReviewOnly } = useAuth();
   const [csvImports, setCsvImports] = useState<CSVImport[]>([]);
   const [documents, setDocuments] = useState<DocumentAssetResponse[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -64,12 +66,16 @@ export function DataOverview({
   const [datasetData, setDatasetData] = useState<any>(null);
   const [annotationConfig, setAnnotationConfig] = useState<any>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [datasetInfo, setDatasetInfo] = useState<{ name: string; description: string } | null>(null);
+  const [datasetInfo, setDatasetInfo] = useState<Pick<DatasetResponse, 'name' | 'description' | 'isClone' | 'workspaceId' | 'userId'> | null>(null);
   const { showToast } = useToast();
 
   // ── Consensus clone panel state ────────────────────────────────────────────
   const [cloneGroup, setCloneGroup] = useState<CloneGroup | null>(null);
   const [loadingCloneGroup, setLoadingCloneGroup] = useState(false);
+
+  // A reviewer watches this dataset without managing it: no uploads, field
+  // configuration or annotating the parent.
+  const reviewOnly = isReviewOnly(datasetInfo);
 
   useEffect(() => {
     loadCSVImports();
@@ -81,6 +87,32 @@ export function DataOverview({
     loadDatasetInfo();
     loadCloneGroup();
   }, [datasetId]);
+
+  // Annotators left out of the consensus; hidden from the progress list below.
+  const [excludedAnnotators, setExcludedAnnotators] = useState<string[]>([]);
+  const canPickAnnotators = !!(user?.canManage || user?.isReviewer);
+  useEffect(() => {
+    if (!datasetId || !canPickAnnotators) return;
+    consensusAPI.getAnnotatorSelection(datasetId)
+      .then((res) => setExcludedAnnotators(res?.excludedAnnotatorIds || []))
+      .catch(() => setExcludedAnnotators([]));
+  }, [datasetId, canPickAnnotators]);
+
+  const saveExcludedAnnotators = async (ids: string[]) => {
+    const previous = excludedAnnotators;
+    setExcludedAnnotators(ids);
+    try {
+      const saved = await consensusAPI.saveAnnotatorSelection(datasetId, ids);
+      setExcludedAnnotators(saved?.excludedAnnotatorIds || ids);
+    } catch (e: any) {
+      setExcludedAnnotators(previous);
+      showToast({
+        type: 'error',
+        title: 'Could not update annotators',
+        description: e?.response?.data?.message || 'The annotator selection could not be saved.',
+      });
+    }
+  };
 
   // Load clone group (annotators assigned to this dataset)
   const loadCloneGroup = async () => {
@@ -202,7 +234,10 @@ export function DataOverview({
       console.log('Dataset info loaded:', dataset);
       setDatasetInfo({
         name: dataset.name,
-        description: dataset.description || ''
+        description: dataset.description || '',
+        isClone: dataset.isClone,
+        workspaceId: dataset.workspaceId,
+        userId: dataset.userId,
       });
     } catch (err: any) {
       console.error('Error loading dataset info:', err);
@@ -344,8 +379,8 @@ export function DataOverview({
     }
   }, [datasetData, annotationConfig, showToast, datasetId]);
 
-  // Every annotator's copy, one CSV each, zipped. Owners and admins only;
-  // an annotator's own Export CSV covers just their clone.
+  // Every annotator's copy, one CSV each, zipped. For people who oversee the
+  // dataset; an annotator's own Export CSV covers just their clone.
   const handleExportAllAnnotators = useCallback(async () => {
     setIsExporting(true);
     try {
@@ -384,7 +419,7 @@ export function DataOverview({
       description: 'Export all original CSV columns plus annotation fields',
       action: handleExportAllColumns,
     },
-    ...(user?.canManage
+    ...(cloneGroup
       ? [{
           id: 'all-annotators',
           label: 'All annotators (ZIP)',
@@ -442,13 +477,15 @@ export function DataOverview({
             </p>
           </div>
           <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
-            <Button
-              onClick={onNavigateToFieldConfig}
-              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
-            >
-              <Settings className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate text-sm">Configure Fields</span>
-            </Button>
+            {!reviewOnly && (
+              <Button
+                onClick={onNavigateToFieldConfig}
+                className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
+              >
+                <Settings className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate text-sm">Configure Fields</span>
+              </Button>
+            )}
             <div className="flex-1 min-w-0 md:w-auto md:flex-none">
               <ExportDropdown
                 options={exportOptions}
@@ -456,23 +493,25 @@ export function DataOverview({
                 disabledReason={!hasFieldConfig ? 'Configure fields first' : isExporting ? 'Exporting…' : 'Loading the rows…'}
               />
             </div>
-            <Button
-              onClick={handleStartDatasetAnnotation}
-              disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
-            >
-              {checkingConfig || checkingAnnotationProgress ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {checkingConfig ? 'Checking Config...' : 'Checking Progress...'}
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
-                </>
-              )}
-            </Button>
+            {!reviewOnly && (
+              <Button
+                onClick={handleStartDatasetAnnotation}
+                disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
+                className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
+              >
+                {checkingConfig || checkingAnnotationProgress ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {checkingConfig ? 'Checking Config...' : 'Checking Progress...'}
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -489,10 +528,12 @@ export function DataOverview({
               Get started by uploading your CSV files or other data formats to
               begin the annotation process.
             </p>
-            <Button onClick={onNavigateToUpload} size="lg" className="bg-black hover:bg-gray-800 text-white">
-              <Upload className="h-5 w-5 mr-2" />
-              Upload Your First File
-            </Button>
+            {!reviewOnly && (
+              <Button onClick={onNavigateToUpload} size="lg" className="bg-black hover:bg-gray-800 text-white">
+                <Upload className="h-5 w-5 mr-2" />
+                Upload Your First File
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -560,13 +601,15 @@ export function DataOverview({
             </p>
           </div>
           <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
-            <Button
-              onClick={onNavigateToFieldConfig}
-              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
-            >
-              <Settings className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate text-sm">Configure Fields</span>
-            </Button>
+            {!reviewOnly && (
+              <Button
+                onClick={onNavigateToFieldConfig}
+                className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
+              >
+                <Settings className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate text-sm">Configure Fields</span>
+              </Button>
+            )}
             <div className="flex-1 min-w-0 md:w-auto md:flex-none">
               <ExportDropdown
                 options={exportOptions}
@@ -574,23 +617,25 @@ export function DataOverview({
                 disabledReason={!hasFieldConfig ? 'Configure fields first' : isExporting ? 'Exporting…' : 'Loading the rows…'}
               />
             </div>
-            <Button
-              onClick={handleStartDatasetAnnotation}
-              disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
-            >
-              {checkingConfig || checkingAnnotationProgress ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {checkingConfig ? 'Checking Config...' : 'Checking Progress...'}
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
-                </>
-              )}
-            </Button>
+            {!reviewOnly && (
+              <Button
+                onClick={handleStartDatasetAnnotation}
+                disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
+                className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
+              >
+                {checkingConfig || checkingAnnotationProgress ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {checkingConfig ? 'Checking Config...' : 'Checking Progress...'}
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -616,13 +661,15 @@ export function DataOverview({
             </p>
           </div>
           <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
-            <Button
-              onClick={onNavigateToFieldConfig}
-              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
-            >
-              <Settings className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate text-sm">Configure Fields</span>
-            </Button>
+            {!reviewOnly && (
+              <Button
+                onClick={onNavigateToFieldConfig}
+                className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
+              >
+                <Settings className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate text-sm">Configure Fields</span>
+              </Button>
+            )}
             <div className="flex-1 min-w-0 md:w-auto md:flex-none">
               <ExportDropdown
                 options={exportOptions}
@@ -630,23 +677,25 @@ export function DataOverview({
                 disabledReason={!hasFieldConfig ? 'Configure fields first' : isExporting ? 'Exporting…' : 'Loading the rows…'}
               />
             </div>
-            <Button
-              onClick={handleStartDatasetAnnotation}
-              disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
-            >
-              {checkingConfig || checkingAnnotationProgress ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {checkingConfig ? 'Checking Config...' : 'Checking Progress...'}
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
-                </>
-              )}
-            </Button>
+            {!reviewOnly && (
+              <Button
+                onClick={handleStartDatasetAnnotation}
+                disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
+                className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
+              >
+                {checkingConfig || checkingAnnotationProgress ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {checkingConfig ? 'Checking Config...' : 'Checking Progress...'}
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -687,13 +736,15 @@ export function DataOverview({
             </p>
           </div>
           <div className="flex flex-row items-center gap-2 w-full min-w-0 flex-nowrap md:flex-wrap md:gap-3 md:w-auto">
-          <Button
-            onClick={onNavigateToFieldConfig}
-            className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white border-blue-600 md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
-          >
-            <Settings className="h-4 w-4 flex-shrink-0" />
-            <span className="truncate text-sm">Configure Fields</span>
-          </Button>
+          {!reviewOnly && (
+            <Button
+              onClick={onNavigateToFieldConfig}
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#1a56db] hover:bg-[#1a56db] text-white border-blue-600 md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-blue-600 md:hover:bg-blue-700"
+            >
+              <Settings className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate text-sm">Configure Fields</span>
+            </Button>
+          )}
           <div className="flex-1 min-w-0 md:w-auto md:flex-none">
             <ExportDropdown
               options={exportOptions}
@@ -701,23 +752,25 @@ export function DataOverview({
                 disabledReason={!hasFieldConfig ? 'Configure fields first' : isExporting ? 'Exporting…' : 'Loading the rows…'}
             />
           </div>
-          <Button
-            onClick={handleStartDatasetAnnotation}
-            disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
-            className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
-          >
-            {checkingConfig || checkingAnnotationProgress ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {checkingConfig ? 'Checking Config...' : 'Checking Progress...'}
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
-              </>
-            )}
-          </Button>
+          {!reviewOnly && (
+            <Button
+              onClick={handleStartDatasetAnnotation}
+              disabled={!hasFieldConfig || checkingConfig || checkingAnnotationProgress}
+              className="flex-1 min-w-0 h-[44px] px-2 rounded-lg bg-[#16a34a] hover:bg-[#16a34a] text-white disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto md:flex-initial md:h-9 md:px-4 md:rounded-md md:bg-green-600 md:hover:bg-green-700"
+            >
+              {checkingConfig || checkingAnnotationProgress ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {checkingConfig ? 'Checking Config...' : 'Checking Progress...'}
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate text-sm">{annotationProgress && annotationProgress.completedRows > 0 ? 'Resume Annotation' : 'Start Annotation'}</span>
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -729,13 +782,15 @@ export function DataOverview({
               <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" />
               Uploaded Files
             </CardTitle>
-            <Button
-              onClick={onNavigateToUpload}
-              className="mt-3 sm:mt-0 w-full md:w-auto justify-center flex items-center gap-2 bg-black hover:bg-gray-800 text-white"
-            >
-              <Upload className="h-4 w-4" />
-              Upload Data
-            </Button>
+            {!reviewOnly && (
+              <Button
+                onClick={onNavigateToUpload}
+                className="mt-3 sm:mt-0 w-full md:w-auto justify-center flex items-center gap-2 bg-black hover:bg-gray-800 text-white"
+              >
+                <Upload className="h-4 w-4" />
+                Upload Data
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -837,13 +892,15 @@ export function DataOverview({
                   </p>
                 </div>
                 <div className="flex justify-center">
-                  <Button
-                    onClick={onNavigateToFieldConfig}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Settings className="h-4 w-4" />
-                    Configure Fields
-                  </Button>
+                  {!reviewOnly && (
+                    <Button
+                      onClick={onNavigateToFieldConfig}
+                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Configure Fields
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -851,8 +908,10 @@ export function DataOverview({
         </CardContent>
       </Card>
 
-      {/* ── Consensus Annotation Panel (admin only, visible when clones exist) ─ */}
-      {!!user?.canManage && (cloneGroup || loadingCloneGroup) && (
+      {/* ── Consensus Annotation Panel (visible when clones exist) ───────────
+          The clone-group call succeeds only for people who oversee this
+          dataset: admins, its owner, its workspace owner and workspace reviewers. */}
+      {(cloneGroup || (loadingCloneGroup && (user?.canManage || user?.isReviewer))) && (
         <Card className="shadow-sm border-indigo-100">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -882,7 +941,8 @@ export function DataOverview({
               <div className="space-y-4">
                 {/* Per-annotator progress rows */}
                 <div className="space-y-3">
-                  {(cloneGroup.clones).map((clone) => {
+                  {(cloneGroup.clones).filter((clone) => !excludedAnnotators.includes(clone.assignedAnnotatorId)).map((clone) => {
+                    const visibleCount = cloneGroup.clones.filter((c) => !excludedAnnotators.includes(c.assignedAnnotatorId)).length;
                     const total: number = clone.progress?.totalRows ?? 0;
                     const completed: number = clone.progress?.completedRows ?? 0;
                     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -915,27 +975,40 @@ export function DataOverview({
                             <button
                               onClick={async () => {
                                 try {
-                                  const token = localStorage.getItem('accessToken');
-                                  const res = await fetch(`/api/clones/${clone._id}/export`, {
-                                    headers: { Authorization: `Bearer ${token}` },
+                                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                                  const res = await fetch(`${apiUrl}/clones/${clone._id}/export`, {
+                                    headers: { Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}` },
                                   });
-                                  const blob = await res.blob();
-                                  const url = window.URL.createObjectURL(blob);
+                                  if (!res.ok) {
+                                    const body = await res.json().catch(() => ({}));
+                                    throw new Error(body?.message || `The server answered ${res.status}`);
+                                  }
+                                  const url = window.URL.createObjectURL(await res.blob());
                                   const a = document.createElement('a');
                                   a.href = url;
                                   a.download = `${annotatorName.replace(/\s+/g, '_')}_clone.csv`;
                                   a.click();
                                   window.URL.revokeObjectURL(url);
-                                } catch {
-                                  // Fallback: direct download
-                                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-                                  window.open(`${apiUrl}/clones/${clone._id}/export?token=${localStorage.getItem('accessToken')}`, '_blank');
+                                } catch (e) {
+                                  showToast({ type: 'error', title: 'Export Failed', description: (e as Error).message });
                                 }
                               }}
                               className="text-xs text-gray-500 hover:text-gray-700 font-medium hover:underline"
                             >
                               CSV
                             </button>
+                            {canPickAnnotators && (
+                              <button
+                                type="button"
+                                title={visibleCount <= 1 ? 'At least one annotator must stay included' : 'Remove from consensus and progress'}
+                                aria-label={`Remove ${annotatorName} from consensus`}
+                                disabled={visibleCount <= 1}
+                                onClick={() => saveExcludedAnnotators([...excludedAnnotators, clone.assignedAnnotatorId])}
+                                className="rounded p-0.5 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -951,6 +1024,28 @@ export function DataOverview({
                     );
                   })}
                 </div>
+
+                {canPickAnnotators && cloneGroup.clones.some((c) => excludedAnnotators.includes(c.assignedAnnotatorId)) && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                    <span>Removed:</span>
+                    {cloneGroup.clones.filter((c) => excludedAnnotators.includes(c.assignedAnnotatorId)).map((c) => {
+                      const name = c.annotator
+                        ? `${c.annotator.firstName ?? ''} ${c.annotator.lastName ?? ''}`.trim() || c.annotator.email
+                        : `Annotator ${c.cloneIndex ?? '?'}`;
+                      return (
+                        <button
+                          key={c._id}
+                          type="button"
+                          title="Add back"
+                          onClick={() => saveExcludedAnnotators(excludedAnnotators.filter((id) => id !== c.assignedAnnotatorId))}
+                          className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-800 hover:bg-amber-100"
+                        >
+                          {name} <span className="text-amber-600">+ add back</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Status summary + action buttons — always visible when clones exist */}
                 {(() => {

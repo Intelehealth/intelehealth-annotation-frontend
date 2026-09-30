@@ -600,125 +600,6 @@ export function AnnotationWorkbench({
     }
   }, [csvImport, annotations, annotationConfig, showToast, flushPendingRowData]);
 
-  // Export annotations to CSV - All Columns (Fixed to include ALL original columns)
-  const exportAllColumnsToCSV = useCallback(async () => {
-    if (!csvImport) {
-      logger.log('Cannot export: missing CSV data');
-      return;
-    }
-
-    // Persist any unsaved right-panel data on the current row (e.g. a
-    // duplicated field that hasn't been explicitly "Saved" yet) BEFORE
-    // reading csvImport data, so the export doesn't miss it.
-    await flushPendingRowData();
-
-    try {
-      logger.log('Exporting all columns to CSV...');
-
-      // Get all rows with their annotations
-      const allRows = csvImport.rowData || [];
-
-      // Get all original CSV columns from the stored columns array
-      const originalColumns = csvImport.columns || [];
-      
-      // Get annotation fields (new columns)
-      const annotationFields = annotationConfig?.annotationFields.filter(
-        (field) => field.isAnnotationField || field.isNewColumn
-      ) || [];
-
-      logger.log('Original CSV columns:', originalColumns);
-      logger.log('Annotation fields (new columns):', annotationFields.map(f => f.fieldName));
-
-      // Prepare export data
-      const exportRows: Record<string, any>[] = [];
-      const headers: string[] = [...originalColumns, ...annotationFields.map(f => f.fieldName)];
-
-      // Build rows
-      for (let rowIndex = 0; rowIndex < allRows.length; rowIndex++) {
-        const row = allRows[rowIndex];
-        const rowAnnotations = annotations.filter(
-          (ann) => ann.csvRowIndex === rowIndex,
-        );
-
-        const exportedRow: Record<string, any> = {};
-        
-        // First, add ALL original CSV columns (even if empty in stored data)
-        originalColumns.forEach((columnName) => {
-          // Check if this column exists in the stored row data
-          if (row.data && row.data.hasOwnProperty(columnName)) {
-            exportedRow[columnName] = row.data[columnName] || '';
-          } else {
-            // Column doesn't exist in stored data (was filtered out during processing)
-            // This is the key fix - we include empty columns that were filtered out
-            exportedRow[columnName] = '';
-          }
-        });
-
-        // Then add new annotation columns
-        annotationFields.forEach((field) => {
-          const fieldAnnotation = rowAnnotations.find(
-            (ann) => ann.fieldName === field.fieldName,
-          );
-
-          if (fieldAnnotation && fieldAnnotation.data?.value) {
-            exportedRow[field.fieldName] = fieldAnnotation.data.value;
-          } else {
-            // Check if data exists in the row's metadata (for new columns)
-            exportedRow[field.fieldName] = row.data[field.fieldName] || '';
-          }
-        });
-
-        exportRows.push(exportedRow);
-      }
-
-      const exportData: ExportData = {
-        headers,
-        rows: exportRows,
-      };
-
-      // Generate clean filename with IST timestamp
-      const istTime = new Date().toLocaleString('en-CA', { 
-        timeZone: 'Asia/Kolkata',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      }).replace(/[, ]/g, '_').replace(/:/g, '-');
-      const baseFileName = csvImport.originalFileName 
-        ? csvImport.originalFileName.replace(/\.(csv|xlsx|xls)$/i, '') 
-        : 'data';
-      const cleanFileName = `all_columns_${baseFileName}_${istTime}.csv`;
-
-      // Export using helper function
-      exportToCsv(
-        exportData,
-        cleanFileName,
-        {
-          cleanHtml: true,
-          showSuccess: true,
-          onSuccess: (message) => {
-            logger.log('All columns CSV exported successfully');
-            showToast({
-              type: 'success',
-              title: 'Export Complete',
-              description: `Exported ${originalColumns.length} original + ${annotationFields.length} new columns`,
-            });
-          },
-          onError: (error) => {
-            console.error('Error exporting all columns CSV:', error);
-            setError('Failed to export all columns CSV');
-          },
-        }
-      );
-    } catch (error) {
-      console.error('Error exporting all columns CSV:', error);
-      setError('Failed to export all columns CSV');
-    }
-  }, [csvImport, annotations, annotationConfig, showToast, flushPendingRowData]);
-
   // Individual field save only - bulk save removed
 
   // Auto-save disabled - only save when button is clicked
@@ -1583,7 +1464,6 @@ export function AnnotationWorkbench({
           newColumnData={newColumnData}
           onNewColumnChange={handleNewColumnChange}
           onExportSelectedColumns={exportSelectedColumnsToCSV}
-          onExportAllColumns={exportAllColumnsToCSV}
           isSaving={isSaving}
           completedCount={annotatedTasks.length}
           pendingCount={unannotatedTasks.length}

@@ -45,7 +45,6 @@ interface NewColumnDataPanelProps {
   newColumnData: NewColumnData;
   onNewColumnChange: (fieldName: string, value: string) => void;
   onExportSelectedColumns: () => void;
-  onExportAllColumns: () => void;
   isSaving: boolean;
   completedCount: number;
   pendingCount: number;
@@ -665,7 +664,6 @@ export function NewColumnDataPanel({
   newColumnData,
   onNewColumnChange,
   onExportSelectedColumns,
-  onExportAllColumns,
   isSaving,
   completedCount,
   pendingCount,
@@ -1899,15 +1897,6 @@ export function NewColumnDataPanel({
                 </Button>
               </div>
             )}
-            <Button
-              type="button"
-              size="sm"
-              onClick={onExportAllColumns}
-              disabled={isSaving}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs h-8 px-3 cursor-pointer transition-colors shadow-sm w-full lg:w-auto justify-center"
-            >
-              Download CSV
-            </Button>
           </div>
         </div>
       </div>
