@@ -7,7 +7,7 @@ import { ResizablePanels } from '@/components/ui/resizable-panels';
 import { ImageThumbnails } from '@/components/annotation-components/image-thumbnails';
 import { ImageOverlay } from '@/components/annotation-components/media-overlays';
 import { cn } from '@/lib/utils';
-import { STATUS_BADGE, buildFieldTree, walkFieldTree, formatValue, getClinicalNotes, type FieldNode } from './consensus-utils';
+import { STATUS_BADGE, buildFieldTree, walkFieldTree, formatValue, getClinicalNotes, collectBranchNotes, type FieldNode } from './consensus-utils';
 
 // ─── Agreement classification ───────────────────────────────────────────────
 
@@ -193,6 +193,9 @@ function parseMulti(value: string | null): string[] {
   return value.split(',').map((v) => v.trim()).filter(Boolean);
 }
 
+// Select value for "Other"; cannot collide with a real option.
+const OTHER_CHOICE = '\u0000other';
+
 const isMultiField = (field: any) => /multi[_-]?select|checkbox/i.test(String(field?.fieldType || field?.columnType || ''));
 
 function CustomAnswerEditor({
@@ -210,31 +213,82 @@ function CustomAnswerEditor({
 }) {
   const options: string[] = Array.isArray(field.options) ? field.options.filter((o: unknown) => o !== null && o !== '').map(String) : [];
   const multi = options.length > 0 && isMultiField(field);
-  const [text, setText] = useState(() => (options.length && !multi && initial && options.includes(initial) ? initial : options.length ? '' : initial || ''));
-  const [picked, setPicked] = useState<string[]>(() => (multi ? parseMulti(initial).filter((v) => options.includes(v)) : []));
-  const value = multi ? (picked.length ? JSON.stringify(picked) : '') : text;
+  // Option fields also accept free text (combined medications, a corrected
+  // dose, a drug outside the list); a saved value outside the options reopens
+  // as free text rather than being dropped.
+  const [choice, setChoice] = useState(() => (!initial || multi ? '' : options.includes(initial) ? initial : OTHER_CHOICE));
+  const [text, setText] = useState(() => (initial && !multi && !options.includes(initial) ? initial : ''));
+  const initialMulti = multi ? parseMulti(initial) : [];
+  const [picked, setPicked] = useState<string[]>(() => initialMulti.filter((v) => options.includes(v)));
+  const [extras, setExtras] = useState<string[]>(() => initialMulti.filter((v) => !options.includes(v)));
+  const [draft, setDraft] = useState('');
+  const multiValues = [...picked, ...extras];
+  const value = multi
+    ? (multiValues.length ? JSON.stringify(multiValues) : '')
+    : options.length && choice !== OTHER_CHOICE ? choice : text;
   const control = 'rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 outline-none focus:border-indigo-500';
+  const addExtra = () => {
+    const v = draft.trim();
+    if (v && !multiValues.includes(v)) setExtras((prev) => [...prev, v]);
+    setDraft('');
+  };
 
   return (
     <div className="mt-1.5 space-y-1.5 rounded border border-gray-200 bg-white/80 p-2">
       {multi ? (
-        <div className="flex flex-wrap gap-x-3 gap-y-1">
-          {options.map((option) => (
-            <label key={option} className="inline-flex items-center gap-1 text-xs text-gray-700">
-              <input
-                type="checkbox"
-                checked={picked.includes(option)}
-                onChange={() => setPicked((prev) => (prev.includes(option) ? prev.filter((v) => v !== option) : [...prev, option]))}
-              />
-              {option}
-            </label>
-          ))}
-        </div>
+        <>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {options.map((option) => (
+              <label key={option} className="inline-flex items-center gap-1 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={picked.includes(option)}
+                  onChange={() => setPicked((prev) => (prev.includes(option) ? prev.filter((v) => v !== option) : [...prev, option]))}
+                />
+                {option}
+              </label>
+            ))}
+            {extras.map((extra) => (
+              <label key={extra} className="inline-flex items-center gap-1 text-xs text-gray-700">
+                <input type="checkbox" checked onChange={() => setExtras((prev) => prev.filter((v) => v !== extra))} />
+                {extra}
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-1.5">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addExtra();
+                }
+              }}
+              placeholder="Other value…"
+              className={cn(control, 'flex-1')}
+            />
+            <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" disabled={!draft.trim()} onClick={addExtra}>Add</Button>
+          </div>
+        </>
       ) : options.length ? (
-        <select value={text} onChange={(e) => setText(e.target.value)} className={cn(control, 'w-full')}>
-          <option value="">Select an option…</option>
-          {options.map((option) => <option key={option} value={option}>{option}</option>)}
-        </select>
+        <>
+          <select value={choice} onChange={(e) => setChoice(e.target.value)} className={cn(control, 'w-full')}>
+            <option value="">Select an option…</option>
+            {options.map((option) => <option key={option} value={option}>{option}</option>)}
+            <option value={OTHER_CHOICE}>Other (type your own)…</option>
+          </select>
+          {choice === OTHER_CHOICE && (
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={2}
+              autoFocus
+              placeholder="Free text, e.g. two medications or a corrected dose"
+              className={cn(control, 'w-full resize-y')}
+            />
+          )}
+        </>
       ) : (
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Final answer" className={cn(control, 'w-full resize-y')} />
       )}
@@ -343,6 +397,7 @@ function QuestionCard({
   const decidable = !inactive && !!finalAnswers && !!row?.reviewId;
   const canDecide = decidable && !!finalAnswers?.canDecide;
   const final = getFinalDecision(field);
+  const branchNotes = inactive ? [] : collectBranchNotes(field, excludedAnnotatorIds);
   const track = async (action: () => Promise<boolean>) => {
     setBusy(true);
     try {
@@ -406,6 +461,21 @@ function QuestionCard({
           );
         })}
       </div>
+      {branchNotes.length > 0 && (
+        <div className="mt-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Notes from other branches (not counted)</div>
+          {branchNotes.map((b) => (
+            <div key={b.fieldName} className="mt-1">
+              <div className="text-[11px] font-semibold text-gray-800">{b.question}</div>
+              {b.notes.map((n) => (
+                <div key={n.annotatorId} className="break-words text-xs text-gray-700">
+                  {n.annotatorName}: {formatValue(n.value)}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
       {decidable && (
         <FinalAnswerForm field={field} final={final} busy={busy} canDecide={canDecide} onSave={save} onClear={clear} />
       )}

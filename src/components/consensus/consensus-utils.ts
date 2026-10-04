@@ -77,3 +77,37 @@ export function getClinicalNotes(rawData: any): string {
   const value = key ? rawData[key] : '';
   return typeof value === 'string' ? value.replace(/\*\*/g, '').trim() : '';
 }
+
+export interface BranchNotes {
+  question: string;
+  fieldName: string;
+  notes: { annotatorId: string; annotatorName: string; value: unknown }[];
+}
+
+const isEmptyNote = (value: unknown): boolean => {
+  if (value === null || value === undefined) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  const str = String(value).trim();
+  return str === '' || str === '[]';
+};
+
+// Submitted, non-empty answers on inactive (losing-branch) descendants of a
+// node, so moderators can still read the minority annotators' notes. Active
+// children get their own cards, so the walk does not enter them.
+export function collectBranchNotes(node: FieldNode, excludedAnnotatorIds?: string[]): BranchNotes[] {
+  const out: BranchNotes[] = [];
+  const walk = (n: FieldNode) => {
+    n.children.forEach((child: FieldNode) => {
+      if (!child.inactive) return;
+      const notes = ((child.annotatorAnswers || []) as any[])
+        .filter((a) => a?.submitted && !isEmptyNote(a.value) && !excludedAnnotatorIds?.includes(a.annotatorId))
+        .map((a) => ({ annotatorId: a.annotatorId, annotatorName: a.annotatorName, value: a.value }));
+      if (notes.length) {
+        out.push({ question: child.question || child.displayName || child.fieldName, fieldName: child.fieldName, notes });
+      }
+      walk(child);
+    });
+  };
+  walk(node);
+  return out;
+}
