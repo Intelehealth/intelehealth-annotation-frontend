@@ -496,7 +496,7 @@ export default function ReviewConsensusPage() {
   const handleExport = async (type: string) => {
     try {
       await consensusAPI.exportCsv(datasetId, type);
-      showToast({ title: 'Exported', description: 'Pre-consensus report downloaded.', type: 'success' });
+      showToast({ title: 'Exported', description: type === 'final' ? 'Final answers downloaded.' : 'Pre-consensus report downloaded.', type: 'success' });
     } catch {
       showToast({ title: 'Export failed', description: 'The report could not be generated.', type: 'error' });
     }
@@ -606,6 +606,7 @@ export default function ReviewConsensusPage() {
             </div>
               {reviewFocus && <Button variant="outline" size="sm" onClick={() => setShowSummary((v) => !v)}>{showSummary ? 'Hide summary' : 'Show summary'}</Button>}
               <Button variant="outline" size="sm" onClick={() => { loadData(); loadResolvedStatus(); }} disabled={loading}><RefreshCw className={cn('mr-1 h-4 w-4', loading && 'animate-spin')} /> Refresh</Button>
+              <Button variant="outline" size="sm" disabled={!gridData?.totalRows} title="One row per case with the accepted final answer for each question. Unresolved answers show PENDING." onClick={() => handleExport('final')}><Download className="mr-1 h-4 w-4" /> Final answers CSV</Button>
               {!reviewOnly && (<><Button variant="outline" onClick={handleRequestReview}>Review Again</Button><Button variant="outline" onClick={handleStartCollaborativeReview} disabled={startingSession || !gridData?.totalRows}>{startingSession ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Start Collaborative Review</Button></>)}
             </div>
           </header>
