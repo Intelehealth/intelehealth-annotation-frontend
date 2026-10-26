@@ -38,6 +38,14 @@ export default function WorkspacePage() {
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
+  // NAS / TURN mismatch workspaces open on their review queue; ?manage=1 shows members and settings.
+  const mismatchSource = (ws as { settings?: { mismatchSource?: string } } | null)?.settings?.mismatchSource;
+  useEffect(() => {
+    if (mismatchSource && !new URLSearchParams(window.location.search).has('manage')) {
+      router.replace(`/workspaces/${id}/mismatch`);
+    }
+  }, [mismatchSource, id, router]);
+
   const isAdmin = String(user?.role ?? '').toUpperCase() === 'ADMIN';
   const canManage = isAdmin || (!!ws && ws.ownerId?._id === user?._id);
 

@@ -1,0 +1,114 @@
+'use client';
+
+import { ReactNode } from 'react';
+import { CheckCircle2, Loader2, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Sidebar } from '@/components/sidebar';
+import { TopNav } from '@/components/top-nav';
+import { Button } from '@/components/ui/button';
+import { timeAgo } from '@/components/dashboard/format';
+import { cn } from '@/lib/utils';
+import { MISMATCH_LABEL, type Highlight, type MismatchType, type ReviewStatus, type SyncState } from '@/lib/api/mismatch';
+
+export function Shell({ children, wide }: { children: ReactNode; wide?: boolean }) {
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar className="hidden lg:flex" />
+      <main className="flex-1 overflow-auto">
+        <TopNav />
+        <div className={cn('mx-auto space-y-6 p-4 md:p-6', wide ? 'max-w-7xl' : 'max-w-6xl')}>{children}</div>
+      </main>
+    </div>
+  );
+}
+
+const TYPE_STYLE: Record<MismatchType, string> = {
+  none: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  ddx: 'bg-rose-50 text-rose-700 ring-rose-200',
+  ttx: 'bg-amber-50 text-amber-800 ring-amber-200',
+  both: 'bg-purple-50 text-purple-700 ring-purple-200',
+};
+
+export function TypeBadge({ type }: { type: MismatchType }) {
+  return (
+    <span className={cn('inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset', TYPE_STYLE[type])}>
+      {MISMATCH_LABEL[type]}
+    </span>
+  );
+}
+
+const STATUS_STYLE: Record<ReviewStatus, [string, string]> = {
+  pending: ['To review', 'bg-gray-100 text-gray-700'],
+  in_progress: ['In review', 'bg-blue-50 text-blue-700'],
+  done: ['Annotated', 'bg-emerald-50 text-emerald-700'],
+};
+
+export function StatusBadge({ status }: { status: ReviewStatus }) {
+  const [label, cls] = STATUS_STYLE[status] ?? STATUS_STYLE.pending;
+  return <span className={cn('inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium', cls)}>{label}</span>;
+}
+
+const HL_STYLE: Record<Highlight['type'], string> = {
+  not_in_top5: 'border-rose-200 bg-rose-50 text-rose-800',
+  doctor_added: 'border-slate-200 bg-slate-50 text-slate-700',
+  modified: 'border-amber-200 bg-amber-50 text-amber-900',
+  ignored: 'border-gray-200 bg-gray-50 text-gray-700',
+  added: 'border-sky-200 bg-sky-50 text-sky-800',
+};
+
+export function HighlightChip({ h, full }: { h: Highlight; full?: boolean }) {
+  return (
+    <span className={cn('inline-flex max-w-full flex-col rounded-md border px-2 py-1 text-xs', HL_STYLE[h.type])}>
+      <span className="truncate font-medium">{h.text}</span>
+      {full && h.detail && <span className="mt-0.5 opacity-80">{h.detail}</span>}
+    </span>
+  );
+}
+
+/** Background-sync status line with a manual "sync now". */
+export function SyncBar({ state, onSync, newCount }: { state: SyncState | null; onSync: () => void; newCount: number }) {
+  if (!state) return null;
+  const run = state.lastRun;
+  if (!state.configured) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+        <TriangleAlert className="h-4 w-4" /> OpenMRS sync is not configured on the server (ESGQL_API_KEY missing).
+      </div>
+    );
+  }
+  return (
+    <div className={cn('flex flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5 text-sm',
+      state.running ? 'border-blue-200 bg-blue-50 text-blue-900' : state.status === 'error' ? 'border-rose-200 bg-rose-50 text-rose-900' : 'bg-card')}>
+      {state.running ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>
+            Fetching new visits from OpenMRS in the background{run ? ` (${run.window})` : ''}
+            {run?.total ? `: ${run.fetched.toLocaleString()} / ${run.total.toLocaleString()}` : '…'}. You can keep annotating.
+          </span>
+        </>
+      ) : state.status === 'error' ? (
+        <>
+          <TriangleAlert className="h-4 w-4" />
+          <span>Last sync failed: {run?.error ?? 'unknown error'}</span>
+        </>
+      ) : (
+        <>
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          <span>
+            Synced with OpenMRS {timeAgo(state.lastSuccessAt)}
+            {run ? ` · last run ${run.inserted.toLocaleString()} new, ${run.updated.toLocaleString()} updated` : ''}
+            {newCount > 0 && <span className="ml-1 font-medium text-emerald-700">· {newCount.toLocaleString()} new since you opened</span>}
+          </span>
+        </>
+      )}
+      <Button variant="ghost" size="sm" className="ml-auto h-7" disabled={state.running} onClick={onSync}>
+        <RefreshCw className="mr-1 h-3.5 w-3.5" /> Sync now
+      </Button>
+    </div>
+  );
+}
+
+export const fmtDate = (iso?: string) =>
+  iso ? new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—';
+
+export const rate = (n: number, d: number) => (d ? (100 * n) / d : 0);
