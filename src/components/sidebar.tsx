@@ -25,6 +25,7 @@ import {
   FileText,
   Scale,
   LayoutTemplate,
+  GraduationCap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -242,6 +243,39 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
           <LayoutTemplate className={cn('h-5 w-5 flex-shrink-0', pathname.startsWith('/workspaces') ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
           {!effectiveCollapsed && <span className="font-medium text-sm">Workspaces</span>}
         </Link>
+
+        {/* CLINICAL TRAINING */}
+        <Link
+          href="/training"
+          data-testid="nav-training"
+          className={cn(
+            'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
+            pathname.startsWith('/training') && !pathname.startsWith('/training/cohort')
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+            effectiveCollapsed && 'justify-center px-2',
+          )}
+        >
+          <GraduationCap className={cn('h-5 w-5 flex-shrink-0', pathname.startsWith('/training') && !pathname.startsWith('/training/cohort') ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
+          {!effectiveCollapsed && <span className="font-medium text-sm">Clinical Training</span>}
+        </Link>
+
+        {canManage && (
+          <Link
+            href="/training/cohort"
+            data-testid="nav-cohort"
+            className={cn(
+              'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
+              pathname.startsWith('/training/cohort')
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+              effectiveCollapsed && 'justify-center px-2',
+            )}
+          >
+            <Users className={cn('h-5 w-5 flex-shrink-0', pathname.startsWith('/training/cohort') ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
+            {!effectiveCollapsed && <span className="font-medium text-sm">Faculty Dashboard</span>}
+          </Link>
+        )}
 
         {/* ADMIN SIDEBAR SECTIONS */}
         {canManage ? (
