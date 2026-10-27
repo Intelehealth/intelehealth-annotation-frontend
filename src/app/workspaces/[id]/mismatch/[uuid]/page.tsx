@@ -86,6 +86,7 @@ export default function MismatchVisitPage() {
   const claimedByOther = v.review.claimedBy && v.review.claimedBy._id !== user?._id && v.review.status !== 'done' && v.review.claimedAt
     && Date.now() - new Date(v.review.claimedAt).getTime() < 30 * 60_000 ? v.review.claimedBy : null;
   const showDdx = a.ddxMismatch || a.doctorAddedDx.length > 0;
+  const dxRationale = (name: string) => (v.ddx?.diagnoses ?? []).find((x) => String(x.diagnosis).toLowerCase() === name.toLowerCase())?.rationale;
   const showTtx = a.ttxAvailable;
   const vit = v.vitals ?? {};
   const vitals: [string, unknown, string][] = [
@@ -108,8 +109,18 @@ export default function MismatchVisitPage() {
         <h1 className="text-xl font-semibold tracking-tight">
           {[v.demographics?.gender === 'F' ? 'Female' : v.demographics?.gender === 'M' ? 'Male' : v.demographics?.gender, v.demographics?.age != null ? `${v.demographics.age} years` : null].filter(Boolean).join(', ')}
         </h1>
-        <p className="text-sm text-muted-foreground">{v.source} · {v.attributes?.specialty ?? '—'} · prescription shared {fmtDate(v.encounterAt)}</p>
+        <p className="text-sm text-muted-foreground">
+          {v.source} · {v.attributes?.specialty ?? '—'} · prescription shared {fmtDate(v.encounterAt)}
+          {v.langfuse?.model && <> · AI: {v.langfuse.model}{v.langfuse.engine ? ` (${v.langfuse.engine})` : ''}{typeof v.langfuse.latency === 'number' ? `, ${v.langfuse.latency.toFixed(1)} s` : ''}</>}
+        </p>
       </header>
+
+      {(a.ddxRejectReason || a.ttxRejectReason) && (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <strong>The doctor rejected the AI and said why:</strong>{' '}
+          {[a.ddxRejectReason && `diagnosis marked “${a.ddxRejectReason.replace(/_/g, ' ')}”`, a.ttxRejectReason && `treatment marked “${a.ttxRejectReason.replace(/_/g, ' ')}”`].filter(Boolean).join('; ')}.
+        </div>
+      )}
 
       {a.highlights.length > 0 && (
         <div className="flex flex-wrap gap-2">{a.highlights.map((h, i) => <HighlightChip key={i} h={h} full />)}</div>
@@ -150,11 +161,14 @@ export default function MismatchVisitPage() {
                 <div className="mb-2 text-xs font-medium text-muted-foreground">AI top 5</div>
                 <ol className="space-y-1.5 text-sm">
                   {top5.map((d) => (
-                    <li key={`${d.rank}-${d.diagnosis}`} className={cn('flex items-center gap-2 rounded-md border px-2 py-1.5', d.picked && 'border-emerald-300 bg-emerald-50')}>
-                      <span className="w-5 text-xs text-muted-foreground">#{d.rank}</span>
-                      <span className="flex-1 capitalize">{d.diagnosis}</span>
-                      {d.likelihood && <span className="text-xs text-muted-foreground">{d.likelihood}</span>}
-                      <Tag t={d.picked === 'clicked' ? 'Y' : d.picked === 'name' ? 'T' : 'I'} map={DX_TAG} />
+                    <li key={`${d.rank}-${d.diagnosis}`} className={cn('rounded-md border px-2 py-1.5', d.picked && 'border-emerald-300 bg-emerald-50')}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 text-xs text-muted-foreground">#{d.rank}</span>
+                        <span className="flex-1 capitalize">{d.diagnosis}</span>
+                        {d.likelihood && <span className="text-xs text-muted-foreground">{d.likelihood}</span>}
+                        <Tag t={d.picked === 'clicked' ? 'Y' : d.picked === 'name' ? 'T' : 'I'} map={DX_TAG} />
+                      </div>
+                      <Why r={dxRationale(d.diagnosis)} />
                     </li>
                   ))}
                 </ol>
@@ -175,6 +189,19 @@ export default function MismatchVisitPage() {
                 </ul>
               </div>
             </div>
+            {(v.ddx?.conclusion || (v.ddx?.furtherQuestions?.length ?? 0) > 0) && (
+              <div className="space-y-3 border-t px-4 py-3 text-sm">
+                {v.ddx?.conclusion && (
+                  <div><div className="text-xs font-medium text-muted-foreground">AI conclusion</div><p className="mt-0.5 text-gray-700">{v.ddx.conclusion}</p></div>
+                )}
+                {(v.ddx?.furtherQuestions?.length ?? 0) > 0 && (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground">Questions the AI suggested asking</div>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-gray-700">{v.ddx!.furtherQuestions!.map((q, i) => <li key={i}>{q}</li>)}</ul>
+                  </div>
+                )}
+              </div>
+            )}
           </Section>
 
           <Section title="Treatment: AI vs doctor" description={showTtx ? `${a.ttxExact} exact · ${a.ttxModified} dose changed · ${a.ttxIgnored} not used · ${a.ttxAdded} added by doctor` : 'No AI treatment for this visit'}>
@@ -189,7 +216,7 @@ export default function MismatchVisitPage() {
                       const d = doctorMed(m);
                       return (
                         <tr key={i} className={cn('align-top', m.aiAssisted === 'M' && 'bg-amber-50/50', m.aiAssisted === 'N' && 'bg-sky-50/50')}>
-                          <td className="px-4 py-2 font-medium">{m.medication}</td>
+                          <td className="px-4 py-2 font-medium">{m.medication}<Why r={m.rationale} /></td>
                           <td className="px-4 py-2 text-xs text-muted-foreground">{m.aiAssisted === 'N' ? '—' : [m.dosage, m.frequency, m.duration ? `${m.duration} ${m.durationUnits ?? ''}` : null].filter(Boolean).join(' · ') || '—'}</td>
                           <td className="px-4 py-2 text-xs">{d ? [d.dose, d.frequency, d.duration ? `${d.duration} ${d.unit}` : null, d.instructions].filter(Boolean).join(' · ') : m.aiAssisted === 'I' ? <span className="text-muted-foreground">not prescribed</span> : '—'}</td>
                           <td className="px-4 py-2"><Tag t={m.aiAssisted} map={MED_TAG} /></td>
@@ -201,6 +228,12 @@ export default function MismatchVisitPage() {
               </div>
             ) : (
               <div className="px-4 py-4 text-sm text-muted-foreground">{v.visitNote?.medications ? `Doctor prescribed: ${a.doctorMedications.map((m) => m.name).join(', ')}` : 'No medicines recorded.'}</div>
+            )}
+            {v.ttx?.planRationale && (
+              <details className="border-t px-4 py-3 text-sm">
+                <summary className="cursor-pointer text-xs font-medium text-muted-foreground">AI reasoning for the whole treatment plan</summary>
+                <p className="mt-2 whitespace-pre-wrap text-gray-700">{v.ttx.planRationale}</p>
+              </details>
             )}
             {(v.visitNote?.medicalTest || v.visitNote?.medicalAdvice || v.visitNote?.referralAdvice) && (
               <dl className="space-y-1 border-t px-4 py-3 text-xs">
@@ -248,6 +281,25 @@ export default function MismatchVisitPage() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+/** The AI's reasoning for one suggestion: a string, or a list of {heading: text} objects. */
+function Why({ r }: { r?: unknown }) {
+  if (!r) return null;
+  const parts: [string, string][] = typeof r === 'string'
+    ? [['', r]]
+    : Array.isArray(r)
+      ? r.flatMap((x) => (x && typeof x === 'object' ? Object.entries(x as Record<string, unknown>).map(([k, val]) => [k, String(val)] as [string, string]) : [['', String(x)] as [string, string]]))
+      : typeof r === 'object' ? Object.entries(r as Record<string, unknown>).map(([k, val]) => [k, String(val)] as [string, string]) : [['', String(r)]];
+  if (!parts.length) return null;
+  return (
+    <details className="mt-1">
+      <summary className="cursor-pointer text-xs font-normal text-indigo-700">Why the AI suggested it</summary>
+      <div className="mt-1 space-y-1 text-xs font-normal text-gray-700">
+        {parts.map(([k, val], i) => <p key={i}>{k && <span className="font-medium">{k}: </span>}{val}</p>)}
+      </div>
+    </details>
   );
 }
 

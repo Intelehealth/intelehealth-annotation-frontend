@@ -65,7 +65,8 @@ const DATE_PRESETS = [
 const field = 'h-9 w-full rounded-md border bg-background px-2 text-sm';
 const DEFAULT: QueueQuery = { sort: 'newest', page: 1, limit: 25 };
 // Keys that count as user filters (shown as chips, cleared by "Clear all").
-const FILTER_KEYS: (keyof QueueQuery)[] = ['mismatch', 'ddx', 'ttx', 'status', 'from', 'to', 'specialty', 'gender', 'age', 'dx', 'med', 'reviewer', 'verdict', 'followUp', 'images', 'q'];
+const FILTER_KEYS: (keyof QueueQuery)[] = ['mismatch', 'ddx', 'ttx', 'flag', 'model', 'status', 'from', 'to', 'specialty', 'gender', 'age', 'dx', 'med', 'reviewer', 'verdict', 'followUp', 'images', 'q'];
+const reasonLabel = (r: string) => r.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
   workspaceId: string; tab: QueueTab; refreshKey: number; onCounts: (c: QueuePage['counts']) => void;
@@ -131,6 +132,8 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
         : k === 'verdict' ? `Verdict: ${label(VERDICTS, String(v))}`
         : k === 'followUp' ? 'Flagged for follow-up'
         : k === 'images' ? 'Has images'
+        : k === 'flag' ? (v === 'any' ? 'Doctor rejected AI' : `Doctor rejected AI: ${reasonLabel(String(v))}`)
+        : k === 'model' ? `AI model: ${v}`
         : k === 'q' ? `Search: “${v}”`
         : String(v);
       out.push({ key: k, text: text ?? String(v) });
@@ -184,6 +187,14 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
                 <Input className="h-9" placeholder="e.g. cetirizine — press Enter" value={med} onChange={(e) => setMed(e.target.value)} onBlur={() => set({ med: med.trim() || undefined })} />
               </form>
             </Labeled>
+            <Labeled label="Doctor rejected the AI">
+              <Select opts={[{ value: '', label: 'Any' }, { value: 'any', label: 'Any stated reason' }, ...(facets?.rejectReasons ?? []).map((r) => ({ value: r, label: reasonLabel(r) }))]} value={q.flag} onChange={(v) => set({ flag: v })} />
+            </Labeled>
+            {(facets?.models.length ?? 0) > 0 && (
+              <Labeled label="AI model">
+                <Select opts={[{ value: '', label: 'Any model' }, ...(facets?.models ?? []).map((m) => ({ value: m, label: m }))]} value={q.model} onChange={(v) => set({ model: v })} />
+              </Labeled>
+            )}
             <Labeled label="Specialty">
               <Select opts={[{ value: '', label: 'Any specialty' }, ...(facets?.specialties ?? []).map((s) => ({ value: s, label: s }))]} value={q.specialty} onChange={(v) => set({ specialty: v })} />
             </Labeled>

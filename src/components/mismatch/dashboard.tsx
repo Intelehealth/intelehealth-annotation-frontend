@@ -188,7 +188,39 @@ export function MismatchDashboard({ workspaceId, refreshKey }: { workspaceId: st
         <TopList title="AI medicines with dose changed" items={data.top.modifiedMeds} />
         <TopList title="AI medicines not used" items={data.top.ignoredMeds} />
         <TopList title="Medicines doctors added" items={data.top.addedMeds} />
+        <TopList title="Doctor rejected the AI (stated reason)" items={data.rejections ?? []} />
       </div>
+
+      {(data.models ?? []).some((m) => m.model !== 'Not logged') && (
+        <Section title="By AI model / engine" description="From the AI call log; visits without a log entry are grouped as “Not logged”">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Model · engine</th>
+                  <th className="px-4 py-2 text-right font-medium">Visits</th>
+                  <th className="px-4 py-2 text-right font-medium">Top-1</th>
+                  <th className="px-4 py-2 text-right font-medium">Top-5</th>
+                  <th className="px-4 py-2 text-right font-medium">AI meds used</th>
+                  <th className="px-4 py-2 text-right font-medium">Avg latency</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {data.models.map((m) => (
+                  <tr key={m.model}>
+                    <td className="px-4 py-2 font-medium">{m.model}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{m.visits.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{m.ddxVisits ? pct(rate(m.top1, m.ddxVisits), 1) : '—'}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{m.ddxVisits ? pct(rate(m.top5, m.ddxVisits), 1) : '—'}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{m.ttxVisits ? pct(rate(m.ttxUsed, m.ttxVisits), 1) : '—'}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{m.avgLatency != null ? `${m.avgLatency.toFixed(1)} s` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
     </div>
   );
 }

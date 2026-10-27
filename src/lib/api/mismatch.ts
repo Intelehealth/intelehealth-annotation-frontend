@@ -30,7 +30,7 @@ export interface MismatchWorkspace {
 
 export interface Highlight {
   kind: 'ddx' | 'ttx';
-  type: 'not_in_top5' | 'doctor_added' | 'modified' | 'ignored' | 'added';
+  type: 'not_in_top5' | 'doctor_added' | 'modified' | 'ignored' | 'added' | 'doctor_flag';
   text: string;
   detail?: string;
 }
@@ -53,11 +53,12 @@ export interface QueueQuery {
   tab?: QueueTab; mismatch?: string; ddx?: string; ttx?: string; status?: string;
   from?: string; to?: string; specialty?: string; gender?: string; age?: string;
   dx?: string; med?: string; reviewer?: string; verdict?: string; followUp?: string; images?: string;
+  flag?: string; model?: string;
   q?: string; sort?: string; page?: number; limit?: number;
 }
 
 export interface QueuePage { total: number; page: number; limit: number; counts: Record<QueueTab, number>; items: QueueItem[] }
-export interface Facets { specialties: string[]; reviewers: { _id: string; name: string }[] }
+export interface Facets { specialties: string[]; models: string[]; rejectReasons: string[]; reviewers: { _id: string; name: string }[] }
 
 export interface AiDiagnosis { diagnosis: string; rank: string | null; likelihood?: string | null; aiAssisted?: string | null; rationale?: unknown }
 export interface AiMedication {
@@ -68,7 +69,8 @@ export interface AiMedication {
 export interface RankedDx { diagnosis: string; rank: number; likelihood?: string | null; picked: 'clicked' | 'name' | null }
 
 export interface VisitAnalysis {
-  ddxAvailable: boolean; ddxRanked: RankedDx[]; ddxPickedBy: 'clicked' | 'name' | null; followUpOnly: boolean; ddxSelectedRanks: number[]; ddxBestRank: number | null; top1: boolean; top3: boolean; top5: boolean;
+  ddxAvailable: boolean; ddxRanked: RankedDx[]; ddxPickedBy: 'clicked' | 'name' | null; followUpOnly: boolean;
+  ddxRejectReason: string | null; ttxRejectReason: string | null; ddxSelectedRanks: number[]; ddxBestRank: number | null; top1: boolean; top3: boolean; top5: boolean;
   ddxMismatch: boolean; doctorAddedDx: string[];
   ttxAvailable: boolean; ttxExact: number; ttxModified: number; ttxIgnored: number; ttxAdded: number;
   ttxUsed: boolean; ttxFullyAccepted: boolean; ttxMismatch: boolean; mismatchType: MismatchType; highlights: Highlight[];
@@ -92,8 +94,9 @@ export interface VisitDetail {
   vitals?: Record<string, number | string | null>;
   visitNote?: Record<string, string | null>;
   images: string[];
-  ddx?: { diagnoses: AiDiagnosis[] } | null;
-  ttx?: { medications: AiMedication[] } | null;
+  ddx?: { diagnoses: AiDiagnosis[]; conclusion?: string | null; furtherQuestions?: string[]; reason?: string | null } | null;
+  ttx?: { medications: AiMedication[]; planRationale?: string | null; reason?: string | null } | null;
+  langfuse?: { model?: string; engine?: string; latency?: number; success?: unknown; name?: string } | null;
   notes: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };
   analysis: VisitAnalysis;
   mismatchType: MismatchType;
@@ -116,6 +119,8 @@ export interface DashboardData {
   trend: { date: string; visits: number; ddxVisits: number; top1: number; top5: number; ttxVisits: number; ttxUsed: number; mismatches: number }[];
   top: Record<'missedDx' | 'aiTop1WhenMissed' | 'modifiedMeds' | 'ignoredMeds' | 'addedMeds', { name: string; count: number }[]>;
   annotators: { name: string; done: number }[];
+  rejections: { name: string; count: number }[];
+  models: { model: string; visits: number; ddxVisits: number; top1: number; top5: number; ttxVisits: number; ttxUsed: number; avgLatency: number | null }[];
 }
 
 const base = '/mismatch/workspaces';

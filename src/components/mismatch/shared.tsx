@@ -53,6 +53,7 @@ const HL_STYLE: Record<Highlight['type'], string> = {
   modified: 'border-amber-200 bg-amber-50 text-amber-900',
   ignored: 'border-gray-200 bg-gray-50 text-gray-700',
   added: 'border-sky-200 bg-sky-50 text-sky-800',
+  doctor_flag: 'border-red-400 bg-red-100 text-red-900',
 };
 
 export function HighlightChip({ h, full }: { h: Highlight; full?: boolean }) {
