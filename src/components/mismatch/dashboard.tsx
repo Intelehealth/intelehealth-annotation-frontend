@@ -37,13 +37,15 @@ export function MismatchDashboard({ workspaceId, refreshKey }: { workspaceId: st
     return () => { live = false; };
   }, [workspaceId, range, refreshKey]);
 
-  const trend = useMemo(() => (data?.trend ?? []).map((d) => ({
+  // Long ranges are bucketed by week so the chart stays readable.
+  const trend = useMemo(() => weekly(data?.trend ?? []).map((d) => ({
     date: d.date.slice(5),
     visits: d.visits,
     mismatches: d.mismatches,
-    top1: Number(rate(d.top1, d.ddxVisits).toFixed(1)),
-    top5: Number(rate(d.top5, d.ddxVisits).toFixed(1)),
-    ttxUsed: Number(rate(d.ttxUsed, d.ttxVisits).toFixed(1)),
+    // null (a gap) rather than 0% when nothing was scored that day/week
+    top1: d.ddxVisits ? Number(rate(d.top1, d.ddxVisits).toFixed(1)) : null,
+    top5: d.ddxVisits ? Number(rate(d.top5, d.ddxVisits).toFixed(1)) : null,
+    ttxUsed: d.ttxVisits ? Number(rate(d.ttxUsed, d.ttxVisits).toFixed(1)) : null,
   })), [data]);
 
   if (error) return <p className="text-sm text-destructive">{error}</p>;
@@ -69,18 +71,25 @@ export function MismatchDashboard({ workspaceId, refreshKey }: { workspaceId: st
       </div>
 
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Diagnosis (DDx): did the doctor pick from the AI list?</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Diagnosis (DDx): did the doctor pick from the AI list?</h3>
+        <p className="mb-2 mt-0.5 text-xs text-muted-foreground">
+          Over <strong className="text-foreground">all {s.ddxVisits.toLocaleString()} visits with an AI diagnosis</strong> in this range, not just mismatches.
+          Counts a pick when the doctor clicked the AI suggestion or typed the same name ({s.pickedByName.toLocaleString()} typed).
+          Not scored: {s.followUpExcluded.toLocaleString()} follow-up visits and {s.noAiDdx.toLocaleString()} visits with no AI diagnosis.
+          Strict: a clinically equivalent but differently worded diagnosis counts as a miss.
+        </p>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <Kpi label="Top-1 selected" value={pct(rate(s.top1, s.ddxVisits), 1)} hint={`${s.top1.toLocaleString()} visits`} tone="good" />
           <Kpi label="Top-3 selected" value={pct(rate(s.top3, s.ddxVisits), 1)} hint={`${s.top3.toLocaleString()} visits`} />
           <Kpi label="Top-5 selected" value={pct(rate(s.top5, s.ddxVisits), 1)} hint={`${s.top5.toLocaleString()} visits`} />
           <Kpi label="None of top 5 (mismatch)" value={pct(rate(s.ddxMismatch, s.ddxVisits), 1)} hint={`${s.ddxMismatch.toLocaleString()} visits`} tone="warn" />
-          <Kpi label="Doctor added own diagnosis" value={pct(rate(s.doctorAddedDx, s.visits), 1)} hint={`${s.doctorAddedDx.toLocaleString()} visits`} />
+          <Kpi label="Doctor added own diagnosis" value={pct(rate(s.doctorAddedDx, s.ddxVisits), 1)} hint={`${s.doctorAddedDx.toLocaleString()} visits`} />
         </div>
       </div>
 
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Treatment (TTX): how much of the AI plan was used?</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Treatment (TTX): how much of the AI plan was used?</h3>
+        <p className="mb-2 mt-0.5 text-xs text-muted-foreground">Over all {s.ttxVisits.toLocaleString()} visits with an AI treatment plan in this range.</p>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <Kpi label="Visits using AI medicines" value={pct(rate(s.ttxUsed, s.ttxVisits), 1)} hint={`${s.ttxUsed.toLocaleString()} of ${s.ttxVisits.toLocaleString()}`} tone="good" />
           <Kpi label="AI plan accepted as-is" value={pct(rate(s.ttxFullyAccepted, s.ttxVisits), 1)} hint="every medicine exact, nothing added" />
@@ -91,7 +100,7 @@ export function MismatchDashboard({ workspaceId, refreshKey }: { workspaceId: st
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Section title="Daily trend" description="Top-1 / top-5 hit rate and visits using AI medicines, per day">
+        <Section title="Trend" description={`Top-1 / top-5 hit rate and visits using AI medicines, per ${(data.trend.length > 60) ? "week" : "day"}`}>
           {trend.length < 2 ? <Empty>Not enough days in this range yet.</Empty> : (
             <div className="h-72 px-2 py-3">
               <ResponsiveContainer width="100%" height="100%">
@@ -182,6 +191,21 @@ export function MismatchDashboard({ workspaceId, refreshKey }: { workspaceId: st
       </div>
     </div>
   );
+}
+
+type Day = DashboardData['trend'][number];
+function weekly(days: Day[]): Day[] {
+  if (days.length <= 60) return days;
+  const out = new Map<string, Day>();
+  for (const d of days) {
+    const t = new Date(`${d.date}T00:00:00Z`);
+    t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7)); // Monday of that week
+    const key = t.toISOString().slice(0, 10);
+    const w = out.get(key) ?? { date: key, visits: 0, ddxVisits: 0, top1: 0, top5: 0, ttxVisits: 0, ttxUsed: 0, mismatches: 0 };
+    for (const k of ['visits', 'ddxVisits', 'top1', 'top5', 'ttxVisits', 'ttxUsed', 'mismatches'] as const) w[k] += d[k];
+    out.set(key, w);
+  }
+  return [...out.values()];
 }
 
 function Row({ label, value, total }: { label: string; value: number; total: number }) {

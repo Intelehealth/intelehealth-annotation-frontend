@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const DX_TAG: Record<string, [string, string]> = {
   Y: ['Selected', 'bg-emerald-100 text-emerald-800'],
+  T: ['Picked (typed)', 'bg-emerald-100 text-emerald-800'],
   I: ['Not selected', 'bg-gray-100 text-gray-600'],
   N: ["Doctor's own", 'bg-sky-100 text-sky-800'],
 };
@@ -66,7 +67,7 @@ export default function MismatchVisitPage() {
       await mismatchAPI.saveReview(id, uuid, form);
       setSaved(true);
       if (next) {
-        const q = await mismatchAPI.queue(id, { type: 'mismatch', status: 'pending', limit: 2 });
+        const q = await mismatchAPI.queue(id, { tab: 'todo', status: 'pending', limit: 2 });
         const n = q.items.find((x) => x.uuid !== uuid);
         router.push(n ? `/workspaces/${id}/mismatch/${n.uuid}` : `/workspaces/${id}/mismatch`);
       }
@@ -78,9 +79,9 @@ export default function MismatchVisitPage() {
   if (!v) return <Shell wide><div className="h-96 animate-pulse rounded-lg bg-muted" /></Shell>;
 
   const a = v.analysis;
-  const dxs = v.ddx?.diagnoses ?? [];
-  const top5 = dxs.filter((d) => Number(d.rank) >= 1 && Number(d.rank) <= 5).sort((x, y) => Number(x.rank) - Number(y.rank));
-  const otherAi = dxs.filter((d) => d.rank === null && d.aiAssisted !== 'N');
+  const top5 = a.ddxRanked ?? [];
+  const inTop5 = new Set(top5.map((d) => d.diagnosis.toLowerCase()));
+  const otherAi = (v.ddx?.diagnoses ?? []).filter((d) => d.aiAssisted === 'I' && !inTop5.has(String(d.diagnosis).toLowerCase()));
   const doctorMed = (m: AiMedication) => a.doctorMedications.find((d) => d.name.toLowerCase() === String(m.medication).toLowerCase());
   const claimedByOther = v.review.claimedBy && v.review.claimedBy._id !== user?._id && v.review.status !== 'done' && v.review.claimedAt
     && Date.now() - new Date(v.review.claimedAt).getTime() < 30 * 60_000 ? v.review.claimedBy : null;
@@ -143,17 +144,17 @@ export default function MismatchVisitPage() {
         </div>
 
         <div className="space-y-6">
-          <Section title="Diagnosis: AI vs doctor" description={a.ddxMismatch ? 'The doctor picked none of the AI top 5' : a.ddxBestRank ? `The doctor picked the AI's #${a.ddxBestRank}` : 'No AI diagnosis for this visit'}>
+          <Section title="Diagnosis: AI vs doctor" description={a.followUpOnly ? 'Follow-up visit: not scored' : a.ddxMismatch ? 'The doctor picked none of the AI top 5' : a.ddxBestRank ? `The doctor picked the AI's #${a.ddxBestRank}${a.ddxPickedBy === 'name' ? ' (typed the same name)' : ''}` : 'No AI diagnosis for this visit'}>
             <div className="grid gap-4 px-4 py-4 md:grid-cols-2">
               <div>
                 <div className="mb-2 text-xs font-medium text-muted-foreground">AI top 5</div>
                 <ol className="space-y-1.5 text-sm">
                   {top5.map((d) => (
-                    <li key={`${d.rank}-${d.diagnosis}`} className={cn('flex items-center gap-2 rounded-md border px-2 py-1.5', d.aiAssisted === 'Y' && 'border-emerald-300 bg-emerald-50')}>
+                    <li key={`${d.rank}-${d.diagnosis}`} className={cn('flex items-center gap-2 rounded-md border px-2 py-1.5', d.picked && 'border-emerald-300 bg-emerald-50')}>
                       <span className="w-5 text-xs text-muted-foreground">#{d.rank}</span>
                       <span className="flex-1 capitalize">{d.diagnosis}</span>
                       {d.likelihood && <span className="text-xs text-muted-foreground">{d.likelihood}</span>}
-                      <Tag t={d.aiAssisted} map={DX_TAG} />
+                      <Tag t={d.picked === 'clicked' ? 'Y' : d.picked === 'name' ? 'T' : 'I'} map={DX_TAG} />
                     </li>
                   ))}
                 </ol>
@@ -163,7 +164,7 @@ export default function MismatchVisitPage() {
                 <div className="mb-2 text-xs font-medium text-muted-foreground">Doctor's final diagnosis</div>
                 <ul className="space-y-1.5 text-sm">
                   {a.doctorDiagnoses.map((d, i) => {
-                    const fromAi = top5.some((x) => x.aiAssisted === 'Y' && x.diagnosis.toLowerCase() === d.name.toLowerCase());
+                    const fromAi = top5.some((x) => x.picked && x.diagnosis.toLowerCase().replace(/\(.*?\)/g, '').trim() === d.name.toLowerCase().replace(/\(.*?\)/g, '').trim());
                     return (
                       <li key={i} className={cn('rounded-md border px-2 py-1.5', fromAi ? 'border-emerald-300 bg-emerald-50' : 'border-sky-300 bg-sky-50')}>
                         <div className="font-medium capitalize">{d.name}</div>

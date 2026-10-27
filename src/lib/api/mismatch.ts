@@ -38,14 +38,26 @@ export interface Highlight {
 export interface QueueItem {
   uuid: string; visitId?: number; encounterAt?: string; gender?: string; age?: number; specialty?: string;
   complaint?: string; mismatchType: MismatchType; aiTop1: string | null; bestRank: number | null;
+  pickedBy: 'clicked' | 'name' | null; followUpOnly: boolean;
   doctorDx: string[]; highlights: Highlight[];
   ttx: { exact: number; modified: number; ignored: number; added: number } | null;
-  review: { status: ReviewStatus; claimedBy: string | null; annotatedBy: string | null; annotatedAt?: string };
+  review: {
+    status: ReviewStatus; claimedBy: string | null; annotatedBy: string | null; annotatedAt?: string;
+    ddxVerdict?: string; ttxVerdict?: string; followUp: boolean;
+  };
 }
 
+export type QueueTab = 'todo' | 'done' | 'all';
+
 export interface QueueQuery {
-  type?: string; status?: string; from?: string; to?: string; q?: string; page?: number; limit?: number;
+  tab?: QueueTab; mismatch?: string; ddx?: string; ttx?: string; status?: string;
+  from?: string; to?: string; specialty?: string; gender?: string; age?: string;
+  dx?: string; med?: string; reviewer?: string; verdict?: string; followUp?: string; images?: string;
+  q?: string; sort?: string; page?: number; limit?: number;
 }
+
+export interface QueuePage { total: number; page: number; limit: number; counts: Record<QueueTab, number>; items: QueueItem[] }
+export interface Facets { specialties: string[]; reviewers: { _id: string; name: string }[] }
 
 export interface AiDiagnosis { diagnosis: string; rank: string | null; likelihood?: string | null; aiAssisted?: string | null; rationale?: unknown }
 export interface AiMedication {
@@ -53,8 +65,10 @@ export interface AiMedication {
   duration?: string | null; durationUnits?: string | null; instructions?: string | null; aiAssisted?: string | null; rationale?: unknown;
 }
 
+export interface RankedDx { diagnosis: string; rank: number; likelihood?: string | null; picked: 'clicked' | 'name' | null }
+
 export interface VisitAnalysis {
-  ddxAvailable: boolean; ddxSelectedRanks: number[]; ddxBestRank: number | null; top1: boolean; top3: boolean; top5: boolean;
+  ddxAvailable: boolean; ddxRanked: RankedDx[]; ddxPickedBy: 'clicked' | 'name' | null; followUpOnly: boolean; ddxSelectedRanks: number[]; ddxBestRank: number | null; top1: boolean; top3: boolean; top5: boolean;
   ddxMismatch: boolean; doctorAddedDx: string[];
   ttxAvailable: boolean; ttxExact: number; ttxModified: number; ttxIgnored: number; ttxAdded: number;
   ttxUsed: boolean; ttxFullyAccepted: boolean; ttxMismatch: boolean; mismatchType: MismatchType; highlights: Highlight[];
@@ -92,6 +106,7 @@ export interface DashboardData {
   source: MismatchSource; from: string | null; to: string | null;
   summary: {
     visits: number; ddxVisits: number; top1: number; top3: number; top5: number; ddxMismatch: number; doctorAddedDx: number;
+    pickedByName: number; followUpExcluded: number; noAiDdx: number;
     ttxVisits: number; ttxUsed: number; ttxFullyAccepted: number; ttxMismatch: number;
     meds: { exact: number; modified: number; ignored: number; added: number };
     mismatch: Record<MismatchType, number>;
@@ -112,8 +127,8 @@ export const mismatchAPI = {
     jsonApi.get<{ workspace: { _id: string; name: string; description?: string; icon?: string }; source: MismatchSource; sync: SyncState }>(`${base}/${id}`).then((r) => r.data),
   sync: (id: string, force = false) => jsonApi.post<SyncState>(`${base}/${id}/sync${force ? '?force=1' : ''}`).then((r) => r.data),
   syncState: (id: string) => jsonApi.get<SyncState>(`${base}/${id}/sync`).then((r) => r.data),
-  queue: (id: string, q: QueueQuery) =>
-    jsonApi.get<{ total: number; page: number; limit: number; items: QueueItem[] }>(`${base}/${id}/queue`, { params: clean(q) }).then((r) => r.data),
+  queue: (id: string, q: QueueQuery) => jsonApi.get<QueuePage>(`${base}/${id}/queue`, { params: clean(q) }).then((r) => r.data),
+  facets: (id: string) => jsonApi.get<Facets>(`${base}/${id}/facets`).then((r) => r.data),
   dashboard: (id: string, from?: string, to?: string) =>
     jsonApi.get<DashboardData>(`${base}/${id}/dashboard`, { params: clean({ from, to }) }).then((r) => r.data),
   visit: (id: string, uuid: string) => jsonApi.get<VisitDetail>(`${base}/${id}/visits/${uuid}`).then((r) => r.data),

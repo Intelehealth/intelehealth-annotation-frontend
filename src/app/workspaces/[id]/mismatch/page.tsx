@@ -3,16 +3,17 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, LayoutDashboard, ListChecks, Settings } from 'lucide-react';
+import { ArrowLeft, CheckCheck, Inbox, LayoutDashboard, Rows3, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MismatchDashboard } from '@/components/mismatch/dashboard';
 import { MismatchQueue } from '@/components/mismatch/queue';
 import { Shell, SyncBar } from '@/components/mismatch/shared';
 import { apiMessage } from '@/lib/api/workspaces';
-import { mismatchAPI, type MismatchSource, type SyncState } from '@/lib/api/mismatch';
+import { mismatchAPI, type MismatchSource, type QueuePage, type QueueTab, type SyncState } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 
-type Tab = 'queue' | 'dashboard';
+type Tab = QueueTab | 'dashboard';
+const TABS: Tab[] = ['todo', 'done', 'all', 'dashboard'];
 
 export default function MismatchWorkspacePage() {
   const { id } = useParams<{ id: string }>();
@@ -20,7 +21,9 @@ export default function MismatchWorkspacePage() {
   const [ws, setWs] = useState<{ name: string; description?: string; icon?: string; source: MismatchSource } | null>(null);
   const [sync, setSync] = useState<SyncState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('queue');
+  const [tab, setTab] = useState<Tab>('todo');
+  const [counts, setCounts] = useState<QueuePage['counts'] | null>(null);
+  const onCounts = useCallback((c: QueuePage['counts']) => setCounts(c), []);
   const [refreshKey, setRefreshKey] = useState(0);
   const [newCount, setNewCount] = useState(0);
   const wasRunning = useRef(false);
@@ -29,7 +32,7 @@ export default function MismatchWorkspacePage() {
   useEffect(() => {
     try {
       const t = sessionStorage.getItem(`mismatch-tab-${id}`);
-      if (t === 'queue' || t === 'dashboard') setTab(t);
+      if (TABS.includes(t as Tab)) setTab(t as Tab);
     } catch { /* storage unavailable */ }
   }, [id]);
   const pickTab = (t: Tab) => {
@@ -102,17 +105,27 @@ export default function MismatchWorkspacePage() {
       <SyncBar state={sync} onSync={syncNow} newCount={newCount} />
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <nav className="flex gap-1 border-b">
-        {([['queue', 'Mismatch queue', ListChecks], ['dashboard', 'Dashboard', LayoutDashboard]] as const).map(([key, label, Icon]) => (
+      <nav className="flex flex-wrap gap-1 border-b">
+        {([
+          ['todo', 'To annotate', Inbox, counts?.todo],
+          ['done', 'Annotated', CheckCheck, counts?.done],
+          ['all', 'All visits', Rows3, counts?.all],
+          ['dashboard', 'Dashboard', LayoutDashboard, undefined],
+        ] as const).map(([key, label, Icon, n]) => (
           <button key={key} onClick={() => pickTab(key)}
             className={cn('-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium',
               tab === key ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-muted-foreground hover:text-foreground')}>
             <Icon className="h-4 w-4" /> {label}
+            {n !== undefined && (
+              <span className={cn('rounded-full px-1.5 py-0.5 text-xs tabular-nums', tab === key ? 'bg-indigo-100 text-indigo-700' : 'bg-muted text-muted-foreground')}>{n.toLocaleString()}</span>
+            )}
           </button>
         ))}
       </nav>
 
-      {tab === 'queue' ? <MismatchQueue workspaceId={id} refreshKey={refreshKey} /> : <MismatchDashboard workspaceId={id} refreshKey={refreshKey} />}
+      {tab === 'dashboard'
+        ? <MismatchDashboard workspaceId={id} refreshKey={refreshKey} />
+        : <MismatchQueue workspaceId={id} tab={tab} refreshKey={refreshKey} onCounts={onCounts} />}
     </Shell>
   );
 }
