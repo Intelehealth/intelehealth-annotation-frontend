@@ -118,10 +118,24 @@ export interface DashboardData {
   };
   trend: { date: string; visits: number; ddxVisits: number; top1: number; top5: number; ttxVisits: number; ttxUsed: number; mismatches: number }[];
   top: Record<'missedDx' | 'aiTop1WhenMissed' | 'modifiedMeds' | 'ignoredMeds' | 'addedMeds', { name: string; count: number }[]>;
-  annotators: { name: string; done: number }[];
   rejections: { name: string; count: number }[];
   models: { model: string; visits: number; ddxVisits: number; top1: number; top5: number; ttxVisits: number; ttxUsed: number; avgLatency: number | null }[];
+  mrr: number;
+  aiTop1Agreement: GroupStat[];
+  specialties: (GroupStat & { ttxVisits: number; ttxUsed: number })[];
+  confidence: GroupStat[];
+  mismatchPairs: { missed: { name: string; count: number }[]; rankedLower: { name: string; count: number }[] };
+  medicines: { name: string; suggested: number; exact: number; modified: number; ignored: number; acceptance: number }[];
+  addedForDiagnosis: { name: string; count: number }[];
+  progress: {
+    total: number;
+    openInRange: number;
+    reviewers: { name: string; annotated: number; ddx: number; ttx: number; followUp: number; verdicts: Record<string, number>; lastActive: string | null }[];
+    daily: ({ date: string } & Record<string, number | string>)[];
+  };
 }
+
+export interface GroupStat { name: string; visits: number; top1: number; top5: number; mrr: number }
 
 const base = '/mismatch/workspaces';
 const clean = (q: object) => Object.fromEntries(Object.entries(q).filter(([, v]) => v !== undefined && v !== ''));

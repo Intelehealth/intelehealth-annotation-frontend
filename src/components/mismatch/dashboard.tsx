@@ -9,6 +9,7 @@ import { pct } from '@/components/dashboard/format';
 import { apiMessage } from '@/lib/api/workspaces';
 import { mismatchAPI, type DashboardData } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
+import { DiagnosisPatterns, DoctorProgress, TreatmentPatterns } from './insights';
 import { rate } from './shared';
 
 const RANGES = [
@@ -78,12 +79,13 @@ export function MismatchDashboard({ workspaceId, refreshKey }: { workspaceId: st
           Not scored: {s.followUpExcluded.toLocaleString()} follow-up visits and {s.noAiDdx.toLocaleString()} visits with no AI diagnosis.
           Strict: a clinically equivalent but differently worded diagnosis counts as a miss.
         </p>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Kpi label="Top-1 selected" value={pct(rate(s.top1, s.ddxVisits), 1)} hint={`${s.top1.toLocaleString()} visits`} tone="good" />
           <Kpi label="Top-3 selected" value={pct(rate(s.top3, s.ddxVisits), 1)} hint={`${s.top3.toLocaleString()} visits`} />
           <Kpi label="Top-5 selected" value={pct(rate(s.top5, s.ddxVisits), 1)} hint={`${s.top5.toLocaleString()} visits`} />
           <Kpi label="None of top 5 (mismatch)" value={pct(rate(s.ddxMismatch, s.ddxVisits), 1)} hint={`${s.ddxMismatch.toLocaleString()} visits`} tone="warn" />
           <Kpi label="Doctor added own diagnosis" value={pct(rate(s.doctorAddedDx, s.ddxVisits), 1)} hint={`${s.doctorAddedDx.toLocaleString()} visits`} />
+          <Kpi label="MRR" value={data.mrr.toFixed(2)} hint="1 = always #1, 0.5 = always #2, miss = 0" />
         </div>
       </div>
 
@@ -155,7 +157,9 @@ export function MismatchDashboard({ workspaceId, refreshKey }: { workspaceId: st
         </Section>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <DoctorProgress p={data.progress} />
+
+      <div className="grid gap-6 md:grid-cols-2">
         <Section title="Mismatch breakdown">
           <ul className="space-y-2 px-4 py-4 text-sm">
             <Row label="Diagnosis only" value={s.mismatch.ddx} total={s.visits} />
@@ -171,16 +175,10 @@ export function MismatchDashboard({ workspaceId, refreshKey }: { workspaceId: st
             <Row label="Annotated" value={s.review.done} total={mismatched} />
           </ul>
         </Section>
-        <Section title="Annotations by doctor">
-          {data.annotators.length === 0 ? <Empty>No annotations in this range yet.</Empty> : (
-            <ul className="space-y-2 px-4 py-4 text-sm">
-              {data.annotators.map((a) => (
-                <li key={a.name} className="flex justify-between"><span>{a.name}</span><span className="font-medium tabular-nums">{a.done}</span></li>
-              ))}
-            </ul>
-          )}
-        </Section>
       </div>
+
+      <DiagnosisPatterns data={data} />
+      <TreatmentPatterns data={data} />
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         <TopList title="Doctor's diagnosis when AI missed" items={data.top.missedDx} />
