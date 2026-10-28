@@ -14,7 +14,7 @@ import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
 import { jsonApi } from '@/lib/api';
 import type { UserResponse } from '@/lib/api/users';
 import {
-  apiMessage, MAX_WORKSPACE_REVIEWERS, SHARING_MODES, workspacesAPI,
+  apiMessage, MAX_DATASET_REVIEWERS, MAX_WORKSPACE_REVIEWERS, SHARING_MODES, workspacesAPI,
   type WorkspaceDataset, type WorkspaceMember, type WorkspaceResponse, type WorkspaceSharingMode,
 } from '@/lib/api/workspaces';
 import { Empty, Section } from '@/components/dashboard/kpi';
@@ -65,7 +65,7 @@ export default function WorkspacePage() {
       {notice && !error && <p className="text-sm text-muted-foreground">{notice}</p>}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Members ws={ws} canManage={canManage} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} onToggleReviewer={(m, on) => run(() => (on ? workspacesAPI.addReviewer(id, m._id) : workspacesAPI.removeReviewer(id, m._id)), on ? 'Reviewer added' : 'Reviewer removed')} />
+        <Members ws={ws} datasets={datasets} canManage={canManage} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} onToggleReviewer={(m, on) => run(() => (on ? workspacesAPI.addReviewer(id, m._id) : workspacesAPI.removeReviewer(id, m._id)), on ? 'Reviewer added' : 'Reviewer removed')} />
         <Datasets items={datasets} ws={ws} canManage={canManage} onChanged={load} onAttach={(d) => run(() => workspacesAPI.attachDataset(id, d), 'Dataset attached')} onDetach={(d) => run(() => workspacesAPI.detachDataset(id, d), 'Dataset removed from workspace')} />
       </div>
     </Shell>
@@ -156,8 +156,8 @@ function Header({ ws, canManage, onSave, onDelete }: {
 
 // ── Members ────────────────────────────────────────────────────────────────
 
-function Members({ ws, canManage, onAdd, onRemove, onToggleReviewer }: {
-  ws: WorkspaceResponse; canManage: boolean;
+function Members({ ws, datasets, canManage, onAdd, onRemove, onToggleReviewer }: {
+  ws: WorkspaceResponse; datasets: WorkspaceDataset[]; canManage: boolean;
   onAdd: (who: { userId?: string; email?: string }) => void;
   onRemove: (m: WorkspaceMember) => void;
   onToggleReviewer: (m: WorkspaceMember, on: boolean) => void;
@@ -183,6 +183,8 @@ function Members({ ws, canManage, onAdd, onRemove, onToggleReviewer }: {
   // Reviewers watch everyone's work on this workspace's datasets, read-only.
   const reviewerIds = new Set((ws.reviewers ?? []).map((r) => r._id));
   const reviewersFull = reviewerIds.size >= MAX_WORKSPACE_REVIEWERS;
+  // People who review only specific datasets (not the whole workspace).
+  const datasetReviewerIds = new Set(datasets.flatMap((d) => (d.reviewers ?? []).map((r) => r._id)));
 
   return (
     <Section
@@ -201,6 +203,9 @@ function Members({ ws, canManage, onAdd, onRemove, onToggleReviewer }: {
             </div>
             {m.isOwner ? <Badge>Owner</Badge> : <Badge variant="outline">{m.role === 'ADMIN' ? 'Admin' : 'Annotator'}</Badge>}
             {reviewerIds.has(m._id) && <Badge variant="secondary">Reviewer</Badge>}
+            {!reviewerIds.has(m._id) && datasetReviewerIds.has(m._id) && (
+              <Badge variant="secondary" title="Reviews specific datasets only">Dataset reviewer</Badge>
+            )}
             <StatusDot status={m.status} online={m.isOnline} />
             {canManage && !m.isOwner && (
               <Button
@@ -296,6 +301,7 @@ function Datasets({ items, ws, canManage, onChanged, onAttach, onDetach }: {
   const [all, setAll] = useState<DatasetResponse[]>([]);
   const [pick, setPick] = useState('');
   const [assigning, setAssigning] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { if (canManage) datasetsAPI.getAll().then(setAll).catch(() => setAll([])); }, [canManage, items]);
   const here = new Set(items.map((d) => d._id));
@@ -313,6 +319,16 @@ function Datasets({ items, ws, canManage, onChanged, onAttach, onDetach }: {
     finally { setAssigning(null); }
   };
 
+  // A dataset reviewer oversees this one dataset (and its copies), read-only.
+  const setReviewer = async (datasetId: string, userId: string, on: boolean) => {
+    setReviewing(datasetId); setError(null);
+    try {
+      await (on ? datasetsAPI.addReviewer(datasetId, userId) : datasetsAPI.removeReviewer(datasetId, userId));
+      onChanged();
+    } catch (e) { setError(apiMessage(e, 'Could not update reviewers')); }
+    finally { setReviewing(null); }
+  };
+
   return (
     <Section title="Datasets" description={shared ? 'One shared copy per dataset. Assigning gives a person access to it.' : 'Assigning gives a person their own copy to annotate.'}>
       {error && <p className="px-4 pt-3 text-sm text-destructive">{error}</p>}
@@ -321,36 +337,80 @@ function Datasets({ items, ws, canManage, onChanged, onAttach, onDetach }: {
           {items.map((d) => {
             const on = new Set((d.assignees ?? []).map((a) => a._id));
             const free = members.filter((m) => !on.has(m._id));
+            const reviewerIds = new Set((d.reviewers ?? []).map((r) => r._id));
+            const canReview = members.filter((m) => !reviewerIds.has(m._id));
+            const reviewersFull = reviewerIds.size >= MAX_DATASET_REVIEWERS;
             return (
-              <li key={d._id} className="space-y-2 px-4 py-3 text-sm">
-                <div className="flex items-center gap-3">
+              <li key={d._id} className="space-y-3 px-4 py-3 text-sm">
+                <div className="flex min-w-0 items-center gap-2">
                   <div className="min-w-0 flex-1">
-                    <Link href={`/dataset/${d._id}`} className="truncate font-medium hover:underline">{d.name}</Link>
-                    <div className="text-xs text-muted-foreground">{d.datasetType} · updated {timeAgo(d.updatedAt)}</div>
+                    <Link href={`/dataset/${d._id}`} title={d.name} className="block truncate font-medium hover:underline">{d.name}</Link>
+                    <div className="truncate text-xs text-muted-foreground">{d.datasetType} · updated {timeAgo(d.updatedAt)}</div>
                   </div>
-                  <Button asChild size="sm" variant="ghost" title="Who changed what"><Link href={`/dataset/${d._id}/history`}><History className="mr-1 h-4 w-4" /> History</Link></Button>
-                  {canManage && <Button size="sm" variant="ghost" aria-label={`Remove ${d.name} from workspace`} onClick={() => onDetach(d._id)}><X className="h-4 w-4" /></Button>}
+                  <Button asChild size="icon" variant="ghost" className="h-8 w-8 shrink-0" title="History: who changed what">
+                    <Link href={`/dataset/${d._id}/history`} aria-label={`History of ${d.name}`}><History className="h-4 w-4" /></Link>
+                  </Button>
+                  {canManage && <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" title="Remove from workspace" aria-label={`Remove ${d.name} from workspace`} onClick={() => onDetach(d._id)}><X className="h-4 w-4" /></Button>}
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {(d.assignees ?? []).length === 0 && <span className="text-xs text-muted-foreground">Nobody assigned yet.</span>}
-                  {(d.assignees ?? []).map((a) => (
-                    <Badge key={a._id} variant="outline" className="gap-1 font-normal">
-                      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${a.isOnline ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`} />
-                      {personName(a)}
-                    </Badge>
-                  ))}
-                  {canManage && free.length > 0 && (
-                    <select
-                      value=""
-                      disabled={assigning === d._id}
-                      onChange={(e) => { if (e.target.value) assign(d._id, e.target.value); }}
-                      aria-label={`Assign someone to ${d.name}`}
-                      className="h-7 rounded-md border bg-background px-2 text-xs"
-                    >
-                      <option value="">{assigning === d._id ? 'Assigning…' : shared ? '+ Give access' : '+ Assign a copy'}</option>
-                      {free.map((m) => <option key={m._id} value={m._id}>{personName(m)}</option>)}
-                    </select>
-                  )}
+                <div className="space-y-1">
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Annotators</div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(d.assignees ?? []).length === 0 && <span className="text-xs text-muted-foreground">Nobody assigned yet.</span>}
+                    {(d.assignees ?? []).map((a) => (
+                      <Badge key={a._id} variant="outline" className="gap-1 font-normal">
+                        <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${a.isOnline ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`} />
+                        {personName(a)}
+                      </Badge>
+                    ))}
+                    {canManage && free.length > 0 && (
+                      <select
+                        value=""
+                        disabled={assigning === d._id}
+                        onChange={(e) => { if (e.target.value) assign(d._id, e.target.value); }}
+                        aria-label={`Assign someone to ${d.name}`}
+                        className="h-7 rounded-md border bg-background px-2 text-xs"
+                      >
+                        <option value="">{assigning === d._id ? 'Assigning…' : shared ? '+ Give access' : '+ Assign a copy'}</option>
+                        {free.map((m) => <option key={m._id} value={m._id}>{personName(m)}</option>)}
+                      </select>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground" title="Can watch this dataset and every copy, read-only">Reviewers</div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(d.reviewers ?? []).length === 0 && <span className="text-xs text-muted-foreground">No dataset reviewers.</span>}
+                    {(d.reviewers ?? []).map((r) => (
+                      <Badge key={r._id} variant="secondary" className="gap-1 font-normal">
+                        {personName(r)}
+                        {canManage && (
+                          <button
+                            type="button"
+                            disabled={reviewing === d._id}
+                            aria-label={`Remove ${personName(r)} as reviewer of ${d.name}`}
+                            title="Remove reviewer"
+                            className="-mr-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                            onClick={() => setReviewer(d._id, r._id, false)}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </Badge>
+                    ))}
+                    {canManage && canReview.length > 0 && (
+                      <select
+                        value=""
+                        disabled={reviewing === d._id || reviewersFull}
+                        title={reviewersFull ? `A dataset can have at most ${MAX_DATASET_REVIEWERS} reviewers` : undefined}
+                        onChange={(e) => { if (e.target.value) setReviewer(d._id, e.target.value, true); }}
+                        aria-label={`Add a reviewer to ${d.name}`}
+                        className="h-7 rounded-md border bg-background px-2 text-xs"
+                      >
+                        <option value="">{reviewing === d._id ? 'Saving…' : '+ Add reviewer'}</option>
+                        {canReview.map((m) => <option key={m._id} value={m._id}>{personName(m)}</option>)}
+                      </select>
+                    )}
+                  </div>
                 </div>
               </li>
             );

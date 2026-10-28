@@ -287,7 +287,9 @@ export default function ReviewConsensusPage() {
   const selectionLoaded = selection?.datasetId === datasetId;
   const excludedAnnotators = useMemo(() => (selectionLoaded ? selection!.excluded : []), [selectionLoaded, selection]);
   const selectionSaveSeq = useRef(0);
-  const canPickAnnotators = !!(user?.canManage || user?.isReviewer);
+  // Per dataset: the user manages, or oversees this very dataset (workspace or dataset reviewer).
+  const canOverseeThis = !!(user?.canManage || dataset?.viewerCanOversee);
+  const canPickAnnotators = canOverseeThis;
 
   useEffect(() => {
     if (!isAuthenticated || !datasetId) return;
@@ -420,7 +422,7 @@ export default function ReviewConsensusPage() {
   };
 
   const finalAnswers: FinalAnswerHandlers = {
-    canDecide: !!(user?.canManage || user?.isReviewer),
+    canDecide: canOverseeThis,
     onSave: async (row, fieldName, value) => {
       try {
         await consensusAPI.resolveField(datasetId, row.reviewId, fieldName, value, user?._id || '');

@@ -28,6 +28,10 @@ export interface DatasetResponse {
   cloneIndex?: number;
   assignedAnnotatorId?: string;
   workspaceId?: string;
+  /** Reviewers named on this dataset (master only; absent on older datasets). */
+  reviewers?: string[];
+  /** Set by GET /datasets/:id: this viewer may oversee every annotator's work. */
+  viewerCanOversee?: boolean;
   availableColumns?: Array<{
     name: string;
     source: "CSV" | "MANUAL" | "DOCUMENT";
@@ -124,6 +128,24 @@ export const datasetsAPI = {
       `${API_BASE_URL}/datasets/${datasetId}/assets`,
       formData,
       { headers: { ...authHeaders(), "Content-Type": "multipart/form-data" } },
+    );
+    return response.data;
+  },
+
+  // Dataset reviewers: read-only oversight of this dataset and its copies.
+  async addReviewer(datasetId: string, userId: string): Promise<{ reviewers: unknown[] }> {
+    const response = await axios.post(
+      `${API_BASE_URL}/datasets/${datasetId}/reviewers/${userId}`,
+      {},
+      { headers: jsonHeaders() },
+    );
+    return response.data;
+  },
+
+  async removeReviewer(datasetId: string, userId: string): Promise<{ reviewers: unknown[] }> {
+    const response = await axios.delete(
+      `${API_BASE_URL}/datasets/${datasetId}/reviewers/${userId}`,
+      { headers: jsonHeaders() },
     );
     return response.data;
   },

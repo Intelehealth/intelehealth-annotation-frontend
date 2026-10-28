@@ -66,7 +66,7 @@ export function DataOverview({
   const [datasetData, setDatasetData] = useState<any>(null);
   const [annotationConfig, setAnnotationConfig] = useState<any>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [datasetInfo, setDatasetInfo] = useState<Pick<DatasetResponse, 'name' | 'description' | 'isClone' | 'workspaceId' | 'userId'> | null>(null);
+  const [datasetInfo, setDatasetInfo] = useState<Pick<DatasetResponse, 'name' | 'description' | 'isClone' | 'workspaceId' | 'userId' | 'viewerCanOversee'> | null>(null);
   const { showToast } = useToast();
 
   // ── Consensus clone panel state ────────────────────────────────────────────
@@ -90,7 +90,9 @@ export function DataOverview({
 
   // Annotators left out of the consensus; hidden from the progress list below.
   const [excludedAnnotators, setExcludedAnnotators] = useState<string[]>([]);
-  const canPickAnnotators = !!(user?.canManage || user?.isReviewer);
+  // Per dataset: the user manages, or oversees this very dataset (workspace or dataset reviewer).
+  const canOverseeThis = !!(user?.canManage || datasetInfo?.viewerCanOversee);
+  const canPickAnnotators = canOverseeThis;
   useEffect(() => {
     if (!datasetId || !canPickAnnotators) return;
     consensusAPI.getAnnotatorSelection(datasetId)
@@ -238,6 +240,7 @@ export function DataOverview({
         isClone: dataset.isClone,
         workspaceId: dataset.workspaceId,
         userId: dataset.userId,
+        viewerCanOversee: dataset.viewerCanOversee,
       });
     } catch (err: any) {
       console.error('Error loading dataset info:', err);
@@ -910,8 +913,8 @@ export function DataOverview({
 
       {/* ── Consensus Annotation Panel (visible when clones exist) ───────────
           The clone-group call succeeds only for people who oversee this
-          dataset: admins, its owner, its workspace owner and workspace reviewers. */}
-      {(cloneGroup || (loadingCloneGroup && (user?.canManage || user?.isReviewer))) && (
+          dataset: admins, its owner, its workspace owner, workspace reviewers and its dataset reviewers. */}
+      {(cloneGroup || (loadingCloneGroup && canOverseeThis)) && (
         <Card className="shadow-sm border-indigo-100">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
