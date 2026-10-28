@@ -9,7 +9,7 @@ import { pct } from '@/components/dashboard/format';
 import { apiMessage } from '@/lib/api/workspaces';
 import { mismatchAPI, type DashboardData } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
-import { DiagnosisPatterns, DoctorProgress, TreatmentPatterns } from './insights';
+import { ConsultingDoctors, DiagnosisPatterns, DoctorProgress, TreatmentPatterns } from './insights';
 import { rate } from './shared';
 
 const RANGES = [
@@ -158,6 +158,8 @@ export function MismatchDashboard({ workspaceId, refreshKey }: { workspaceId: st
       </div>
 
       <DoctorProgress p={data.progress} />
+
+      <ConsultingDoctors rows={data.doctors ?? []} />
 
       <div className="grid gap-6 md:grid-cols-2">
         <Section title="Mismatch breakdown">

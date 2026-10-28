@@ -8,7 +8,7 @@ import { Section } from '@/components/dashboard/kpi';
 import { fmtDate, HighlightChip, Shell, StatusBadge, TypeBadge } from '@/components/mismatch/shared';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
-  DDX_REASONS, DDX_VERDICTS, mismatchAPI, TTX_REASONS, TTX_VERDICTS,
+  DDX_REASONS, DDX_VERDICTS, doctorLabel, mismatchAPI, TTX_REASONS, TTX_VERDICTS,
   type AiMedication, type ReviewInput, type VisitDetail,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
@@ -102,7 +102,7 @@ export default function MismatchVisitPage() {
         <TypeBadge type={v.mismatchType} />
         <StatusBadge status={v.review.status} />
         {v.review.annotatedBy && <span className="text-xs text-muted-foreground">by {v.review.annotatedBy.name}</span>}
-        <span className="ml-auto text-xs text-muted-foreground">Visit {v.visitId ?? ''} · {v.uuid}</span>
+        <span className="ml-auto text-xs text-muted-foreground">Visit {v.visitPseudoId ?? v.visitId ?? ''} · {v.uuid}</span>
       </div>
 
       <header>
@@ -111,7 +111,9 @@ export default function MismatchVisitPage() {
         </h1>
         <p className="text-sm text-muted-foreground">
           {v.source} · {v.attributes?.specialty ?? '—'} · prescription shared {fmtDate(v.encounterAt)}
-          {v.langfuse?.model && <> · AI: {v.langfuse.model}{v.langfuse.engine ? ` (${v.langfuse.engine})` : ''}{typeof v.langfuse.latency === 'number' ? `, ${v.langfuse.latency.toFixed(1)} s` : ''}</>}
+          {v.providers?.doctorPseudoIds?.length ? <> · {v.providers.doctorPseudoIds.map(doctorLabel).join(', ')}</> : null}
+          {v.providers?.creatorPseudoId ? <> · health worker #{v.providers.creatorPseudoId}</> : null}
+          {v.langfuse?.model && <> · AI: {v.langfuse.model}{v.langfuse.engine ? ` (${v.langfuse.engine})` : ''}{typeof v.langfuse.latency === 'number' ? `, ${v.langfuse.latency.toFixed(1)} s` : ''}{v.langfuse.totalTokens ? `, ${v.langfuse.totalTokens.toLocaleString()} tokens` : ''}</>}
         </p>
       </header>
 

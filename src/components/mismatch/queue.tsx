@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Empty } from '@/components/dashboard/kpi';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
-  DDX_VERDICTS, mismatchAPI, TTX_VERDICTS,
+  DDX_VERDICTS, doctorLabel, mismatchAPI, TTX_VERDICTS,
   type Facets, type QueueItem, type QueuePage, type QueueQuery, type QueueTab,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
@@ -65,7 +65,7 @@ const DATE_PRESETS = [
 const field = 'h-9 w-full rounded-md border bg-background px-2 text-sm';
 const DEFAULT: QueueQuery = { sort: 'newest', page: 1, limit: 25 };
 // Keys that count as user filters (shown as chips, cleared by "Clear all").
-const FILTER_KEYS: (keyof QueueQuery)[] = ['mismatch', 'ddx', 'ttx', 'flag', 'model', 'status', 'from', 'to', 'specialty', 'gender', 'age', 'dx', 'med', 'reviewer', 'verdict', 'followUp', 'images', 'q'];
+const FILTER_KEYS: (keyof QueueQuery)[] = ['mismatch', 'ddx', 'ttx', 'flag', 'model', 'doctor', 'status', 'from', 'to', 'specialty', 'gender', 'age', 'dx', 'med', 'reviewer', 'verdict', 'followUp', 'images', 'q'];
 const reasonLabel = (r: string) => r.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
@@ -134,6 +134,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
         : k === 'images' ? 'Has images'
         : k === 'flag' ? (v === 'any' ? 'Doctor rejected AI' : `Doctor rejected AI: ${reasonLabel(String(v))}`)
         : k === 'model' ? `AI model: ${v}`
+        : k === 'doctor' ? `Doctor: ${doctorLabel(String(v))}`
         : k === 'q' ? `Search: “${v}”`
         : String(v);
       out.push({ key: k, text: text ?? String(v) });
@@ -164,7 +165,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
           </div>
           <form className="relative ml-auto min-w-[220px] flex-1 sm:max-w-xs" onSubmit={(e) => { e.preventDefault(); set({ q: search.trim() || undefined }); }}>
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input className="h-9 pl-8" placeholder="Search note, diagnosis, medicine, uuid…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input className="h-9 pl-8" placeholder="Search note, diagnosis, medicine, visit id…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </form>
           <Button variant={more ? 'secondary' : 'outline'} size="sm" className="h-9" onClick={() => setMore((m) => !m)}>
             <SlidersHorizontal className="mr-1.5 h-4 w-4" /> Filters{chips.length ? ` (${chips.length})` : ''}
@@ -193,6 +194,11 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
             {(facets?.models.length ?? 0) > 0 && (
               <Labeled label="AI model">
                 <Select opts={[{ value: '', label: 'Any model' }, ...(facets?.models ?? []).map((m) => ({ value: m, label: m }))]} value={q.model} onChange={(v) => set({ model: v })} />
+              </Labeled>
+            )}
+            {(facets?.doctors.length ?? 0) > 0 && (
+              <Labeled label="Consulting doctor">
+                <Select opts={[{ value: '', label: 'Any doctor' }, ...(facets?.doctors ?? []).map((d) => ({ value: d, label: doctorLabel(d) }))]} value={q.doctor} onChange={(v) => set({ doctor: v })} />
               </Labeled>
             )}
             <Labeled label="Specialty">
@@ -278,6 +284,7 @@ function Row({ v, workspaceId }: { v: QueueItem; workspaceId: string }) {
       <td className="whitespace-nowrap px-4 py-3">
         <Link href={`/workspaces/${workspaceId}/mismatch/${v.uuid}`} className="font-medium text-blue-700 hover:underline">{fmtDate(v.encounterAt)}</Link>
         <div className="text-xs text-muted-foreground">{[v.gender, v.age != null ? `${v.age}y` : null, v.specialty].filter(Boolean).join(' · ')}</div>
+        {v.doctor && <div className="text-xs text-muted-foreground">{doctorLabel(v.doctor)}</div>}
       </td>
       <td className="max-w-[200px] px-4 py-3 text-xs text-muted-foreground"><span className="line-clamp-2">{v.complaint || '—'}</span></td>
       <td className="max-w-[260px] px-4 py-3 text-xs">

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Empty, Section } from '@/components/dashboard/kpi';
 import { pct, timeAgo } from '@/components/dashboard/format';
-import { DDX_VERDICTS, TTX_VERDICTS, type DashboardData, type GroupStat } from '@/lib/api/mismatch';
+import { DDX_VERDICTS, doctorLabel, TTX_VERDICTS, type DashboardData, type DoctorStat, type GroupStat } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 import { rate } from './shared';
 
@@ -18,13 +18,65 @@ const thR = 'px-4 py-2 text-right font-medium';
 const td = 'px-4 py-2';
 const tdR = 'px-4 py-2 text-right tabular-nums';
 
+/**
+ * Per consulting doctor (the OpenMRS doctor on the visit, by pseudo id): how
+ * often they agreed with the AI, and what annotators concluded on their mismatches.
+ */
+export function ConsultingDoctors({ rows }: { rows: DoctorStat[] }) {
+  return (
+    <Section
+      title="By consulting doctor"
+      description="Doctor who saw the patient in OpenMRS, shown by pseudo id. Annotator verdicts count only reviewed visits."
+    >
+      {rows.length === 0 ? <Empty>No visits in this range.</Empty> : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
+              <tr>
+                <th className={th}>Doctor</th>
+                <th className={thR}>Visits</th>
+                <th className={thR}>Top-1</th>
+                <th className={thR}>Top-5</th>
+                <th className={thR}>DDx mismatch</th>
+                <th className={thR}>AI medicines used</th>
+                <th className={thR}>Mismatches reviewed</th>
+                <th className={th}>Diagnosis verdicts</th>
+                <th className={th}>Treatment verdicts</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {rows.map((r) => (
+                <tr key={r.doctor}>
+                  <td className={cn(td, 'whitespace-nowrap font-medium')}>{doctorLabel(r.doctor)}</td>
+                  <td className={tdR}>{r.visits.toLocaleString()}</td>
+                  <td className={tdR}>{pct(rate(r.top1, r.ddxVisits))}</td>
+                  <td className={tdR}>{pct(rate(r.top5, r.ddxVisits))}</td>
+                  <td className={tdR}>{r.ddxMismatch.toLocaleString()}</td>
+                  <td className={tdR}>{r.ttxVisits ? pct(rate(r.ttxUsed, r.ttxVisits)) : '—'}</td>
+                  <td className={tdR}>{r.annotated.toLocaleString()} / {r.mismatches.toLocaleString()}</td>
+                  <td className={cn(td, 'text-xs text-muted-foreground')}>
+                    {r.ddxDoctorRight + r.ddxAiRight ? `Doctor right ${r.ddxDoctorRight} · AI right ${r.ddxAiRight}` : '—'}
+                  </td>
+                  <td className={cn(td, 'text-xs text-muted-foreground')}>
+                    {r.ttxDoctorRight + r.ttxAiRight ? `Doctor right ${r.ttxDoctorRight} · AI right ${r.ttxAiRight}` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 /** Who annotated how much in the selected range (by annotation date). */
 export function DoctorProgress({ p }: { p: DashboardData['progress'] }) {
   const people = p.reviewers.map((r) => r.name);
   const verdictKeys = [...new Set([...DDX_VERDICTS, ...TTX_VERDICTS].map((v) => v.value))];
   return (
     <Section
-      title="Doctor annotation progress"
+      title="Annotator progress"
       description={`${p.total.toLocaleString()} annotations made in this range, counted by the day they were made · ${p.openInRange.toLocaleString()} mismatches from this range still open`}
     >
       {p.reviewers.length === 0 ? <Empty>No annotations made in this range yet.</Empty> : (
@@ -33,7 +85,7 @@ export function DoctorProgress({ p }: { p: DashboardData['progress'] }) {
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
                 <tr>
-                  <th className={th}>Doctor</th>
+                  <th className={th}>Annotator</th>
                   <th className={thR}>Annotated</th>
                   <th className={thR}>Diagnosis</th>
                   <th className={thR}>Treatment</th>

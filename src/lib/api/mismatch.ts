@@ -19,7 +19,7 @@ export interface SyncState {
   lastSuccessAt?: string;
   lastRun?: {
     trigger: string; startedAt: string; finishedAt?: string; window: string;
-    fetched: number; total: number; inserted: number; updated: number; error?: string;
+    fetched: number; total: number; inserted: number; updated: number; unchanged?: number; error?: string;
   };
 }
 
@@ -36,7 +36,7 @@ export interface Highlight {
 }
 
 export interface QueueItem {
-  uuid: string; visitId?: number; encounterAt?: string; gender?: string; age?: number; specialty?: string;
+  uuid: string; visitId?: number; visitPseudoId: string | null; doctor: string | null; encounterAt?: string; gender?: string; age?: number; specialty?: string;
   complaint?: string; mismatchType: MismatchType; aiTop1: string | null; bestRank: number | null;
   pickedBy: 'clicked' | 'name' | null; followUpOnly: boolean;
   doctorDx: string[]; highlights: Highlight[];
@@ -53,12 +53,12 @@ export interface QueueQuery {
   tab?: QueueTab; mismatch?: string; ddx?: string; ttx?: string; status?: string;
   from?: string; to?: string; specialty?: string; gender?: string; age?: string;
   dx?: string; med?: string; reviewer?: string; verdict?: string; followUp?: string; images?: string;
-  flag?: string; model?: string;
+  flag?: string; model?: string; doctor?: string;
   q?: string; sort?: string; page?: number; limit?: number;
 }
 
 export interface QueuePage { total: number; page: number; limit: number; counts: Record<QueueTab, number>; items: QueueItem[] }
-export interface Facets { specialties: string[]; models: string[]; rejectReasons: string[]; reviewers: { _id: string; name: string }[] }
+export interface Facets { specialties: string[]; models: string[]; doctors: string[]; rejectReasons: string[]; reviewers: { _id: string; name: string }[] }
 
 export interface AiDiagnosis { diagnosis: string; rank: string | null; likelihood?: string | null; aiAssisted?: string | null; rationale?: unknown }
 export interface AiMedication {
@@ -88,15 +88,16 @@ export interface Review {
 }
 
 export interface VisitDetail {
-  uuid: string; visitId?: number; source: MismatchSource; encounterAt?: string;
-  demographics?: { patientId?: number; gender?: string; age?: number };
+  uuid: string; visitId?: number; visitPseudoId?: string; source: MismatchSource; encounterAt?: string;
+  demographics?: { patientId?: number; patientPseudoId?: string; gender?: string; age?: number };
+  providers?: { creatorPseudoId?: string | null; doctorPseudoIds?: string[] | null } | null;
   attributes?: { specialty?: string; doctorPatientInteraction?: string };
   vitals?: Record<string, number | string | null>;
   visitNote?: Record<string, string | null>;
   images: string[];
   ddx?: { diagnoses: AiDiagnosis[]; conclusion?: string | null; furtherQuestions?: string[]; reason?: string | null } | null;
   ttx?: { medications: AiMedication[]; planRationale?: string | null; reason?: string | null } | null;
-  langfuse?: { model?: string; engine?: string; latency?: number; success?: unknown; name?: string } | null;
+  langfuse?: { model?: string; engine?: string; latency?: number; totalTokens?: number | null; success?: unknown; name?: string } | null;
   notes: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };
   analysis: VisitAnalysis;
   mismatchType: MismatchType;
@@ -120,6 +121,7 @@ export interface DashboardData {
   top: Record<'missedDx' | 'aiTop1WhenMissed' | 'modifiedMeds' | 'ignoredMeds' | 'addedMeds', { name: string; count: number }[]>;
   rejections: { name: string; count: number }[];
   models: { model: string; visits: number; ddxVisits: number; top1: number; top5: number; ttxVisits: number; ttxUsed: number; avgLatency: number | null }[];
+  doctors: DoctorStat[];
   mrr: number;
   aiTop1Agreement: GroupStat[];
   specialties: (GroupStat & { ttxVisits: number; ttxUsed: number })[];
@@ -134,6 +136,16 @@ export interface DashboardData {
     daily: ({ date: string } & Record<string, number | string>)[];
   };
 }
+
+/** Per consulting doctor (pseudo id from OpenMRS). */
+export interface DoctorStat {
+  doctor: string; visits: number; ddxVisits: number; top1: number; top5: number; ddxMismatch: number;
+  ttxVisits: number; ttxUsed: number; ttxFullyAccepted: number; mismatches: number; annotated: number;
+  ddxDoctorRight: number; ddxAiRight: number; ttxDoctorRight: number; ttxAiRight: number;
+}
+
+/** Doctors are shown by the pseudo id OpenMRS sends, never by name. */
+export const doctorLabel = (id?: string | null) => (id && id !== 'Unknown' ? `Dr #${id}` : 'Unknown doctor');
 
 export interface GroupStat { name: string; visits: number; top1: number; top5: number; mrr: number }
 

@@ -97,7 +97,7 @@ export function SyncBar({ state, onSync, newCount }: { state: SyncState | null; 
           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           <span>
             Synced with OpenMRS {timeAgo(state.lastSuccessAt)}
-            {run ? ` · last run ${run.inserted.toLocaleString()} new, ${run.updated.toLocaleString()} updated` : ''}
+            {run ? ` · last run ${run.inserted.toLocaleString()} new, ${run.updated.toLocaleString()} changed${run.unchanged != null ? `, ${run.unchanged.toLocaleString()} unchanged` : ''}` : ''}
             {newCount > 0 && <span className="ml-1 font-medium text-emerald-700">· {newCount.toLocaleString()} new since you opened</span>}
           </span>
         </>
