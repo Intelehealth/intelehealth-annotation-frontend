@@ -401,7 +401,7 @@ export function DatasetAnnotationWorkbench({
         // Load progress and apply completion status
         try {
           logger.log('Loading annotation progress...');
-          const progress = await DatasetMergedRowsAPI.getDetailedProgress(datasetId, taskId);  // Feature 1
+          const progress = await DatasetMergedRowsAPI.getDetailedProgress(datasetId, taskId, mergedData);  // Feature 1
           logger.log('Progress loaded:', progress);
 
           // Apply completion status to tasks

@@ -238,10 +238,13 @@ export class DatasetMergedRowsAPI {
    *
    * Feature 1: taskId scopes both the progress record and row status reads
    * to this annotator's task. Without taskId: existing admin view behaviour.
+   * Pass the rows already loaded for the same datasetId/taskId to skip
+   * downloading them again.
    */
   static async getDetailedProgress(
     datasetId: string,
     taskId?: string,
+    loadedData?: DatasetMergedRowsData,
   ): Promise<{
     totalRows: number;
     completedRows: number;
@@ -261,7 +264,8 @@ export class DatasetMergedRowsAPI {
       );
       const progress = progressResponse.data;
 
-      const datasetData = await this.getDatasetData(datasetId, taskId);
+      const datasetData =
+        loadedData ?? (await this.getDatasetData(datasetId, taskId));
 
       const rowStatuses = (datasetData?.mergedRows || []).map((row) => ({
         rowIndex: row.rowIndex,
