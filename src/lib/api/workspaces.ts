@@ -7,6 +7,8 @@ import { jsonApi } from '@/lib/api';
 // workspace's datasets (progress, copies, exports, consensus) read-only.
 
 export const MAX_WORKSPACE_REVIEWERS = 2;
+/** Mirrors backend MAX_DATASET_REVIEWERS: reviewers named on a single dataset. */
+export const MAX_DATASET_REVIEWERS = 2;
 
 export type WorkspaceSharingMode = 'CLONE' | 'SHARED';
 export const SHARING_MODES: { value: WorkspaceSharingMode; label: string; hint: string }[] = [
@@ -42,6 +44,8 @@ export interface WorkspaceResponse {
   systemPrompt?: string;
   isActive: boolean;
   datasetCount?: number;
+  /** Datasets in this workspace the caller reviews by name (dataset reviewer). */
+  reviewedDatasetIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +58,7 @@ export interface WorkspaceDataset {
   accessType?: string;
   userId?: string;
   assignees?: WorkspaceMember[];
+  reviewers?: WorkspaceMember[];
   createdAt: string;
   updatedAt: string;
 }

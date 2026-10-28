@@ -18,7 +18,7 @@ interface User {
   invitedByAdmin?: boolean;
   /** Admin, or owner of at least one workspace: may create datasets, configure them and assign people. */
   canManage?: boolean;
-  /** Reviews at least one workspace it does not own: may watch everyone's work there, read-only. */
+  /** Reviews a workspace it does not own, or is named reviewer of a dataset in one: may watch everyone's work there, read-only. */
   isReviewer?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -38,7 +38,7 @@ interface AuthContextType {
    * True on a parent dataset the user reviews but does not run: they see
    * every annotator's work and the consensus, and manage nothing.
    */
-  isReviewOnly: (dataset?: { isClone?: boolean; workspaceId?: string; userId?: string | { _id: string } } | null) => boolean;
+  isReviewOnly: (dataset?: { isClone?: boolean; workspaceId?: string; userId?: string | { _id: string }; viewerCanOversee?: boolean } | null) => boolean;
   login: (
     email: string,
     password: string,
@@ -340,21 +340,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // every navigation, so someone who creates their first workspace mid-session
   // gets owner rights without signing in again.
   const pathname = usePathname();
-  const [ownsWorkspace, setOwnsWorkspace] = useState(false);
+  const [ownedWorkspaceIds, setOwnedWorkspaceIds] = useState<string[]>([]);
+  const ownsWorkspace = ownedWorkspaceIds.length > 0;
+  // Datasets this user reviews by name (dataset reviewer), for the sidebar label.
+  const [reviewedDatasetCount, setReviewedDatasetCount] = useState(0);
   // Workspaces this user reviews and does not own.
   const [reviewedWorkspaceIds, setReviewedWorkspaceIds] = useState<string[]>([]);
   useEffect(() => {
-    if (!user?._id || user.role?.toUpperCase() === 'ADMIN') { setOwnsWorkspace(false); setReviewedWorkspaceIds([]); return; }
+    if (!user?._id || user.role?.toUpperCase() === 'ADMIN') { setOwnedWorkspaceIds([]); setReviewedWorkspaceIds([]); setReviewedDatasetCount(0); return; }
     let live = true;
     workspacesAPI.list()
       .then((ws) => {
         if (!live) return;
-        setOwnsWorkspace(ws.some((w) => w.ownerId?._id === user._id));
+        setOwnedWorkspaceIds(ws.filter((w) => w.ownerId?._id === user._id).map((w) => w._id));
+        setReviewedDatasetCount(ws.filter((w) => w.ownerId?._id !== user._id).reduce((n, w) => n + (w.reviewedDatasetIds?.length ?? 0), 0));
         setReviewedWorkspaceIds(
           ws.filter((w) => w.ownerId?._id !== user._id && w.reviewers?.some((r) => r._id === user._id)).map((w) => w._id),
         );
       })
-      .catch(() => { if (live) { setOwnsWorkspace(false); setReviewedWorkspaceIds([]); } });
+      .catch(() => { if (live) { setOwnedWorkspaceIds([]); setReviewedWorkspaceIds([]); setReviewedDatasetCount(0); } });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id, user?.role, pathname]);
@@ -362,15 +366,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => (user ? {
       ...user,
       canManage: user.role?.toUpperCase() === 'ADMIN' || ownsWorkspace,
-      isReviewer: reviewedWorkspaceIds.length > 0,
+      isReviewer: reviewedWorkspaceIds.length > 0 || reviewedDatasetCount > 0,
     } : null),
-    [user, ownsWorkspace, reviewedWorkspaceIds],
+    [user, ownsWorkspace, reviewedWorkspaceIds, reviewedDatasetCount],
   );
   const isReviewOnly = useCallback<AuthContextType['isReviewOnly']>((dataset) => {
     if (!dataset || dataset.isClone || !dataset.workspaceId || !user) return false;
     const creator = typeof dataset.userId === 'object' ? dataset.userId?._id : dataset.userId;
-    return creator !== user._id && reviewedWorkspaceIds.includes(String(dataset.workspaceId));
-  }, [user, reviewedWorkspaceIds]);
+    if (creator === user._id || user.role?.toUpperCase() === 'ADMIN' || ownedWorkspaceIds.includes(String(dataset.workspaceId))) return false;
+    // viewerCanOversee (from GET /datasets/:id) covers a dataset reviewer, who
+    // reviews this dataset without reviewing its workspace.
+    return !!dataset.viewerCanOversee || reviewedWorkspaceIds.includes(String(dataset.workspaceId));
+  }, [user, reviewedWorkspaceIds, ownedWorkspaceIds]);
 
   const value: AuthContextType = {
     user: userWithRights,
