@@ -45,10 +45,11 @@ export default function MismatchVisitPage() {
   useEffect(() => {
     let live = true;
     setV(null); setSaved(false);
-    mismatchAPI.claim(id, uuid).catch(() => undefined)
-      .then(() => mismatchAPI.visit(id, uuid))
-      .then((d) => {
+    // Claim and load in parallel; the read may land before the claim is written, so mirror a successful claim.
+    Promise.all([mismatchAPI.claim(id, uuid).catch(() => null), mismatchAPI.visit(id, uuid)])
+      .then(([c, d]) => {
         if (!live) return;
+        if (c?.claimed && d.review.status === 'pending') d = { ...d, review: { ...d.review, status: 'in_progress' } };
         setV(d);
         const r = d.review ?? {};
         setForm({
