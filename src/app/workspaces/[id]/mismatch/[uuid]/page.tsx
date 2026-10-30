@@ -8,7 +8,7 @@ import { Section } from '@/components/dashboard/kpi';
 import { fmtDate, HighlightChip, Shell, StatusBadge, TypeBadge } from '@/components/mismatch/shared';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
-  DDX_REASONS, DDX_VERDICTS, doctorLabel, mismatchAPI, TTX_REASONS, TTX_VERDICTS,
+  DDX_REASONS, DDX_VERDICTS, doctorLabel, mismatchAPI, SOURCE_LABEL, TTX_REASONS, TTX_VERDICTS,
   type AiMedication, type ReviewInput, type VisitDetail,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
@@ -67,6 +67,7 @@ export default function MismatchVisitPage() {
     try {
       await mismatchAPI.saveReview(id, uuid, form);
       setSaved(true);
+      if (!next) setV(await mismatchAPI.visit(id, uuid)); // refresh status and edit history
       if (next) {
         const q = await mismatchAPI.queue(id, { tab: 'todo', status: 'pending', limit: 2 });
         const n = q.items.find((x) => x.uuid !== uuid);
@@ -111,7 +112,7 @@ export default function MismatchVisitPage() {
           {[v.demographics?.gender === 'F' ? 'Female' : v.demographics?.gender === 'M' ? 'Male' : v.demographics?.gender, v.demographics?.age != null ? `${v.demographics.age} years` : null].filter(Boolean).join(', ')}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {v.source} · {v.attributes?.specialty ?? '—'} · prescription shared {fmtDate(v.encounterAt)}
+          {SOURCE_LABEL[v.source] ?? v.source} · {v.attributes?.specialty ?? '—'} · prescription shared {fmtDate(v.encounterAt)}
           {v.providers?.doctorPseudoIds?.length ? <> · {v.providers.doctorPseudoIds.map(doctorLabel).join(', ')}</> : null}
           {v.providers?.creatorPseudoId ? <> · health worker #{v.providers.creatorPseudoId}</> : null}
           {v.langfuse?.model && <> · AI: {v.langfuse.model}{v.langfuse.engine ? ` (${v.langfuse.engine})` : ''}{typeof v.langfuse.latency === 'number' ? `, ${v.langfuse.latency.toFixed(1)} s` : ''}{v.langfuse.totalTokens ? `, ${v.langfuse.totalTokens.toLocaleString()} tokens` : ''}</>}
@@ -281,11 +282,31 @@ export default function MismatchVisitPage() {
               </div>
             </form>
           </Section>
+
+          {!!v.review.history?.length && (
+            <Section title="Edit history" description="Every save is kept, newest first">
+              <ol className="divide-y text-sm">
+                {v.review.history.map((h, i) => (
+                  <li key={i} className="px-4 py-2.5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-medium">{h.by?.name ?? 'Unknown'} <span className="font-normal text-muted-foreground">{h.action === 'edited' ? 'edited' : 'annotated'}</span></span>
+                      <span className="text-xs text-muted-foreground">{fmtDate(h.at)}</span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {[VERDICT[h.ddxVerdict ?? ''] && `Diagnosis: ${VERDICT[h.ddxVerdict ?? '']}`, VERDICT[h.ttxVerdict ?? ''] && `Treatment: ${VERDICT[h.ttxVerdict ?? '']}`, h.correctDiagnosis && `Correct Dx: ${h.correctDiagnosis}`, h.comment && `“${h.comment}”`, h.followUp && 'Flagged for follow-up'].filter(Boolean).join(' · ') || 'No fields filled'}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </Section>
+          )}
         </div>
       </div>
     </Shell>
   );
 }
+
+const VERDICT: Record<string, string> = Object.fromEntries([...DDX_VERDICTS, ...TTX_VERDICTS].map((x) => [x.value, x.label]));
 
 /** The AI's reasoning for one suggestion: a string, or a list of {heading: text} objects. */
 function Why({ r }: { r?: unknown }) {

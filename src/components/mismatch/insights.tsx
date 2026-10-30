@@ -8,7 +8,7 @@ import { DDX_VERDICTS, doctorLabel, TTX_VERDICTS, type DashboardData, type Docto
 import { cn } from '@/lib/utils';
 import { rate } from './shared';
 
-const PERSON_COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#0ea5e9', '#8b5cf6', '#ef4444'];
+const PERSON_COLORS = ['#1e3a8a', '#2563eb', '#60a5fa', '#0f766e', '#64748b', '#93c5fd', '#334155'];
 const VERDICT_SHORT: Record<string, string> = {
   ai_correct: 'AI right', doctor_correct: 'Doctor right', both_acceptable: 'Both OK', neither: 'Neither', insufficient: 'Too thin',
 };

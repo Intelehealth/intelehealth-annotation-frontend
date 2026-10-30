@@ -6,6 +6,8 @@ import { jsonApi } from '@/lib/api';
 // changed / skipped / added to the AI's medicines (ttx).
 
 export type MismatchSource = 'NAS' | 'TURN';
+/** TURN is the API's key; the programme is Arogya Path (PAT). */
+export const SOURCE_LABEL: Record<MismatchSource, string> = { NAS: 'NAS', TURN: 'Arogya Path (PAT)' };
 export type MismatchType = 'none' | 'ddx' | 'ttx' | 'both';
 export type ReviewStatus = 'pending' | 'in_progress' | 'done';
 
@@ -85,6 +87,14 @@ export interface Review {
   ttxVerdict?: string; ttxReason?: string; correctTreatment?: string;
   comment?: string; followUp?: boolean;
   annotatedBy?: { _id: string; name: string } | null; annotatedAt?: string;
+  history?: ReviewHistoryEntry[];
+}
+
+/** One save of a review; newest first. */
+export interface ReviewHistoryEntry {
+  by: { _id: string; name: string } | null; at: string; action: 'annotated' | 'edited';
+  ddxVerdict?: string; ddxReason?: string; correctDiagnosis?: string;
+  ttxVerdict?: string; ttxReason?: string; correctTreatment?: string; comment?: string; followUp?: boolean;
 }
 
 export interface VisitDetail {
@@ -122,6 +132,7 @@ export interface DashboardData {
   rejections: { name: string; count: number }[];
   models: { model: string; visits: number; ddxVisits: number; top1: number; top5: number; ttxVisits: number; ttxUsed: number; avgLatency: number | null }[];
   doctors: DoctorStat[];
+  ai: AiMetrics;
   mrr: number;
   aiTop1Agreement: GroupStat[];
   specialties: (GroupStat & { ttxVisits: number; ttxUsed: number })[];
@@ -135,6 +146,29 @@ export interface DashboardData {
     reviewers: { name: string; annotated: number; ddx: number; ttx: number; followUp: number; verdicts: Record<string, number>; lastActive: string | null }[];
     daily: ({ date: string } & Record<string, number | string>)[];
   };
+}
+
+/** Chief-of-AI metric set (backend src/mismatch/ai-metrics.ts). */
+export interface AiHeadline {
+  visits: number;
+  dxGenerated: number; dxScored: number; dxPicked: number; top1: number; top3: number; top5: number; dxAddedNonAi: number; followUpOnly: number;
+  ttxGenerated: number; aiMedicines: number;
+  casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number; casesFullyAccepted: number;
+  investigations: number; advice: number; referral: number; followUp: number;
+}
+export interface DxAgg { name: string; visits: number; scored: number; picked: number; top1: number; top3: number; top5: number; addedNonAi: number }
+export type ChangeType = 'dose' | 'frequency' | 'duration' | 'instructions' | 'not_in_prescription' | 'no_visible_difference';
+export interface AiMetrics {
+  headline: { all: AiHeadline; paediatric: AiHeadline; adult: AiHeadline; paediatricMaxAge: number };
+  rationaleClicks: number | null;
+  byDoctor: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number })[];
+  byDay: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number })[];
+  byDoctorDay: (DxAgg & { doctor: string; date: string })[];
+  byDx: DxAgg[];
+  medicines: { name: string; suggested: number; unchanged: number; changed: number; notPicked: number; paediatric: number; changes: Record<ChangeType, number> }[];
+  changeTypes: Record<ChangeType, number>;
+  addedMedicines: { name: string; count: number; paediatric: number; dose: string | null; frequency: string | null; duration: string | null }[];
+  orders: Record<'investigations' | 'advice' | 'referrals', { name: string; count: number }[]>;
 }
 
 /** Per consulting doctor (pseudo id from OpenMRS). */
@@ -160,8 +194,8 @@ export const mismatchAPI = {
   syncState: (id: string) => jsonApi.get<SyncState>(`${base}/${id}/sync`).then((r) => r.data),
   queue: (id: string, q: QueueQuery) => jsonApi.get<QueuePage>(`${base}/${id}/queue`, { params: clean(q) }).then((r) => r.data),
   facets: (id: string) => jsonApi.get<Facets>(`${base}/${id}/facets`).then((r) => r.data),
-  dashboard: (id: string, from?: string, to?: string) =>
-    jsonApi.get<DashboardData>(`${base}/${id}/dashboard`, { params: clean({ from, to }) }).then((r) => r.data),
+  dashboard: (id: string, from?: string, to?: string, population?: string) =>
+    jsonApi.get<DashboardData>(`${base}/${id}/dashboard`, { params: clean({ from, to, population }) }).then((r) => r.data),
   visit: (id: string, uuid: string) => jsonApi.get<VisitDetail>(`${base}/${id}/visits/${uuid}`).then((r) => r.data),
   claim: (id: string, uuid: string) => jsonApi.post<{ claimed: boolean }>(`${base}/${id}/visits/${uuid}/claim`).then((r) => r.data),
   saveReview: (id: string, uuid: string, body: ReviewInput) =>
