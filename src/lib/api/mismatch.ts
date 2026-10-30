@@ -161,6 +161,8 @@ export type ChangeType = 'dose' | 'frequency' | 'duration' | 'instructions' | 'n
 export interface AiMetrics {
   headline: { all: AiHeadline; paediatric: AiHeadline; adult: AiHeadline; paediatricMaxAge: number; includeFollowUps: boolean };
   rationaleClicks: number | null;
+  /** Follow-up visits left out of every AI metric (nothing in the note for the AI to work from). */
+  followUpVisitsExcluded: number;
   byDoctor: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number })[];
   byDay: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number })[];
   byDoctorDay: (DxAgg & { doctor: string; date: string })[];

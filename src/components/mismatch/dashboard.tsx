@@ -71,14 +71,12 @@ const pctOf = (n: number, d: number) => (d ? pct(rate(n, d), 1) : '—');
 
 /**
  * AI Use dashboard: the metric set agreed with the Chief of AI, by period,
- * population and section. Used standalone (/ai-dashboard) and inside a
- * mismatch workspace.
+ * population and section. Lives only at /ai-dashboard.
  */
-export function MismatchDashboard({ workspaceId, refreshKey = 0 }: { workspaceId: string; refreshKey?: number }) {
+export function MismatchDashboard({ workspaceId }: { workspaceId: string }) {
   const [period, setPeriod] = useState('30');
   const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
   const [population, setPopulation] = useState('');
-  const [followUps, setFollowUps] = useState<'include' | 'exclude'>('include');
   const [grain, setGrain] = useState<Grain>('day');
   const [tab, setTab] = useState<TabKey>('overview');
   const [data, setData] = useState<DashboardData | null>(null);
@@ -87,16 +85,16 @@ export function MismatchDashboard({ workspaceId, refreshKey = 0 }: { workspaceId
 
   const [from, to] = period === 'custom' ? [custom.from, custom.to] : (PERIODS.find((p) => p.key === period)?.range() ?? [undefined, undefined]);
 
-  const key = [workspaceId, from, to, population, followUps, refreshKey].join('|');
+  const key = [workspaceId, from, to, population].join('|');
   const loading = loadedKey !== key;
   useEffect(() => {
     let live = true;
-    mismatchAPI.dashboard(workspaceId, from, to, population || undefined, followUps)
+    mismatchAPI.dashboard(workspaceId, from, to, population || undefined)
       .then((d) => { if (live) { setData(d); setError(null); } })
       .catch((e) => live && setError(apiMessage(e, 'Could not load the dashboard')))
       .finally(() => live && setLoadedKey(key));
     return () => { live = false; };
-  }, [workspaceId, from, to, population, followUps, refreshKey, key]);
+  }, [workspaceId, from, to, population, key]);
 
   return (
     <div className="space-y-5">
@@ -117,7 +115,6 @@ export function MismatchDashboard({ workspaceId, refreshKey = 0 }: { workspaceId
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5">
           <Segmented label="Patients" value={population} onChange={setPopulation} options={POPULATIONS} />
-          <Segmented label="Follow-up visits" value={followUps} onChange={(v) => setFollowUps(v as 'include' | 'exclude')} options={[{ key: 'include', label: 'Included' }, { key: 'exclude', label: 'Excluded' }]} />
           <Segmented label="Trend by" value={grain} onChange={(v) => setGrain(v as Grain)} options={[{ key: 'day', label: 'Day' }, { key: 'week', label: 'Week' }, { key: 'month', label: 'Month' }]} />
           <span className="ml-auto text-xs text-slate-500">
             {from || to ? `${from ?? '…'} → ${to ?? '…'}` : 'All time'}
@@ -146,9 +143,24 @@ export function MismatchDashboard({ workspaceId, refreshKey = 0 }: { workspaceId
           {tab === 'doctors' && <DoctorsTab data={data} />}
           {tab === 'orders' && <OrdersTab data={data} />}
           {tab === 'annotation' && <AnnotationTab data={data} />}
+          <FollowUpNote n={data.ai.followUpVisitsExcluded} />
         </div>
       )}
     </div>
+  );
+}
+
+/** Footer on every tab: why follow-up visits are not in these numbers. */
+function FollowUpNote({ n }: { n: number }) {
+  return (
+    <footer className="flex items-start gap-2 border-t pt-4 text-xs text-slate-500">
+      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <p>
+        <span className="font-medium text-slate-700">Follow-up visits are not counted{n ? ` (${fmt(n)} in this period)` : ''}.</span>{' '}
+        A follow-up note only records whether the patient got and took the medicines and how they feel; it has no symptoms or history for the AI to diagnose or treat from, so the AI suggestions on these visits are not considered.
+        They will be included once follow-ups capture a proper patient story.
+      </p>
+    </footer>
   );
 }
 
@@ -261,7 +273,7 @@ function bucket<T extends { name: string }>(rows: T[], grain: Grain): T[] {
 // ---------- Overview ----------
 function Overview({ data, grain, population }: { data: DashboardData; grain: Grain; population: string }) {
   const h = data.ai.headline.all;
-  const scoredLabel = data.ai.headline.includeFollowUps ? 'visits with an AI list' : 'visits with an AI list (no follow-ups)';
+  const scoredLabel = 'visits with an AI list';
   const trend = useMemo(() => bucket(data.ai.byDay, grain).map((d) => ({
     date: grain === 'month' ? d.name : d.name.slice(5),
     visits: d.visits,
@@ -275,12 +287,7 @@ function Overview({ data, grain, population }: { data: DashboardData; grain: Gra
   return (
     <>
       <Group title="Diagnosis (DDx)"
-        description={<>
-          {data.ai.headline.includeFollowUps
-            ? <>Scored over every visit with an AI list, including {fmt(h.followUpOnly)} follow-up visits where the doctor recorded only “Follow-up visit” (counted as not picked).</>
-            : <>Scored over visits with an AI list, leaving out {fmt(h.followUpOnly)} follow-up visits where the doctor recorded only “Follow-up visit”.</>}
-          {' '}A pick is the doctor clicking the AI diagnosis or typing the same name; a clinically equivalent but differently worded diagnosis counts as not picked.
-        </>}>
+        description="Scored over visits with an AI list (follow-up visits are not counted; see the note at the bottom). A pick is the doctor clicking the AI diagnosis or typing the same name; a clinically equivalent but differently worded diagnosis counts as not picked.">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
           <Stat label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} ofLabel="visits" accent />
           <Stat label="Doctor picked an AI Dx" n={h.dxPicked} of={h.dxScored} ofLabel={scoredLabel} />
@@ -399,7 +406,7 @@ function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
   return (
     <>
       <div className="grid gap-5 xl:grid-cols-2">
-        <Section title={`Top 1 / 3 / 5 by ${grain}`} description={`% of visits with an AI list${data.ai.headline.includeFollowUps ? ', follow-up visits included' : ', follow-up visits left out'}`}>
+        <Section title={`Top 1 / 3 / 5 by ${grain}`} description="% of visits with an AI list">
           <Table empty={!days.length} head={<DxHead first={grain === 'day' ? 'Date' : grain === 'week' ? 'Week of' : 'Month'} />}>
             {days.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap')}>{r.name}</td><DxCells r={r} /></tr>)}
           </Table>

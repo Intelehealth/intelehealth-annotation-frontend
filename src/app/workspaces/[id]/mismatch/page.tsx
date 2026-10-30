@@ -3,17 +3,17 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CheckCheck, Inbox, LayoutDashboard, Rows3, Settings } from 'lucide-react';
+import { ArrowLeft, CheckCheck, Inbox, Rows3, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { MismatchDashboard } from '@/components/mismatch/dashboard';
 import { MismatchQueue } from '@/components/mismatch/queue';
 import { Shell, SyncBar } from '@/components/mismatch/shared';
 import { apiMessage } from '@/lib/api/workspaces';
 import { mismatchAPI, type MismatchSource, type QueuePage, type QueueTab, type SyncState } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 
-type Tab = QueueTab | 'dashboard';
-const TABS: Tab[] = ['todo', 'done', 'all', 'dashboard'];
+// The dashboard lives only at /ai-dashboard (sidebar); a workspace is for annotating.
+type Tab = QueueTab;
+const TABS: Tab[] = ['todo', 'done', 'all'];
 
 export default function MismatchWorkspacePage() {
   const { id } = useParams<{ id: string }>();
@@ -110,7 +110,6 @@ export default function MismatchWorkspacePage() {
           ['todo', 'To annotate', Inbox, counts?.todo],
           ['done', 'Annotated', CheckCheck, counts?.done],
           ['all', 'All visits', Rows3, counts?.all],
-          ['dashboard', 'Dashboard', LayoutDashboard, undefined],
         ] as const).map(([key, label, Icon, n]) => (
           <button key={key} onClick={() => pickTab(key)}
             className={cn('-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium',
@@ -123,9 +122,7 @@ export default function MismatchWorkspacePage() {
         ))}
       </nav>
 
-      {tab === 'dashboard'
-        ? <MismatchDashboard workspaceId={id} refreshKey={refreshKey} />
-        : <MismatchQueue workspaceId={id} tab={tab} refreshKey={refreshKey} onCounts={onCounts} />}
+      <MismatchQueue workspaceId={id} tab={tab} refreshKey={refreshKey} onCounts={onCounts} />
     </Shell>
   );
 }
