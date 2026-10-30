@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { Info } from 'lucide-react';
+import { Download, Info, Loader2 } from 'lucide-react';
 import { Empty, Section } from '@/components/dashboard/kpi';
 import { pct } from '@/components/dashboard/format';
 import { apiMessage } from '@/lib/api/workspaces';
@@ -13,7 +13,8 @@ import {
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 import { ConsultingDoctors, DiagnosisPatterns, DoctorProgress } from './insights';
-import { rate } from './shared';
+import { exportDashboardExcel } from './export-excel';
+import { rate, TableSearch, useRowFilter } from './shared';
 
 // White / blue / navy palette.
 const C = { navy: '#1e3a8a', blue: '#2563eb', sky: '#60a5fa', light: '#bfdbfe', slate: '#94a3b8', faint: '#e2e8f0' };
@@ -73,7 +74,7 @@ const pctOf = (n: number, d: number) => (d ? pct(rate(n, d), 1) : '—');
  * AI Use dashboard: the metric set agreed with the Chief of AI, by period,
  * population and section. Lives only at /ai-dashboard.
  */
-export function MismatchDashboard({ workspaceId }: { workspaceId: string }) {
+export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId: string; programme?: string }) {
   const [period, setPeriod] = useState('30');
   const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
   const [population, setPopulation] = useState('');
@@ -81,6 +82,7 @@ export function MismatchDashboard({ workspaceId }: { workspaceId: string }) {
   const [tab, setTab] = useState<TabKey>('overview');
   const [data, setData] = useState<DashboardData | null>(null);
   const [loadedKey, setLoadedKey] = useState("");
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [from, to] = period === 'custom' ? [custom.from, custom.to] : (PERIODS.find((p) => p.key === period)?.range() ?? [undefined, undefined]);
@@ -121,6 +123,26 @@ export function MismatchDashboard({ workspaceId }: { workspaceId: string }) {
             {data && ` · ${fmt(data.ai.headline.all.visits)} visits`}
             {loading && data && ' · updating…'}
           </span>
+          <button
+            disabled={!data || loading || exporting}
+            onClick={async () => {
+              if (!data) return;
+              setExporting(true);
+              try {
+                await exportDashboardExcel(data, {
+                  programme: programme || 'Programme',
+                  period: period === 'custom' || from || to ? `${from ?? 'start'} to ${to ?? 'today'}` : 'All time',
+                  patients: POPULATIONS.find((p) => p.key === population)?.label ?? 'All patients',
+                });
+              } catch (e) {
+                setError(apiMessage(e, 'Could not export to Excel'));
+              } finally {
+                setExporting(false);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-800 disabled:opacity-50">
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Export to Excel
+          </button>
         </div>
       </div>
 
@@ -240,7 +262,7 @@ function RankedList({ items, empty = 'None in this period.' }: { items: { name: 
   const max = Math.max(1, ...items.map((i) => i.count));
   if (!items.length) return <Empty>{empty}</Empty>;
   return (
-    <ul className="space-y-1 px-4 py-3 text-sm">
+    <ul className="max-h-[420px] space-y-1 overflow-auto px-4 py-3 text-sm">
       {items.map((i) => (
         <li key={i.name} className="relative">
           <div className="absolute inset-y-0 left-0 rounded bg-blue-50" style={{ width: `${(100 * i.count) / max}%` }} />
@@ -398,7 +420,10 @@ const DxCells = ({ r }: { r: DxAgg }) => (
   </>
 );
 
+const byName = (r: { name: string }) => r.name;
+
 function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
+  const dxSearch = useRowFilter(data.ai.byDx, byName);
   const [doctor, setDoctor] = useState('');
   const days = useMemo(() => [...bucket(data.ai.byDay, grain)].reverse(), [data, grain]);
   const doctors = [...new Set(data.ai.byDoctorDay.map((r) => r.doctor))].sort();
@@ -428,9 +453,10 @@ function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
           </Table>
         </Section>
       </div>
-      <Section title="Report by diagnosis" description="Grouped by the doctor's final diagnosis: how often the AI list contained it, and how often the doctor added a diagnosis of their own">
-        <Table empty={!data.ai.byDx.length} head={<DxHead first="Doctor's final diagnosis" />}>
-          {data.ai.byDx.map((r) => <tr key={r.name}><td className={cn(td, 'capitalize')}>{r.name}</td><DxCells r={r} /></tr>)}
+      <Section title="Report by diagnosis" description="Grouped by the doctor's final diagnosis: how often the AI list contained it, and how often the doctor added a diagnosis of their own"
+        action={<TableSearch q={dxSearch.q} setQ={dxSearch.setQ} shown={dxSearch.filtered.length} total={data.ai.byDx.length} placeholder="Find a diagnosis…" />}>
+        <Table empty={!dxSearch.filtered.length} head={<DxHead first="Doctor's final diagnosis" />}>
+          {dxSearch.filtered.map((r) => <tr key={r.name}><td className={cn(td, 'capitalize')}>{r.name}</td><DxCells r={r} /></tr>)}
         </Table>
       </Section>
       <DiagnosisPatterns data={data} />
@@ -443,7 +469,10 @@ function TreatmentTab({ data }: { data: DashboardData }) {
   const [sort, setSort] = useState<'suggested' | 'changed' | 'notPicked'>('suggested');
   const ct = data.ai.changeTypes;
   const totalChanges = Object.values(ct).reduce((a, b) => a + b, 0);
-  const meds = [...data.ai.medicines].sort((a, b) => b[sort] - a[sort]);
+  const sorted = useMemo(() => [...data.ai.medicines].sort((a, b) => b[sort] - a[sort]), [data, sort]);
+  const medSearch = useRowFilter(sorted, byName);
+  const meds = medSearch.filtered;
+  const addedSearch = useRowFilter(data.ai.addedMedicines, byName);
   return (
     <>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -469,11 +498,14 @@ function TreatmentTab({ data }: { data: DashboardData }) {
 
       <Section title="Report by AI medicine"
         action={(
-          <select className="h-8 rounded-md border bg-white px-2 text-xs" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-            <option value="suggested">Most suggested</option>
-            <option value="changed">Most changed</option>
-            <option value="notPicked">Most not picked</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <TableSearch q={medSearch.q} setQ={medSearch.setQ} shown={meds.length} total={sorted.length} placeholder="Find a medicine…" />
+            <select className="h-8 rounded-md border bg-white px-2 text-xs" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+              <option value="suggested">Most suggested</option>
+              <option value="changed">Most changed</option>
+              <option value="notPicked">Most not picked</option>
+            </select>
+          </div>
         )}>
         <Table empty={!meds.length} head={(
           <tr>
@@ -497,14 +529,15 @@ function TreatmentTab({ data }: { data: DashboardData }) {
         </Table>
       </Section>
 
-      <Section title="Medicines the doctor added" description="Not suggested by the AI. Most common dose, frequency and duration as prescribed (count in brackets).">
-        <Table empty={!data.ai.addedMedicines.length} head={(
+      <Section title="Medicines the doctor added" description="Not suggested by the AI. Most common dose, frequency and duration as prescribed (count in brackets)."
+        action={<TableSearch q={addedSearch.q} setQ={addedSearch.setQ} shown={addedSearch.filtered.length} total={data.ai.addedMedicines.length} placeholder="Find a medicine…" />}>
+        <Table empty={!addedSearch.filtered.length} head={(
           <tr>
             <th className={th}>Medicine</th><th className={thR}>Times added</th><th className={thR}>Paediatric</th>
             <th className={th}>Dose</th><th className={th}>Frequency</th><th className={th}>Duration</th>
           </tr>
         )}>
-          {data.ai.addedMedicines.map((m) => (
+          {addedSearch.filtered.map((m) => (
             <tr key={m.name}>
               <td className={td}>{m.name}</td>
               <td className={tdR}>{fmt(m.count)}</td>

@@ -136,7 +136,8 @@ export interface DashboardData {
   mrr: number;
   aiTop1Agreement: GroupStat[];
   specialties: (GroupStat & { ttxVisits: number; ttxUsed: number })[];
-  confidence: GroupStat[];
+  /** Every AI suggestion (ranks 1-5) by its confidence label: how often the doctor picked it. */
+  confidence: { name: string; suggestions: number; picked: number; asTop1: number; top1Picked: number; avgRank: number | null }[];
   mismatchPairs: { missed: { name: string; count: number }[]; rankedLower: { name: string; count: number }[] };
   medicines: { name: string; suggested: number; exact: number; modified: number; ignored: number; acceptance: number }[];
   addedForDiagnosis: { name: string; count: number }[];

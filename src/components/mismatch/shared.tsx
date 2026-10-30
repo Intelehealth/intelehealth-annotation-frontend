@@ -1,7 +1,7 @@
 'use client';
 
-import { ReactNode } from 'react';
-import { CheckCircle2, Loader2, RefreshCw, TriangleAlert } from 'lucide-react';
+import { ReactNode, useMemo, useState } from 'react';
+import { CheckCircle2, Loader2, RefreshCw, Search, TriangleAlert } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
 import { TopNav } from '@/components/top-nav';
 import { Button } from '@/components/ui/button';
@@ -113,3 +113,26 @@ export const fmtDate = (iso?: string) =>
   iso ? new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—';
 
 export const rate = (n: number, d: number) => (d ? (100 * n) / d : 0);
+
+/** Case-insensitive text filter for long dashboard tables. */
+export function useRowFilter<T>(rows: T[], text: (r: T) => string) {
+  const [q, setQ] = useState('');
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return s ? rows.filter((r) => text(r).toLowerCase().includes(s)) : rows;
+  }, [rows, q, text]);
+  return { q, setQ, filtered };
+}
+
+/** Search box for a section header: "Search… (12 of 240)". */
+export function TableSearch({ q, setQ, shown, total, placeholder = 'Search…' }: { q: string; setQ: (v: string) => void; shown: number; total: number; placeholder?: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
+        <input className="h-8 w-44 rounded-md border bg-white pl-7 pr-2 text-xs" placeholder={placeholder} value={q} onChange={(e) => setQ(e.target.value)} aria-label={placeholder} />
+      </div>
+      <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">{shown === total ? `${total.toLocaleString()} rows` : `${shown.toLocaleString()} of ${total.toLocaleString()}`}</span>
+    </div>
+  );
+}
