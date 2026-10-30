@@ -91,8 +91,12 @@ export default function MismatchVisitPage() {
   const dxRationale = (name: string) => (v.ddx?.diagnoses ?? []).find((x) => String(x.diagnosis).toLowerCase() === name.toLowerCase())?.rationale;
   const showTtx = a.ttxAvailable;
   const vit = v.vitals ?? {};
+  const age = v.demographics?.age;
   const vitals: [string, unknown, string][] = [
-    ['BP', vit.sbp && vit.dbp ? `${vit.sbp}/${vit.dbp}` : null, 'mmHg'], ['Pulse', vit.pulse, '/min'], ['Temp', vit.temperature, '°F'],
+    // Age and sex first, so the doctor sees them next to the readings.
+    ['Age', age == null ? null : age < 1 ? '< 1' : age, age == null ? '' : 'yrs'],
+    ['Sex', v.demographics?.gender === 'F' ? 'Female' : v.demographics?.gender === 'M' ? 'Male' : v.demographics?.gender, ''],
+    ['BP', vit.sbp && vit.dbp ? `${vit.sbp}/${vit.dbp}` : null, 'mmHg'], ['Pulse', vit.pulse, '/min'], ['Temp', vit.temperature, Number(vit.temperature) > 45 ? '°F' : '°C'],
     ['SpO₂', vit.spo2, '%'], ['RR', vit.rr, '/min'], ['Weight', vit.weight, 'kg'], ['Height', vit.height, 'cm'], ['BMI', vit.bmi, ''],
     ['Hb', vit.hb, ''], ['Sugar (R)', vit.sugarRandom, ''],
   ];
@@ -132,6 +136,13 @@ export default function MismatchVisitPage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <div className="space-y-6">
+          <Section title="Vitals">
+            <dl className="grid grid-cols-3 gap-x-4 gap-y-2 px-4 py-4 text-sm sm:grid-cols-5">
+              {vitals.filter(([, val]) => val !== null && val !== undefined && val !== '').map(([k, val, unit]) => (
+                <div key={k}><dt className="text-xs text-muted-foreground">{k}</dt><dd className="font-medium tabular-nums">{String(val)}<span className="ml-0.5 text-xs font-normal text-muted-foreground">{unit}</span></dd></div>
+              ))}
+            </dl>
+          </Section>
           <Section title="Clinical note">
             <div className="space-y-4 px-4 py-4 text-sm">
               <Note label="Chief complaint" text={v.notes.chiefComplaint} />
@@ -139,13 +150,6 @@ export default function MismatchVisitPage() {
               <Note label="Medical history" text={v.notes.patientMedicalHistory} />
               <Note label="Family history" text={v.notes.familyHistory} />
             </div>
-          </Section>
-          <Section title="Vitals">
-            <dl className="grid grid-cols-3 gap-x-4 gap-y-2 px-4 py-4 text-sm sm:grid-cols-5">
-              {vitals.filter(([, val]) => val !== null && val !== undefined && val !== '').map(([k, val, unit]) => (
-                <div key={k}><dt className="text-xs text-muted-foreground">{k}</dt><dd className="font-medium tabular-nums">{String(val)}<span className="ml-0.5 text-xs font-normal text-muted-foreground">{unit}</span></dd></div>
-              ))}
-            </dl>
           </Section>
           {v.images.length > 0 && (
             <Section title="Images" description="Stored in OpenMRS; opening needs an OpenMRS login">

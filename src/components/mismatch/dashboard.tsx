@@ -258,16 +258,18 @@ function Table({ head, children, empty }: { head: ReactNode; children: ReactNode
   );
 }
 
-function RankedList({ items, empty = 'None in this period.' }: { items: { name: string; count: number }[]; empty?: string }) {
+function RankedList({ items, empty = 'None in this period.', wrap, render }: {
+  items: { name: string; count: number }[]; empty?: string; wrap?: boolean; render?: (name: string) => ReactNode;
+}) {
   const max = Math.max(1, ...items.map((i) => i.count));
   if (!items.length) return <Empty>{empty}</Empty>;
   return (
-    <ul className="max-h-[420px] space-y-1 overflow-auto px-4 py-3 text-sm">
+    <ul className={cn('max-h-[420px] overflow-auto px-4 py-3 text-sm', wrap ? 'space-y-1.5' : 'space-y-1')}>
       {items.map((i) => (
         <li key={i.name} className="relative">
           <div className="absolute inset-y-0 left-0 rounded bg-blue-50" style={{ width: `${(100 * i.count) / max}%` }} />
-          <div className="relative flex justify-between gap-2 px-2 py-0.5">
-            <span className="truncate" title={i.name}>{i.name}</span>
+          <div className={cn('relative flex justify-between gap-3 px-2', wrap ? 'py-1' : 'py-0.5')}>
+            <span className={cn('min-w-0', !wrap && 'truncate')} title={i.name}>{render ? render(i.name) : i.name}</span>
             <span className="tabular-nums text-slate-500">{fmt(i.count)}</span>
           </div>
         </li>
@@ -602,11 +604,22 @@ function OrdersTab({ data }: { data: DashboardData }) {
         <Stat label="Referred" n={h.referral} of={h.visits} ofLabel="visits" />
         <Stat label="Follow-up scheduled" n={h.followUp} of={h.visits} ofLabel="visits" />
       </div>
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-2">
         <Section title="Most ordered investigations"><RankedList items={data.ai.orders.investigations} /></Section>
-        <Section title="Referred to"><RankedList items={data.ai.orders.referrals} /></Section>
-        <Section title="Most common advice"><RankedList items={data.ai.orders.advice} /></Section>
+        <Section title="Referred to" description="Destination, with the facility type it was referred to">
+          <RankedList items={data.ai.orders.referrals} render={(name) => {
+            const [who, where] = name.split(' · ');
+            return <>{who}{where && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{where}</span>}</>;
+          }} />
+        </Section>
       </div>
+      <Section title="Most common advice" description="As written in the prescription; the local-language version is shown underneath">
+        <RankedList items={data.ai.orders.advice} wrap render={(name) => {
+          // "drink lots of water - भरपूर पाणी प्या": English first, translation below.
+          const m = name.match(/^(.*?)\s+-\s+(.*[^\x00-\x7F].*)$/);
+          return m ? <span className="block">{m[1]}<span className="block text-xs text-slate-500">{m[2]}</span></span> : name;
+        }} />
+      </Section>
     </>
   );
 }
