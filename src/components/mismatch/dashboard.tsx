@@ -78,6 +78,7 @@ export function MismatchDashboard({ workspaceId, refreshKey = 0 }: { workspaceId
   const [period, setPeriod] = useState('30');
   const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
   const [population, setPopulation] = useState('');
+  const [followUps, setFollowUps] = useState<'include' | 'exclude'>('include');
   const [grain, setGrain] = useState<Grain>('day');
   const [tab, setTab] = useState<TabKey>('overview');
   const [data, setData] = useState<DashboardData | null>(null);
@@ -86,16 +87,16 @@ export function MismatchDashboard({ workspaceId, refreshKey = 0 }: { workspaceId
 
   const [from, to] = period === 'custom' ? [custom.from, custom.to] : (PERIODS.find((p) => p.key === period)?.range() ?? [undefined, undefined]);
 
-  const key = [workspaceId, from, to, population, refreshKey].join('|');
+  const key = [workspaceId, from, to, population, followUps, refreshKey].join('|');
   const loading = loadedKey !== key;
   useEffect(() => {
     let live = true;
-    mismatchAPI.dashboard(workspaceId, from, to, population || undefined)
+    mismatchAPI.dashboard(workspaceId, from, to, population || undefined, followUps)
       .then((d) => { if (live) { setData(d); setError(null); } })
       .catch((e) => live && setError(apiMessage(e, 'Could not load the dashboard')))
       .finally(() => live && setLoadedKey(key));
     return () => { live = false; };
-  }, [workspaceId, from, to, population, refreshKey, key]);
+  }, [workspaceId, from, to, population, followUps, refreshKey, key]);
 
   return (
     <div className="space-y-5">
@@ -116,6 +117,7 @@ export function MismatchDashboard({ workspaceId, refreshKey = 0 }: { workspaceId
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5">
           <Segmented label="Patients" value={population} onChange={setPopulation} options={POPULATIONS} />
+          <Segmented label="Follow-up visits" value={followUps} onChange={(v) => setFollowUps(v as 'include' | 'exclude')} options={[{ key: 'include', label: 'Included' }, { key: 'exclude', label: 'Excluded' }]} />
           <Segmented label="Trend by" value={grain} onChange={(v) => setGrain(v as Grain)} options={[{ key: 'day', label: 'Day' }, { key: 'week', label: 'Week' }, { key: 'month', label: 'Month' }]} />
           <span className="ml-auto text-xs text-slate-500">
             {from || to ? `${from ?? '…'} → ${to ?? '…'}` : 'All time'}
@@ -259,6 +261,7 @@ function bucket<T extends { name: string }>(rows: T[], grain: Grain): T[] {
 // ---------- Overview ----------
 function Overview({ data, grain, population }: { data: DashboardData; grain: Grain; population: string }) {
   const h = data.ai.headline.all;
+  const scoredLabel = data.ai.headline.includeFollowUps ? 'visits with an AI list' : 'visits with an AI list (no follow-ups)';
   const trend = useMemo(() => bucket(data.ai.byDay, grain).map((d) => ({
     date: grain === 'month' ? d.name : d.name.slice(5),
     visits: d.visits,
@@ -272,14 +275,19 @@ function Overview({ data, grain, population }: { data: DashboardData; grain: Gra
   return (
     <>
       <Group title="Diagnosis (DDx)"
-        description={<>Picks are scored over visits with an AI list, excluding {fmt(h.followUpOnly)} follow-up-only visits. A pick is the doctor clicking the AI diagnosis or typing the same name; a clinically equivalent but differently worded diagnosis counts as not picked.</>}>
+        description={<>
+          {data.ai.headline.includeFollowUps
+            ? <>Scored over every visit with an AI list, including {fmt(h.followUpOnly)} follow-up visits where the doctor recorded only “Follow-up visit” (counted as not picked).</>
+            : <>Scored over visits with an AI list, leaving out {fmt(h.followUpOnly)} follow-up visits where the doctor recorded only “Follow-up visit”.</>}
+          {' '}A pick is the doctor clicking the AI diagnosis or typing the same name; a clinically equivalent but differently worded diagnosis counts as not picked.
+        </>}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
           <Stat label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} ofLabel="visits" accent />
-          <Stat label="Doctor picked an AI Dx" n={h.dxPicked} of={h.dxScored} ofLabel="scored visits" />
-          <Stat label="Final Dx was AI top 1" n={h.top1} of={h.dxScored} ofLabel="scored visits" />
-          <Stat label="…in AI top 3" n={h.top3} of={h.dxScored} ofLabel="scored visits" />
-          <Stat label="…in AI top 5" n={h.top5} of={h.dxScored} ofLabel="scored visits" />
-          <Stat label="Doctor added a non-AI Dx" n={h.dxAddedNonAi} of={h.dxScored} ofLabel="scored visits" />
+          <Stat label="Doctor picked an AI Dx" n={h.dxPicked} of={h.dxScored} ofLabel={scoredLabel} />
+          <Stat label="Final Dx was AI top 1" n={h.top1} of={h.dxScored} ofLabel={scoredLabel} />
+          <Stat label="…in AI top 3" n={h.top3} of={h.dxScored} ofLabel={scoredLabel} />
+          <Stat label="…in AI top 5" n={h.top5} of={h.dxScored} ofLabel={scoredLabel} />
+          <Stat label="Doctor added a non-AI Dx" n={h.dxAddedNonAi} of={h.dxScored} ofLabel={scoredLabel} />
           <Stat label="Doctor opened a rationale" value="—" note="Not logged by the app yet" />
         </div>
       </Group>
@@ -391,7 +399,7 @@ function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
   return (
     <>
       <div className="grid gap-5 xl:grid-cols-2">
-        <Section title={`Top 1 / 3 / 5 by ${grain}`} description="% of scored visits (AI list present, follow-up-only visits excluded)">
+        <Section title={`Top 1 / 3 / 5 by ${grain}`} description={`% of visits with an AI list${data.ai.headline.includeFollowUps ? ', follow-up visits included' : ', follow-up visits left out'}`}>
           <Table empty={!days.length} head={<DxHead first={grain === 'day' ? 'Date' : grain === 'week' ? 'Week of' : 'Month'} />}>
             {days.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap')}>{r.name}</td><DxCells r={r} /></tr>)}
           </Table>

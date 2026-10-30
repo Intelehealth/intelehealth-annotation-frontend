@@ -25,8 +25,8 @@ const tdR = 'px-4 py-2 text-right tabular-nums';
 export function ConsultingDoctors({ rows }: { rows: DoctorStat[] }) {
   return (
     <Section
-      title="By consulting doctor"
-      description="Doctor who saw the patient in OpenMRS, shown by pseudo id. Annotator verdicts count only reviewed visits."
+      title="Mismatches and annotator verdicts by doctor"
+      description="Doctor who saw the patient in OpenMRS, shown by pseudo id. Verdicts count only reviewed visits. AI agreement rates are in the table above."
     >
       {rows.length === 0 ? <Empty>No visits in this range.</Empty> : (
         <div className="overflow-x-auto">
@@ -35,8 +35,6 @@ export function ConsultingDoctors({ rows }: { rows: DoctorStat[] }) {
               <tr>
                 <th className={th}>Doctor</th>
                 <th className={thR}>Visits</th>
-                <th className={thR}>Top-1</th>
-                <th className={thR}>Top-5</th>
                 <th className={thR}>DDx mismatch</th>
                 <th className={thR}>AI medicines used</th>
                 <th className={thR}>Mismatches reviewed</th>
@@ -49,8 +47,6 @@ export function ConsultingDoctors({ rows }: { rows: DoctorStat[] }) {
                 <tr key={r.doctor}>
                   <td className={cn(td, 'whitespace-nowrap font-medium')}>{doctorLabel(r.doctor)}</td>
                   <td className={tdR}>{r.visits.toLocaleString()}</td>
-                  <td className={tdR}>{pct(rate(r.top1, r.ddxVisits))}</td>
-                  <td className={tdR}>{pct(rate(r.top5, r.ddxVisits))}</td>
                   <td className={tdR}>{r.ddxMismatch.toLocaleString()}</td>
                   <td className={tdR}>{r.ttxVisits ? pct(rate(r.ttxUsed, r.ttxVisits)) : '—'}</td>
                   <td className={tdR}>{r.annotated.toLocaleString()} / {r.mismatches.toLocaleString()}</td>
