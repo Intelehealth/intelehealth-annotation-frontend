@@ -688,6 +688,8 @@ function TatCells({ r }: { r: TatRow }) {
   );
 }
 
+const KIND_LABEL: Record<string, string> = { new: 'New visit', follow_up: 'Follow-up visit' };
+
 function TatTab({ data }: { data: DashboardData }) {
   const t = data.tat;
   const days = useMemo(() => [...(t?.byDay ?? [])].reverse(), [t]);
@@ -709,6 +711,22 @@ function TatTab({ data }: { data: DashboardData }) {
           ))}
         </Table>
       </Section>
+      {t.byKind && (
+        <Section title="New vs follow-up visits" description="Follow-up = the doctor's only diagnosis is “Follow-up visit” (same rule as the AI metrics) · every visit in the period">
+          <Table head={<TatHead first="Visit type" />}>
+            {t.byKind.map((r) => <tr key={r.name}><td className={cn(td, 'font-medium')}>{KIND_LABEL[r.name] ?? r.name}</td><TatCells r={r} /></tr>)}
+          </Table>
+        </Section>
+      )}
+      {t.byDoctorKind && (
+        <Section title="By doctor: new vs follow-up" description="Consulting doctor in OpenMRS, by pseudo id · every visit in the period">
+          <Table empty={!t.byDoctorKind.length} head={<TatHead first="Doctor · visit type" />}>
+            {t.byDoctorKind.map((r) => (
+              <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{doctorLabel(r.doctor)} <span className="font-normal text-slate-500">· {KIND_LABEL[r.kind]}</span></td><TatCells r={r} /></tr>
+            ))}
+          </Table>
+        </Section>
+      )}
       <Section title="By doctor" description="Consulting doctor in OpenMRS, by pseudo id · every visit in the period, follow-ups included">
         <Table empty={!t.byDoctor.length} head={<TatHead first="Doctor" />}>
           {t.byDoctor.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{doctorLabel(r.name)}</td><TatCells r={r} /></tr>)}

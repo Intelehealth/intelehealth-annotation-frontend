@@ -217,7 +217,9 @@ export interface TatRow {
 }
 export interface TatMetrics {
   all: TatRow; paediatric: TatRow; adult: TatRow;
-  byDoctor: TatRow[]; byDay: TatRow[]; byMonth: TatRow[]; byDoctorMonth: (TatRow & { doctor: string; month: string })[];
+  byDoctor: TatRow[]; byDay: TatRow[]; byMonth: TatRow[];
+  /** D11: new vs follow-up visits (follow-up = the doctor's only Dx is "Follow-up visit"). */
+  byKind?: TatRow[]; byDoctorKind?: (TatRow & { doctor: string; kind: 'new' | 'follow_up' })[]; byDoctorMonth: (TatRow & { doctor: string; month: string })[];
 }
 
 /** Per consulting doctor (pseudo id from OpenMRS). */

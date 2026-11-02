@@ -140,6 +140,9 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
     const t = data.tat;
     block(tt, 'Turnaround time', [{ header: 'Patients', width: 16 }, ...tatCols], [t.all, t.paediatric, t.adult].map((r) => [r.name, ...tatCells(r)]),
       'Wait = visit started -> doctor opened the note; in the note = note opened -> prescription shared; total = visit started -> prescription shared.');
+    const kind = (k: string) => (k === 'follow_up' ? 'Follow-up visit' : 'New visit');
+    if (t.byKind) block(tt, 'New vs follow-up visits', [{ header: 'Visit type', width: 18 }, ...tatCols], t.byKind.map((r) => [kind(r.name), ...tatCells(r)]), 'Follow-up = the doctor\'s only diagnosis is "Follow-up visit".');
+    if (t.byDoctorKind) block(tt, 'By doctor: new vs follow-up', [{ header: 'Doctor', width: 16 }, { header: 'Visit type', width: 18 }, ...tatCols], t.byDoctorKind.map((r) => [doctorLabel(r.doctor), kind(r.kind), ...tatCells(r)]));
     block(tt, 'By doctor', [{ header: 'Doctor', width: 16 }, ...tatCols], t.byDoctor.map((r) => [doctorLabel(r.name), ...tatCells(r)]));
     block(tt, 'By month', [{ header: 'Month', width: 16 }, ...tatCols], [...t.byMonth].reverse().map((r) => [r.name, ...tatCells(r)]));
     block(tt, 'By doctor and month', [{ header: 'Month', width: 12 }, { header: 'Doctor', width: 16 }, ...tatCols], t.byDoctorMonth.map((r) => [r.month, doctorLabel(r.doctor), ...tatCells(r)]));
