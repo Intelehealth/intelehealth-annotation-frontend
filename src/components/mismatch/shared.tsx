@@ -66,7 +66,15 @@ export function HighlightChip({ h, full }: { h: Highlight; full?: boolean }) {
 }
 
 /** Background-sync status line with a manual "sync now". */
-export function SyncBar({ state, onSync, newCount }: { state: SyncState | null; onSync: () => void; newCount: number }) {
+/** A failed run's stored error in plain words (the raw text stays in the tooltip). Ticket Q4. */
+export function syncProblem(err?: string | null): string {
+  const e = String(err ?? '');
+  if (/network|fetch failed|ECONN|ENOTFOUND|timed? ?out|abort|HTTP 50[234]/i.test(e)) return 'OpenMRS could not be reached';
+  if (/HTTP 40[13]|api key|unauthor/i.test(e)) return 'OpenMRS refused the sync key';
+  return 'OpenMRS returned an error';
+}
+
+export function SyncBar({ state, onSync, newCount, clientError }: { state: SyncState | null; onSync: () => void; newCount: number; /** ISO time of a sync request that never reached the server (network down). */ clientError?: string | null }) {
   if (!state) return null;
   const run = state.lastRun;
   if (!state.configured) {
@@ -87,10 +95,13 @@ export function SyncBar({ state, onSync, newCount }: { state: SyncState | null; 
             {run?.total ? `: ${run.fetched.toLocaleString()} / ${run.total.toLocaleString()}` : '…'}. You can keep annotating.
           </span>
         </>
-      ) : state.status === 'error' ? (
+      ) : state.status === 'error' || clientError ? (
         <>
           <TriangleAlert className="h-4 w-4" />
-          <span>Last sync failed: {run?.error ?? 'unknown error'}</span>
+          <span title={clientError ? undefined : run?.error ?? undefined}>
+            Sync failed {timeAgo(clientError ?? run?.finishedAt ?? run?.startedAt)} · {clientError ? 'could not reach the server' : syncProblem(run?.error)}
+            {state.lastSuccessAt && <span className="text-rose-800/80"> · Last synced {timeAgo(state.lastSuccessAt)}</span>}
+          </span>
         </>
       ) : (
         <>
@@ -103,7 +114,7 @@ export function SyncBar({ state, onSync, newCount }: { state: SyncState | null; 
         </>
       )}
       <Button variant="ghost" size="sm" className="ml-auto h-7" disabled={state.running} onClick={onSync}>
-        <RefreshCw className="mr-1 h-3.5 w-3.5" /> Sync now
+        <RefreshCw className="mr-1 h-3.5 w-3.5" /> {state.status === 'error' || clientError ? 'Retry' : 'Sync now'}
       </Button>
     </div>
   );

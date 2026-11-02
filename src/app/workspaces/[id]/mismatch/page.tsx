@@ -75,7 +75,11 @@ export default function MismatchWorkspacePage() {
     return () => clearTimeout(t);
   }, [id, ws, sync, onState]);
 
-  const syncNow = () => mismatchAPI.sync(id, true).then(onState).catch((e) => setError(apiMessage(e, 'Sync failed to start')));
+  // Q4: a sync request that cannot reach the server shows in the sync bar as "Sync failed … · Retry", never as a raw "Network Error".
+  const [syncFailedAt, setSyncFailedAt] = useState<string | null>(null);
+  const syncNow = () => mismatchAPI.sync(id, true)
+    .then((s) => { setSyncFailedAt(null); onState(s); })
+    .catch((e) => (e?.response ? setError(apiMessage(e, 'Sync failed to start')) : setSyncFailedAt(new Date().toISOString())));
 
   if (error && !ws) {
     return (
@@ -104,7 +108,7 @@ export default function MismatchWorkspacePage() {
         </div>
       </header>
 
-      <SyncBar state={sync} onSync={syncNow} newCount={newCount} />
+      <SyncBar state={sync} onSync={syncNow} newCount={newCount} clientError={syncFailedAt} />
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <nav className="flex flex-wrap gap-1 border-b">
