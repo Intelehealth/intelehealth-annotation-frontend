@@ -128,7 +128,7 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
           <Segmented label="Trend by" value={grain} onChange={(v) => setGrain(v as Grain)} options={[{ key: 'day', label: 'Day' }, { key: 'week', label: 'Week' }, { key: 'month', label: 'Month' }]} />
           <span className="ml-auto text-xs text-slate-500">
             {from || to ? `${from ?? '…'} → ${to ?? '…'}` : 'All time'}
-            {data && ` · ${fmt(data.summary.visits)} visits · ${fmt(data.ai.headline.all.dxScored)} scored by AI · ${fmt(data.ai.followUpVisitsExcluded)} follow-ups ${data.ai.headline.includeFollowUps ? 'included' : 'excluded'}`}
+            {data && ` · ${fmt(data.summary.visits)} visits · ${fmt(data.ai.headline.all.dxScored)} scored by AI · ${fmt(data.ai.followUpVisits ?? data.ai.followUpVisitsExcluded)} follow-ups ${data.ai.headline.includeFollowUps ? 'included' : 'excluded'}`}
             {loading && data && ' · updating…'}
           </span>
           <button
@@ -176,7 +176,7 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
           {tab === 'tat' && <TatTab data={data} />}
           {tab === 'orders' && <OrdersTab data={data} />}
           {tab === 'annotation' && <AnnotationTab data={data} />}
-          {tab !== 'tat' && <FollowUpNote included={data.ai.headline.includeFollowUps} n={data.ai.headline.includeFollowUps ? data.ai.headline.all.followUpOnly : data.ai.followUpVisitsExcluded} />}
+          {tab !== 'tat' && <FollowUpNote included={data.ai.headline.includeFollowUps} n={data.ai.followUpVisits ?? data.ai.followUpVisitsExcluded} />}
         </div>
       )}
     </div>
@@ -405,7 +405,6 @@ function PopulationTable({ data }: { data: DashboardData }) {
   const rows: [string, (h: AiHeadline) => string][] = [
     ['Visits', (h) => fmt(h.visits)],
     ['AI generated a Dx list', (h) => pctOf(h.dxGenerated, h.visits)],
-    ['Doctor picked an AI Dx', (h) => pctOf(h.dxPicked, h.dxScored)],
     ['Top 1', (h) => pctOf(h.top1, h.dxScored)],
     ['Top 3', (h) => pctOf(h.top3, h.dxScored)],
     ['Top 5', (h) => pctOf(h.top5, h.dxScored)],

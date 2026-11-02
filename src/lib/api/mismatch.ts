@@ -195,6 +195,8 @@ export interface AiMetrics {
   rationaleClicks: number | null;
   /** Follow-up visits left out of every AI metric (nothing in the note for the AI to work from). */
   followUpVisitsExcluded: number;
+  /** Every follow-up visit in the range, in both modes. */
+  followUpVisits?: number;
   byDoctor: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number })[];
   byDay: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number })[];
   byDoctorDay: (DxAgg & { doctor: string; date: string })[];
