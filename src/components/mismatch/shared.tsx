@@ -94,30 +94,31 @@ export function SyncBar({ state, onSync, newCount, clientError }: { state: SyncS
     );
   }
   return (
-    <div className={cn('flex flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5 text-sm',
+    // One line on a phone (details from the sm breakpoint up).
+    <div className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-xs sm:flex-wrap sm:gap-3 sm:px-4 sm:py-2.5 sm:text-sm',
       state.running ? 'border-blue-200 bg-blue-50 text-blue-900' : state.status === 'error' ? 'border-rose-200 bg-rose-50 text-rose-900' : 'bg-card')}>
       {state.running ? (
         <>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>
-            Fetching new visits from OpenMRS in the background{run ? ` (${run.window})` : ''}
-            {run?.total ? `: ${run.fetched.toLocaleString()} / ${run.total.toLocaleString()}` : '…'}. You can keep annotating.
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          <span className="min-w-0 truncate sm:whitespace-normal">
+            Fetching new visits<span className="hidden sm:inline"> from OpenMRS in the background{run ? ` (${run.window})` : ''}</span>
+            {run?.total ? `: ${run.fetched.toLocaleString()} / ${run.total.toLocaleString()}` : '…'}<span className="hidden sm:inline">. You can keep annotating.</span>
           </span>
         </>
       ) : state.status === 'error' || clientError ? (
         <>
-          <TriangleAlert className="h-4 w-4" />
-          <span title={clientError ? undefined : run?.error ?? undefined}>
+          <TriangleAlert className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 truncate sm:whitespace-normal" title={clientError ? undefined : run?.error ?? undefined}>
             Sync failed {timeAgo(clientError ?? run?.finishedAt ?? run?.startedAt)} · {clientError ? 'could not reach the server' : syncProblem(run?.error)}
             {state.lastSuccessAt && <span className="text-rose-800/80"> · Last synced {timeAgo(state.lastSuccessAt)}</span>}
           </span>
         </>
       ) : (
         <>
-          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-          <span>
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+          <span className="min-w-0 truncate sm:whitespace-normal">
             Synced with OpenMRS {timeAgo(state.lastSuccessAt)}
-            {run ? ` · last run ${run.inserted.toLocaleString()} new, ${run.updated.toLocaleString()} changed${run.unchanged != null ? `, ${run.unchanged.toLocaleString()} unchanged` : ''}` : ''}
+            <span className="hidden sm:inline">{run ? ` · last run ${run.inserted.toLocaleString()} new, ${run.updated.toLocaleString()} changed${run.unchanged != null ? `, ${run.unchanged.toLocaleString()} unchanged` : ''}` : ''}</span>
             {newCount > 0 && <span className="ml-1 font-medium text-emerald-700">· {newCount.toLocaleString()} new since you opened</span>}
           </span>
         </>

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Flag, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flag, Info, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Empty } from '@/components/dashboard/kpi';
@@ -175,7 +175,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
             </button>
           ))}
         </div>
-        <span className="ml-2 text-xs text-muted-foreground">Paediatric = age 17 or under</span>
+        <span className="ml-2 inline-flex cursor-help align-middle text-muted-foreground" title="Paediatric = age 17 or under; General = 18 and over" aria-label="Paediatric = age 17 or under; General = 18 and over"><Info className="h-3.5 w-3.5" /></span>
       </div>
       <div className="rounded-lg border bg-card">
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
@@ -333,8 +333,10 @@ function Row({ v, workspaceId, view }: { v: QueueItem; workspaceId: string; view
         <div className="flex flex-wrap gap-1">
           {v.referral && <Pill tone={v.referral.urgent ? 'neg' : 'n'}>{v.referral.urgent ? 'Urgent referral' : 'Referred'}: {displayName(v.referral.specialist)}</Pill>}
           {v.followUpInDays != null && v.followUpInDays >= 0 && v.followUpInDays <= 3 && <Pill tone="warn">Follow-up {v.followUpInDays === 0 ? 'today' : `in ${v.followUpInDays} day${v.followUpInDays === 1 ? '' : 's'}`}</Pill>}
-          {v.highlights.slice(0, 3).map((h, i) => <HighlightChip key={i} h={h} />)}
-          {v.highlights.length > 3 && <span className="self-center text-xs text-muted-foreground">+{v.highlights.length - 3} more</span>}
+          {/* Up to 3 on desktop, 2 on a phone, then a +N count. */}
+          {v.highlights.slice(0, 3).map((h, i) => <span key={i} className={i >= 2 ? 'hidden sm:contents' : 'contents'}><HighlightChip h={h} /></span>)}
+          {v.highlights.length > 2 && <span className="self-center text-xs text-muted-foreground sm:hidden">+{v.highlights.length - 2}</span>}
+          {v.highlights.length > 3 && <span className="hidden self-center text-xs text-muted-foreground sm:inline">+{v.highlights.length - 3} more</span>}
         </div>
       </td>
       <td className="block pt-1 sm:table-cell sm:px-4 sm:py-3">

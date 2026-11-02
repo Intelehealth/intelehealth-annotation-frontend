@@ -127,7 +127,8 @@ export function TreatmentPlan({ plan, lang, medWhy, unflagged }: {
               return (
                 <tr key={`${type}-${k}`} className="block border-b border-rule py-2 align-top sm:table-row sm:border-0 sm:py-0">
                   <td className="block pr-2 font-medium sm:table-cell sm:border-b sm:border-rule sm:py-2">
-                    {type === 'medicine' ? displayName(i.name) : type === 'test' ? 'Test' : type === 'advice' ? 'Advice' : type === 'referral' ? 'Referral' : 'Follow-up'}
+                    {/* Medicines and tests show their name; advice / referral / follow-up label the group once. */}
+                    {type === 'medicine' || type === 'test' ? displayName(i.name) : k > 0 ? '' : type === 'advice' ? 'Advice' : type === 'referral' ? 'Referral' : 'Follow-up'}
                     {type === 'medicine' && medWhy(i.name)}
                   </td>
                   <td className={cn('block pr-2 sm:table-cell sm:border-b sm:border-rule sm:py-2', !i.ai && 'text-faint')}>
@@ -152,7 +153,7 @@ export function TreatmentPlan({ plan, lang, medWhy, unflagged }: {
                     ) : type === 'advice' && i.doctor ? (
                       displayName(adviceIn(i.doctor, lang))
                     ) : (
-                      (type === 'test' && i.doctor ? displayName(i.doctor) : i.doctor) ?? <span className="text-faint">{i.outcome === 'not_used' ? 'Not prescribed' : '—'}</span>
+                      (type === 'test' && i.doctor ? 'Ordered' : i.doctor) ?? <span className="text-faint">{i.outcome === 'not_used' ? (type === 'test' ? 'Not ordered' : 'Not prescribed') : '—'}</span>
                     )}
                     {o.text && <div className="mt-1"><Pill tone={o.tone}>{o.text}{i.changes?.length ? `: ${i.changes.join(', ')}` : ''}</Pill></div>}
                     {flag && <div className="mt-1 text-xs text-pill-warn-ink">{flag}</div>}
