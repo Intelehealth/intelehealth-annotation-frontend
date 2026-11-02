@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Empty } from '@/components/dashboard/kpi';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
-  DDX_VERDICTS, doctorLabel, mismatchAPI, TTX_VERDICTS,
+  DDX_VERDICTS, doctorLabel, mismatchAPI, TTX_VERDICTS, viewString,
   type Facets, type QueueItem, type QueuePage, type QueueQuery, type QueueTab,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
@@ -107,6 +107,8 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
     return () => { live = false; };
   }, [workspaceId, q, tab, refreshKey, onCounts, ready]);
 
+  // Carried on visit links so "Save & next" stays in this exact view (ticket V3).
+  const view = useMemo(() => viewString({ ...q, tab }), [q, tab]);
   const set = (patch: Partial<QueueQuery>) => setQ((p) => ({ ...p, ...patch, page: patch.page ?? 1 }));
   const clearAll = () => { setSearch(''); setDx(''); setMed(''); setQ({ ...DEFAULT, sort: q.sort }); };
   const pages = data ? Math.max(1, Math.ceil(data.total / (q.limit ?? 25))) : 1;
@@ -262,7 +264,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
                   <th className="px-4 py-2 font-medium">{tab === 'todo' ? 'Status' : 'Review'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">{data.items.map((v) => <Row key={v.uuid} v={v} workspaceId={workspaceId} />)}</tbody>
+              <tbody className="divide-y">{data.items.map((v) => <Row key={v.uuid} v={v} workspaceId={workspaceId} view={view} />)}</tbody>
             </table>
           </div>
         )}
@@ -278,11 +280,11 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
 
 const VERDICT_LABEL = Object.fromEntries([...DDX_VERDICTS, ...TTX_VERDICTS].map((v) => [v.value, v.label]));
 
-function Row({ v, workspaceId }: { v: QueueItem; workspaceId: string }) {
+function Row({ v, workspaceId, view }: { v: QueueItem; workspaceId: string; view: string }) {
   return (
     <tr className="align-top hover:bg-accent/30">
       <td className="whitespace-nowrap px-4 py-3">
-        <Link href={`/workspaces/${workspaceId}/mismatch/${v.uuid}`} className="font-medium text-blue-700 hover:underline">{fmtDate(v.encounterAt)}</Link>
+        <Link href={`/workspaces/${workspaceId}/mismatch/${v.uuid}?view=${encodeURIComponent(view)}`} className="font-medium text-blue-700 hover:underline">{fmtDate(v.encounterAt)}</Link>
         <div className="text-xs text-muted-foreground">{[v.gender, v.age != null ? `${v.age}y` : null, v.specialty].filter(Boolean).join(' · ')}</div>
         {v.doctor && <div className="text-xs text-muted-foreground">{doctorLabel(v.doctor)}</div>}
       </td>

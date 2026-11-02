@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCheck, Inbox, Rows3, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,8 @@ export default function MismatchWorkspacePage() {
   const [newCount, setNewCount] = useState(0);
   const wasRunning = useRef(false);
   const lastFinished = useRef<string | undefined>(undefined);
+  // "Save & next" on the last visit of a view lands here with ?finished=1 (ticket V3).
+  const finished = useSearchParams().get('finished') === '1';
 
   useEffect(() => {
     try {
@@ -121,6 +123,13 @@ export default function MismatchWorkspacePage() {
           </button>
         ))}
       </nav>
+
+      {finished && (
+        <div role="status" className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900">
+          <span>You&apos;ve finished this view: no visits are left in it after the one you just saved.</span>
+          <button className="text-xs underline" onClick={() => router.replace(`/workspaces/${id}/mismatch`)}>Dismiss</button>
+        </div>
+      )}
 
       <MismatchQueue workspaceId={id} tab={tab} refreshKey={refreshKey} onCounts={onCounts} />
     </Shell>

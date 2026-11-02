@@ -202,6 +202,17 @@ export const doctorLabel = (id?: string | null) => (id && id !== 'Unknown' ? `Dr
 export interface GroupStat { name: string; visits: number; top1: number; top5: number; mrr: number }
 
 const base = '/mismatch/workspaces';
+
+/**
+ * A queue view (tab + filters + sort) as a query string, carried on visit links
+ * as ?view= so "Save & next" walks the same list the doctor opened (ticket V3).
+ */
+export const viewString = (q: QueueQuery & { tab?: QueueTab }) =>
+  new URLSearchParams(
+    Object.entries(q).filter(([k, v]) => k !== 'page' && k !== 'limit' && v !== undefined && v !== '').map(([k, v]) => [k, String(v)]),
+  ).toString();
+export const parseView = (s?: string | null): QueueQuery & { tab?: QueueTab } =>
+  Object.fromEntries(new URLSearchParams(s ?? '').entries()) as QueueQuery & { tab?: QueueTab };
 const clean = (q: object) => Object.fromEntries(Object.entries(q).filter(([, v]) => v !== undefined && v !== ''));
 
 export const mismatchAPI = {
@@ -218,6 +229,9 @@ export const mismatchAPI = {
   /** Image `index` of a visit as a blob, proxied from OpenMRS by the backend. */
   image: (id: string, uuid: string, index: number) =>
     jsonApi.get<Blob>(`${base}/${id}/visits/${uuid}/images/${index}`, { responseType: 'blob' }).then((r) => r.data),
+  /** Position of a visit in a queue view and the visit after it (fallbackIndex = its index before it left the view). */
+  position: (id: string, uuid: string, view: QueueQuery & { tab?: QueueTab }, fallbackIndex?: number) =>
+    jsonApi.get<{ index: number; total: number; next: string | null }>(`${base}/${id}/queue/position`, { params: clean({ ...view, uuid, fallbackIndex }) }).then((r) => r.data),
   claim: (id: string, uuid: string) => jsonApi.post<{ claimed: boolean }>(`${base}/${id}/visits/${uuid}/claim`).then((r) => r.data),
   /** final = "Save & next" (mark done; the API rejects it without the required verdicts); otherwise a draft. */
   saveReview: (id: string, uuid: string, body: ReviewInput & { final?: boolean }) =>

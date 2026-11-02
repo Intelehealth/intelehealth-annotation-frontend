@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { VisitImages } from '@/components/mismatch/visit-images';
 import { missingForDone, type MissingField } from '@/lib/review-rules';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
-  DDX_REASONS, DDX_VERDICTS, doctorLabel, mismatchAPI, SOURCE_LABEL, TTX_REASONS, TTX_VERDICTS,
+  DDX_REASONS, DDX_VERDICTS, doctorLabel, mismatchAPI, parseView, SOURCE_LABEL, TTX_REASONS, TTX_VERDICTS,
   type AiMedication, type ReviewInput, type VisitDetail,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
@@ -43,6 +43,17 @@ export default function MismatchVisitPage() {
   const [form, setForm] = useState<ReviewInput>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // The queue view this visit was opened from (?view=); "Save & next" stays inside it (ticket V3).
+  const viewQs = useSearchParams().get('view') ?? 'tab=todo';
+  const [pos, setPos] = useState<{ uuid: string; index: number; total: number } | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    mismatchAPI.position(id, uuid, parseView(viewQs))
+      .then((p) => live && setPos({ uuid, index: p.index, total: p.total }))
+      .catch(() => undefined);
+    return () => { live = false; };
+  }, [id, uuid, viewQs]);
 
   useEffect(() => {
     let live = true;
@@ -71,9 +82,9 @@ export default function MismatchVisitPage() {
       setSaved(true);
       if (!next) setV(await mismatchAPI.visit(id, uuid)); // refresh status and edit history
       if (next) {
-        const q = await mismatchAPI.queue(id, { tab: 'todo', status: 'pending', limit: 2 });
-        const n = q.items.find((x) => x.uuid !== uuid);
-        router.push(n ? `/workspaces/${id}/mismatch/${n.uuid}` : `/workspaces/${id}/mismatch`);
+        const here = pos?.uuid === uuid && pos.index >= 0 ? pos.index : undefined;
+        const p = await mismatchAPI.position(id, uuid, parseView(viewQs), here);
+        router.push(p.next ? `/workspaces/${id}/mismatch/${p.next}?view=${encodeURIComponent(viewQs)}` : `/workspaces/${id}/mismatch?finished=1`);
       }
     } catch (e) { setError(apiMessage(e, 'Could not save')); }
     finally { setSaving(false); }
@@ -111,6 +122,7 @@ export default function MismatchVisitPage() {
         <TypeBadge type={v.mismatchType} />
         <StatusBadge status={v.review.status} />
         {v.review.annotatedBy && <span className="text-xs text-muted-foreground">by {v.review.annotatedBy.name}</span>}
+        {pos?.uuid === uuid && pos.index >= 0 && <span className="text-xs font-medium text-slate-700">{(pos.index + 1).toLocaleString()} of {pos.total.toLocaleString()} in this view</span>}
         <span className="ml-auto text-xs text-muted-foreground">Visit {v.visitPseudoId ?? v.visitId ?? ''} · {v.uuid}</span>
       </div>
 
