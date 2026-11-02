@@ -11,10 +11,11 @@ import { MISMATCH_LABEL, type Highlight, type MismatchType, type ReviewStatus, t
 
 export function Shell({ children, wide }: { children: ReactNode; wide?: boolean }) {
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-ground">
       <Sidebar className="hidden lg:flex" />
       <main className="flex-1 overflow-auto">
-        <TopNav />
+        {/* G1: the top bar only carries the mobile menu, so it is hidden on desktop (no empty band). */}
+        <div className="lg:hidden"><TopNav /></div>
         <div className={cn('mx-auto space-y-6 p-4 md:p-6', wide ? 'max-w-7xl' : 'max-w-6xl')}>{children}</div>
       </main>
     </div>
