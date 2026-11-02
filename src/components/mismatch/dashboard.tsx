@@ -561,7 +561,7 @@ function TreatmentTab({ data }: { data: DashboardData }) {
             </div>
           )}
         </Section>
-        <Section title="Medicines doctors added, by diagnosis" description="Doctor's diagnosis → medicine the doctor added (not suggested by the AI) · every visit in the period, follow-ups included">
+        <Section title="Medicines doctors added, by diagnosis" description={`Doctor's diagnosis → medicine the doctor added (not suggested by the AI) · ${aiBase(data)}`}>
           <RankedList items={data.addedForDiagnosis} />
         </Section>
       </div>

@@ -6,6 +6,9 @@ import { pct, timeAgo } from '@/components/dashboard/format';
 import { DDX_VERDICTS, doctorLabel, TTX_VERDICTS, type DashboardData, type DoctorStat, type GroupStat } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 import { displayName } from '@/lib/format-display';
+
+// Same base as the AI metrics: follows the dashboard follow-up switch.
+const fuLabel = (d: DashboardData) => (d.ai.headline.includeFollowUps ? 'follow-ups included' : 'follow-ups excluded');
 import { rate, TableSearch, useRowFilter } from './shared';
 
 const PERSON_COLORS = ['#1e3a8a', '#2563eb', '#60a5fa', '#0f766e', '#64748b', '#93c5fd', '#334155'];
@@ -229,23 +232,23 @@ export function DiagnosisPatterns({ data }: { data: DashboardData }) {
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Diagnosis patterns</h3>
       <Section
         title="Is the AI's confidence label calibrated?"
-        description="Every AI suggestion (ranks 1-5) on every visit in the period with an AI list (follow-ups included), grouped by the likelihood label the AI gave it. If the labels mean something, “Doctor picked it” should fall from High to Low. Label spellings are merged (e.g. “Moderate to High” → Moderate-High)."
+        description={`Every AI suggestion (ranks 1-5) on visits with an AI list (${fuLabel(data)}), grouped by the likelihood label the AI gave it. If the labels mean something, “Doctor picked it” should fall from High to Low. Label spellings are merged (e.g. “Moderate to High” → Moderate-High).`}
       >
         <ConfidenceTable rows={data.confidence} />
       </Section>
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Most common misses" description="AI's #1 → the doctor's diagnosis, when the doctor's diagnosis was not in the AI top 5 · every visit in the period with an AI list, follow-ups included">
+        <Section title="Most common misses" description={`AI's #1 → the doctor's diagnosis, when the doctor's diagnosis was not in the AI top 5 · visits with an AI list, ${fuLabel(data)}`}>
           <PairList items={data.mismatchPairs.missed} empty="No misses in this range." />
         </Section>
-        <Section title="Most common “right list, wrong order”" description="AI's #1 → the doctor's diagnosis, when the doctor picked the AI's #2–#5 · every visit in the period with an AI list, follow-ups included">
+        <Section title="Most common “right list, wrong order”" description={`AI's #1 → the doctor's diagnosis, when the doctor picked the AI's #2–#5 · visits with an AI list, ${fuLabel(data)}`}>
           <PairList items={data.mismatchPairs.rankedLower} empty="None in this range." />
         </Section>
       </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Section title="When the AI says X first, how often does the doctor agree?" description="Per AI #1 diagnosis, most frequent first · every visit in the period with an AI list, follow-ups included">
+        <Section title="When the AI says X first, how often does the doctor agree?" description={`Per AI #1 diagnosis, most frequent first · visits with an AI list, ${fuLabel(data)}`}>
           <GroupTable rows={data.aiTop1Agreement} first="AI's #1 diagnosis" />
         </Section>
-        <Section title="By specialty" description="Adults (General Physician) vs children (Pediatrician) and others · every visit in the period with an AI list, follow-ups included">
+        <Section title="By specialty" description={`Adults (General Physician) vs children (Pediatrician) and others · visits with an AI list, ${fuLabel(data)}`}>
           {data.specialties.length === 0 ? <Empty>Nothing in this range.</Empty> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
