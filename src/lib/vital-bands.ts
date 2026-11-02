@@ -76,3 +76,8 @@ export function bmiBand(bmi: number, ageYears: number | null | undefined): Vital
   if (bmi < 30) return { word: 'Overweight', tone: 'out' };
   return { word: 'Obese', tone: 'out' };
 }
+
+/** The normal pulse range for an age (banding.py _PULSE_NORMAL), for the range bar; null without an age. */
+export function pulseRange(ageYears: number | null | undefined): [number, number] | null {
+  return ageYears == null ? null : PULSE_NORMAL[ageBand(ageYears)];
+}

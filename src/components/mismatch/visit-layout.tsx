@@ -188,10 +188,12 @@ export function NoteBlock({ heading, text, cut }: { heading: string; text: strin
     <div className="border-t border-rule py-3.5 first:border-t-0">
       {groups.map((g, gi) => (
         <div key={gi} className={gi ? 'mt-3' : ''}>
-          <h3 className="mb-2 text-[13px] font-semibold">{heading}{g.title ? ` · ${g.title}` : ''}</h3>
-          <dl className="grid grid-cols-[minmax(96px,38%)_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm md:grid-cols-[200px_minmax(0,1fr)]">
+          <h3 className="mb-2 text-sm font-[650] text-[#111418]">{heading}{g.title ? ` · ${g.title}` : ''}</h3>
+          <dl className="grid grid-cols-[minmax(96px,38%)_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm md:grid-cols-[170px_minmax(0,1fr)]">
             {g.rows.map((r, i) => r.label ? (
-              <div key={i} className="contents"><dt className="text-muted-foreground">{r.label}</dt><dd>{show(r.value)}</dd></div>
+              <div key={i} className="contents"><dt className="text-[#59616c]">{r.label}</dt>
+                {/* positive findings stand out; denials are muted */}
+                <dd className={/denie/i.test(r.label) ? 'text-[#59616c]' : 'text-[#111418]'}>{/report/i.test(r.label) && dash(r.value) !== '—' ? <span className="rounded bg-[#fff4d6] px-1.5 py-0.5 text-[#8a4b00]">{r.value}</span> : show(r.value)}</dd></div>
             ) : (
               <dd key={i} className="col-span-2">{show(r.value)}</dd>
             ))}
