@@ -293,8 +293,12 @@ export default function MismatchVisitPage() {
                   </div>
                 )}
                 {/* V7: one ranked list with the doctor's pick marked; folded when the Dx agreed. */}
-                <details className="group text-[13px]" open={!a.ddxBestRank || ownDx.length > 0}>
-                  <summary className="cursor-pointer text-xs text-muted-foreground"><span className="group-open:hidden">Show the AI&apos;s list and the doctor&apos;s diagnoses</span><span className="hidden group-open:inline">AI&apos;s ranked list and the doctor&apos;s diagnoses</span></summary>
+                {/* V7 (PM decision A): folded whenever the doctor picked an AI Dx, even with doctor-added Dx; open on a Dx mismatch. */}
+                <details className="group text-[13px]" open={!a.ddxBestRank}>
+                  <summary className="cursor-pointer text-xs text-muted-foreground"><span className="group-open:hidden">
+                    {a.ddxBestRank ? <>Picked AI #{a.ddxBestRank} <b className="font-medium text-foreground">{displayName(top5.find((x) => x.rank === a.ddxBestRank)?.diagnosis)}</b>{ownDx.length ? <> · doctor added {ownDx.join(', ')}</> : null} · </> : null}
+                    <span className="underline underline-offset-2">show AI list ({ranked.length})</span>
+                  </span><span className="hidden group-open:inline">AI&apos;s ranked list and the doctor&apos;s diagnoses</span></summary>
                   <div className="mt-2">
                     {ranked.length || doctorRows.length ? (
                       <DxList ranked={ranked} doctor={doctorRows} otherAi={otherAi.map((d) => String(d.diagnosis))} why={(n) => <Why r={dxRationale(n)} />} />
