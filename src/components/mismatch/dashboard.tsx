@@ -82,6 +82,8 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
   const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
   const [population, setPopulation] = useState('');
   const [grain, setGrain] = useState<Grain>('day');
+  // T3: follow-up visits are left out of the AI metrics by default; this switch puts them back.
+  const [followUps, setFollowUps] = useState<'exclude' | 'include'>('exclude');
   const [tab, setTab] = useState<TabKey>('overview');
   const [data, setData] = useState<DashboardData | null>(null);
   const [loadedKey, setLoadedKey] = useState("");
@@ -90,16 +92,16 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
 
   const [from, to] = period === 'custom' ? [custom.from, custom.to] : (PERIODS.find((p) => p.key === period)?.range() ?? [undefined, undefined]);
 
-  const key = [workspaceId, from, to, population].join('|');
+  const key = [workspaceId, from, to, population, followUps].join('|');
   const loading = loadedKey !== key;
   useEffect(() => {
     let live = true;
-    mismatchAPI.dashboard(workspaceId, from, to, population || undefined)
+    mismatchAPI.dashboard(workspaceId, from, to, population || undefined, followUps === 'include' ? 'include' : undefined)
       .then((d) => { if (live) { setData(d); setError(null); } })
       .catch((e) => live && setError(apiMessage(e, 'Could not load the dashboard')))
       .finally(() => live && setLoadedKey(key));
     return () => { live = false; };
-  }, [workspaceId, from, to, population, key]);
+  }, [workspaceId, from, to, population, followUps, key]);
 
   return (
     <div className="space-y-5">
@@ -120,6 +122,8 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5">
           <Segmented label="Patients" value={population} onChange={setPopulation} options={POPULATIONS} />
+          <Segmented label="Follow-ups" value={followUps} onChange={(v) => setFollowUps(v as 'exclude' | 'include')}
+            options={[{ key: 'exclude', label: 'Excluded' }, { key: 'include', label: 'Included' }]} />
           <Segmented label="Trend by" value={grain} onChange={(v) => setGrain(v as Grain)} options={[{ key: 'day', label: 'Day' }, { key: 'week', label: 'Week' }, { key: 'month', label: 'Month' }]} />
           <span className="ml-auto text-xs text-slate-500">
             {from || to ? `${from ?? '…'} → ${to ?? '…'}` : 'All time'}
@@ -136,6 +140,7 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
                   programme: programme || 'Programme',
                   period: period === 'custom' || from || to ? `${from ?? 'start'} to ${to ?? 'today'}` : 'All time',
                   patients: POPULATIONS.find((p) => p.key === population)?.label ?? 'All patients',
+                  followUps: data.ai.headline.includeFollowUps ? 'Follow-ups included' : 'Follow-ups excluded',
                 });
               } catch (e) {
                 setError(apiMessage(e, 'Could not export to Excel'));
@@ -162,6 +167,7 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!data ? <div className="h-96 animate-pulse rounded-xl bg-slate-100" /> : (
         <div className={cn('space-y-5 transition-opacity', loading && 'opacity-60')}>
+          {tab !== 'tat' && <ModeBadge included={data.ai.headline.includeFollowUps} />}
           {tab === 'overview' && <Overview data={data} grain={grain} population={population} />}
           {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} />}
           {tab === 'treatment' && <TreatmentTab data={data} />}
@@ -169,15 +175,35 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
           {tab === 'tat' && <TatTab data={data} />}
           {tab === 'orders' && <OrdersTab data={data} />}
           {tab === 'annotation' && <AnnotationTab data={data} />}
-          {tab !== 'tat' && <FollowUpNote n={data.ai.followUpVisitsExcluded} />}
+          {tab !== 'tat' && <FollowUpNote included={data.ai.headline.includeFollowUps} n={data.ai.headline.includeFollowUps ? data.ai.headline.all.followUpOnly : data.ai.followUpVisitsExcluded} />}
         </div>
       )}
     </div>
   );
 }
 
-/** Footer on every tab: why follow-up visits are not in these numbers. */
-function FollowUpNote({ n }: { n: number }) {
+/** Always-visible mode label next to the numbers (ticket T3). */
+function ModeBadge({ included }: { included: boolean }) {
+  return (
+    <div className={cn('inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium', included ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 bg-slate-50 text-slate-700')}>
+      <Info className="h-3.5 w-3.5" /> {included ? 'Follow-up visits INCLUDED in these numbers' : 'Follow-up visits excluded from these numbers'}
+    </div>
+  );
+}
+
+/** Footer on every tab: whether follow-up visits are in these numbers, and why they are left out by default. */
+function FollowUpNote({ n, included }: { n: number; included: boolean }) {
+  if (included) {
+    return (
+      <footer className="flex items-start gap-2 border-t pt-4 text-xs text-amber-800">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <p>
+          <span className="font-medium">Follow-up visits are INCLUDED{n ? ` (${fmt(n)} in this period)` : ''}.</span>{' '}
+          A follow-up note only records whether the patient got and took the medicines and how they feel, so the AI has nothing to diagnose or treat from; expect lower Dx and TTx rates in this mode. Switch Follow-ups to “Excluded” for the standard numbers.
+        </p>
+      </footer>
+    );
+  }
   return (
     <footer className="flex items-start gap-2 border-t pt-4 text-xs text-slate-500">
       <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -315,7 +341,7 @@ function Overview({ data, grain, population }: { data: DashboardData; grain: Gra
   return (
     <>
       <Group title="Diagnosis (DDx)"
-        description="Scored over visits with an AI list (follow-up visits are not counted; see the note at the bottom). A pick is the doctor clicking the AI diagnosis or typing the same name; a clinically equivalent but differently worded diagnosis counts as not picked.">
+        description={`Scored over visits with an AI list (${data.ai.headline.includeFollowUps ? 'follow-up visits INCLUDED' : 'follow-up visits are not counted'}; see the note at the bottom). A pick is the doctor clicking the AI diagnosis or typing the same name; a clinically equivalent but differently worded diagnosis counts as not picked.`}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
           <Stat label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} ofLabel={aiBase(data)} accent />
           <Stat label="Doctor picked an AI Dx" n={h.dxPicked} of={h.dxScored} ofLabel={scoredLabel} />

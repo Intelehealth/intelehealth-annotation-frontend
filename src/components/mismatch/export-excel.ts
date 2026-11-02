@@ -11,7 +11,7 @@ const share = (n: number, d: number) => (d ? n / d : null);
  * as an .xlsx with one sheet per dashboard tab. exceljs is loaded on click so
  * it stays out of the page bundle.
  */
-export async function exportDashboardExcel(data: DashboardData, meta: { programme: string; period: string; patients: string }) {
+export async function exportDashboardExcel(data: DashboardData, meta: { programme: string; period: string; patients: string; followUps?: string }) {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.created = new Date();
@@ -52,7 +52,7 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
   // Overview
   const ov = sheet('Overview');
   block(ov, 'AI Use Dashboard', [{ header: 'Field', width: 34 }, { header: 'Value', width: 40 }], [
-    ['Programme', meta.programme], ['Period', meta.period], ['Patients', meta.patients],
+    ['Programme', meta.programme], ['Period', meta.period], ['Patients', meta.patients], ['Follow-up visits', meta.followUps ?? 'Follow-ups excluded'],
     ['Exported', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })],
     ['Follow-up visits not counted', ai.followUpVisitsExcluded],
   ], 'Follow-up visits only record medicine adherence and how the patient feels, so AI suggestions on them are not considered.');
@@ -178,7 +178,7 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
   const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   const a = document.createElement('a');
   a.href = url;
-  a.download = `AI-dashboard_${meta.programme.replace(/\W+/g, '-')}_${meta.period.replace(/\W+/g, '-')}.xlsx`;
+  a.download = `AI-dashboard_${meta.programme.replace(/\W+/g, '-')}_${meta.period.replace(/\W+/g, '-')}${meta.followUps === 'Follow-ups included' ? '_with-follow-ups' : ''}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 }
