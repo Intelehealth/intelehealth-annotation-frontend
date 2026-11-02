@@ -10,6 +10,8 @@ import { apiMessage } from '@/lib/api/workspaces';
 import { mismatchAPI, SOURCE_LABEL, type MismatchWorkspace } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 
+const LAST_PROGRAM_KEY = 'ai-dashboard-program';
+
 /** Standalone AI Use dashboard, one programme at a time (?program=NAS|TURN). */
 function AiDashboardPage() {
   const router = useRouter();
@@ -21,7 +23,16 @@ function AiDashboardPage() {
     mismatchAPI.list().then(setWorkspaces).catch((e) => setError(apiMessage(e, 'Could not load programmes')));
   }, []);
 
-  const current = workspaces?.find((w) => w.source === params.get('program')) ?? workspaces?.[0];
+  // D10: ?program wins; otherwise the programme last opened here (this browser), then NAS, then the first.
+  const remembered = (() => { try { return localStorage.getItem(LAST_PROGRAM_KEY); } catch { return null; } })();
+  const current = workspaces?.find((w) => w.source === params.get('program'))
+    ?? workspaces?.find((w) => w.source === remembered)
+    ?? workspaces?.find((w) => w.source === 'NAS')
+    ?? workspaces?.[0];
+  useEffect(() => {
+    if (!current) return;
+    try { localStorage.setItem(LAST_PROGRAM_KEY, current.source); } catch { /* storage unavailable */ }
+  }, [current]);
 
   return (
     <Shell wide>
