@@ -41,12 +41,24 @@ export function pulseBand(bpm: number, ageYears: number | null | undefined): Vit
 }
 
 // Adult ACC/AHA staging; under 20 needs age / sex / height percentile tables, so it is not guessed.
+// V10b (display-only, not in banding.py): a Low component (SBP < 90 or DBP < 60) is never hidden. When the other
+// component is high, both are named ("Low diastolic · Elevated systolic"); without a Low component the
+// standard staging (the higher category) applies. Pending clinical review.
+const SYS_STAGE = (s: number) => (s >= 180 ? 'Crisis' : s >= 140 ? 'Stage 2' : s >= 130 ? 'Stage 1' : s >= 120 ? 'Elevated' : null);
+const DIA_STAGE = (d: number) => (d >= 120 ? 'Crisis' : d >= 90 ? 'Stage 2' : d >= 80 ? 'Stage 1' : null);
 export function bpBand(sbp: number, dbp: number, ageYears: number | null | undefined): VitalBand {
   if (!Number.isFinite(sbp) || !Number.isFinite(dbp)) return { word: 'No reference', tone: 'none' };
   if (ageYears == null) return { word: 'no age: no reference', tone: 'none' };
   if (ageYears < 20) return { word: 'child: no reference', tone: 'none' };
-  // V10b (display-only, not in banding.py): hypotension is checked first so a low reading is never "Normal".
-  if (sbp < 90 || dbp < 60) return { word: 'Low', tone: 'out' };
+  const sysLow = sbp < 90;
+  const diaLow = dbp < 60;
+  if (sysLow || diaLow) {
+    if (sysLow && diaLow) return { word: 'Low', tone: 'out' };
+    const other = sysLow ? DIA_STAGE(dbp) : SYS_STAGE(sbp);
+    const low = sysLow ? 'Low systolic' : 'Low diastolic';
+    if (!other) return { word: low, tone: 'out' };
+    return { word: `${low} · ${other} ${sysLow ? 'diastolic' : 'systolic'}`, tone: other === 'Crisis' ? 'critical' : 'out' };
+  }
   if (sbp >= 180 || dbp >= 120) return { word: 'Crisis', tone: 'critical' };
   if (sbp >= 140 || dbp >= 90) return { word: 'Stage 2 high', tone: 'out' };
   if (sbp >= 130 || dbp >= 80) return { word: 'Stage 1 high', tone: 'out' };

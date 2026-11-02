@@ -40,7 +40,7 @@ describe('vital bands (V10)', () => {
 describe('V10b: no one-sided gaps', () => {
   it('adult hypotension is Low, checked before the other bands', () => {
     expect(bpBand(85, 55, 40)).toEqual({ word: 'Low', tone: 'out' });
-    expect(bpBand(118, 58, 40)).toEqual({ word: 'Low', tone: 'out' });
+    expect(bpBand(118, 58, 40)).toEqual({ word: 'Low diastolic', tone: 'out' });
     expect(bpBand(119, 78, 40)).toEqual({ word: 'Normal', tone: 'normal' });
     expect(bpBand(85, 55, 8)).toEqual({ word: 'child: no reference', tone: 'none' });
   });
@@ -48,5 +48,15 @@ describe('V10b: no one-sided gaps', () => {
     expect(bpBand(NaN, 70, 40).tone).toBe('none');
     expect(pulseBand(NaN, 40).tone).toBe('none');
     expect(bmiBand(NaN, 40).tone).toBe('none');
+  });
+});
+
+describe('mixed BP: a Low component is never hidden', () => {
+  it('names both components when one is Low and the other high', () => {
+    expect(bpBand(125, 43, 48)).toEqual({ word: 'Low diastolic · Elevated systolic', tone: 'out' });
+    expect(bpBand(89, 81, 36)).toEqual({ word: 'Low systolic · Stage 1 diastolic', tone: 'out' });
+    expect(bpBand(85, 55, 40)).toEqual({ word: 'Low', tone: 'out' });
+    expect(bpBand(185, 55, 40)).toEqual({ word: 'Low diastolic · Crisis systolic', tone: 'critical' });
+    expect(bpBand(135, 95, 40).word).toBe('Stage 2 high');
   });
 });

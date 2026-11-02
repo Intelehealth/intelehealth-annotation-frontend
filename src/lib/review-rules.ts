@@ -17,13 +17,21 @@ const isFollowUpName = (x: unknown) => /follow[\s-]*up/i.test(String(x ?? ''));
 /**
  * Which verdicts the form asks for: the same conditions that show the Dx / TTx questions.
  * Dx: never on a follow-up-only visit; otherwise on a DDx mismatch or a real doctor-added Dx.
- * TTx: on an AI TTx mismatch (follow-ups included: their TTx is still compared).
+ * TTx: on an AI TTx mismatch, except on follow-up-only visits (follow-ups are left out of every AI
+ * metric, so there the treatment verdict is optional: offeredSections still shows it).
  */
 export function requiredSections(a: RuleAnalysis): { dx: boolean; ttx: boolean } {
   return {
     dx: !a?.followUpOnly && !!(a?.ddxMismatch || (a?.doctorAddedDx ?? []).some((x) => !isFollowUpName(x))),
-    ttx: !!(a?.ttxAvailable && a?.ttxMismatch),
+    ttx: !!(a?.ttxAvailable && a?.ttxMismatch && !a?.followUpOnly),
   };
+}
+
+/** Which questions the page shows: the required ones, plus the optional TTx verdict on a follow-up with an AI TTx mismatch. */
+export function offeredSections(a: RuleAnalysis): { dx: boolean; ttx: boolean; ttxOptional: boolean } {
+  const need = requiredSections(a);
+  const ttx = !!(a?.ttxAvailable && a?.ttxMismatch);
+  return { dx: need.dx, ttx, ttxOptional: ttx && !need.ttx };
 }
 
 export type MissingField = 'ddxVerdict' | 'ddxReason' | 'ttxVerdict' | 'ttxReason';
