@@ -111,6 +111,8 @@ export interface VisitDetail {
   ttx?: { medications: AiMedication[]; planRationale?: string | null; reason?: string | null; aiSurface?: string | null } | null;
   langfuse?: { model?: string; engine?: string; latency?: number; totalTokens?: number | null; success?: unknown; name?: string } | null;
   notes: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };
+  /** Marathi text of the same fields (empty string when the note has none). */
+  notesMr?: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };
   analysis: VisitAnalysis;
   mismatchType: MismatchType;
   review: Review;

@@ -43,6 +43,10 @@ export default function MismatchVisitPage() {
   const [form, setForm] = useState<ReviewInput>({});
   const [saving, setSaving] = useState(false);
   const claimed = useRef(false);
+  const langKey = `mismatch-note-lang-${user?._id ?? 'anon'}`;
+  const [langPick, setLangPick] = useState<'en' | 'mr' | null>(null);
+  const lang: 'en' | 'mr' = langPick ?? (() => { try { return localStorage.getItem(langKey) === 'mr' ? 'mr' : 'en'; } catch { return 'en'; } })();
+  const setLang = (l: 'en' | 'mr') => { setLangPick(l); try { localStorage.setItem(langKey, l); } catch { /* storage unavailable */ } };
   // First interaction with the form claims the visit (30-min expiry on the server); a save claims it too.
   const update = (patch: Partial<ReviewInput>) => {
     if (!claimed.current) {
@@ -112,6 +116,9 @@ export default function MismatchVisitPage() {
   const showDdx = a.ddxMismatch || a.doctorAddedDx.length > 0;
   const dxRationale = (name: string) => (v.ddx?.diagnoses ?? []).find((x) => String(x.diagnosis).toLowerCase() === name.toLowerCase())?.rationale;
   const showTtx = a.ttxAvailable;
+  // Notes come in English and Marathi; English by default, the choice is remembered per user (ticket V4).
+  const hasMr = Object.values(v.notesMr ?? {}).some(Boolean);
+  const note = lang === 'mr' && hasMr ? { ...v.notes, ...Object.fromEntries(Object.entries(v.notesMr ?? {}).filter(([, t]) => t)) } : v.notes;
   const missing = missingForDone(a, form);
   const vit = v.vitals ?? {};
   const age = v.demographics?.age;
@@ -171,10 +178,20 @@ export default function MismatchVisitPage() {
           </Section>
           <Section title="Clinical note">
             <div className="space-y-4 px-4 py-4 text-sm">
-              <Note label="Chief complaint" text={v.notes.chiefComplaint} />
-              <Note label="Physical examination" text={v.notes.physicalExamination} />
-              <Note label="Medical history" text={v.notes.patientMedicalHistory} />
-              <Note label="Family history" text={v.notes.familyHistory} />
+              {hasMr && (
+                <div className="flex items-center gap-1 text-xs" role="group" aria-label="Note language">
+                  {(['en', 'mr'] as const).map((l) => (
+                    <button key={l} type="button" onClick={() => setLang(l)} aria-pressed={lang === l}
+                      className={cn('rounded-md border px-2 py-0.5', lang === l ? 'border-slate-900 bg-slate-900 text-white' : 'text-slate-600 hover:bg-accent')}>
+                      {l === 'en' ? 'English' : 'मराठी (Marathi)'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Note label="Chief complaint" text={note.chiefComplaint} />
+              <Note label="Physical examination" text={note.physicalExamination} />
+              <Note label="Medical history" text={note.patientMedicalHistory} />
+              <Note label="Family history" text={note.familyHistory} />
             </div>
           </Section>
           {v.images.length > 0 && (
