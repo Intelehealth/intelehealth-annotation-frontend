@@ -269,12 +269,15 @@ export default function MismatchVisitPage() {
                   <tbody className="divide-y">
                     {(v.ttx?.medications ?? []).map((m, i) => {
                       const d = doctorMed(m);
+                      // V8: the effective outcome (an app "exact" whose prescription clearly differs reads as changed).
+                      const st = a.ttxStatus?.[i] ?? m.aiAssisted;
+                      const unflagged = a.ttxUnflagged?.find((u) => u.index === i);
                       return (
-                        <tr key={i} className={cn('align-top', m.aiAssisted === 'M' && 'bg-amber-50/50', m.aiAssisted === 'N' && 'bg-sky-50/50')}>
+                        <tr key={i} className={cn('align-top', st === 'M' && 'bg-amber-50/50', st === 'N' && 'bg-sky-50/50')}>
                           <td className="px-4 py-2 font-medium">{m.medication}<Why r={m.rationale} /></td>
                           <td className="px-4 py-2 text-xs text-muted-foreground">{m.aiAssisted === 'N' ? '—' : [m.dosage, m.frequency, m.duration ? `${m.duration} ${m.durationUnits ?? ''}` : null].filter(Boolean).join(' · ') || '—'}</td>
                           <td className="px-4 py-2 text-xs">{d ? [d.dose, d.frequency, d.duration ? `${d.duration} ${d.unit}` : null, d.instructions].filter(Boolean).join(' · ') : m.aiAssisted === 'I' ? <span className="text-muted-foreground">not prescribed</span> : '—'}</td>
-                          <td className="px-4 py-2"><Tag t={m.aiAssisted} map={MED_TAG} /></td>
+                          <td className="px-4 py-2"><Tag t={st} map={MED_TAG} />{unflagged && <div className="mt-1 text-[11px] text-amber-800">App said exact; {unflagged.changes.join(', ')} differs</div>}</td>
                         </tr>
                       );
                     })}

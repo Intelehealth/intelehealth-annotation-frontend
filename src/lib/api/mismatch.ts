@@ -78,6 +78,8 @@ export interface VisitAnalysis {
   equivalentNotPicked?: EquivalentNotPicked | null;
   ttxAvailable: boolean; ttxExact: number; ttxModified: number; ttxIgnored: number; ttxAdded: number;
   ttxUsed: boolean; ttxFullyAccepted: boolean; ttxMismatch: boolean; mismatchType: MismatchType; highlights: Highlight[];
+  /** V8: effective letter per ttx.medications index; ttxUnflagged = app "Y" whose prescription clearly differs. */
+  ttxStatus?: string[]; ttxUnflagged?: { index: number; medication: string; changes: string[] }[];
   doctorDiagnoses: { code: string; name: string; role: string; status: string }[];
   doctorMedications: { name: string; dose: string; duration: string; unit: string; instructions: string; frequency: string }[];
 }
