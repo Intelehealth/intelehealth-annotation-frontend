@@ -14,3 +14,9 @@ describe('review rules (frontend mirror)', () => {
     expect(missingForDone({ ddxMismatch: true, ttxAvailable: true, ttxMismatch: true }, {})).toEqual(['ddxVerdict', 'ttxVerdict']);
   });
 });
+
+describe('note too thin to judge (mirror)', () => {
+  it('needs no extra reason', () => {
+    expect(missingForDone({ ddxMismatch: true }, { ddxVerdict: 'insufficient' })).toEqual([]);
+  });
+});

@@ -5,8 +5,8 @@
  */
 export const DDX_VERDICTS = ['doctor_correct', 'ai_correct', 'both_acceptable', 'neither', 'insufficient'] as const;
 export const TTX_VERDICTS = ['doctor_correct', 'ai_correct', 'both_acceptable', 'neither'] as const;
-// "AI was right" and "both acceptable / agree" need no reason; every other verdict does.
-export const NO_REASON_VERDICTS = new Set<string>(['ai_correct', 'both_acceptable']);
+// "AI was right", "both acceptable / agree" and "note too thin to judge" (it is the reason) need no reason; every other verdict does.
+export const NO_REASON_VERDICTS = new Set<string>(['ai_correct', 'both_acceptable', 'insufficient']);
 
 /** The analysis fields the rule reads. */
 export type RuleAnalysis = { ddxMismatch?: boolean; doctorAddedDx?: unknown[]; ttxAvailable?: boolean; ttxMismatch?: boolean; followUpOnly?: boolean } | null | undefined;
