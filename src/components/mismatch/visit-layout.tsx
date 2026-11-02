@@ -13,6 +13,7 @@ import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { dash, displayName, referralParts } from '@/lib/format-display';
 import { noteSections } from '@/lib/note-sections';
+import type { VitalBand } from '@/lib/vital-bands';
 import { PLAN_TYPE_LABEL, type PlanItem, type PlanType, type RankedDx } from '@/lib/api/mismatch';
 
 export function Card({ title, meta, action, children, className, id }: { title?: ReactNode; meta?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; id?: string }) {
@@ -46,17 +47,27 @@ export function Ladder({ rank, miss }: { rank: number | null; miss?: boolean }) 
   );
 }
 
-export function VitalsStrip({ items }: { items: [string, unknown, string][] }) {
+const BAND_TONE: Record<VitalBand['tone'], string> = {
+  normal: 'text-muted-foreground', out: 'bg-pill-warn-bg text-pill-warn-ink', critical: 'bg-pill-neg-bg text-pill-neg-ink', none: 'text-faint',
+};
+
+/** Vitals strip; pulse / BP / BMI carry a band (V10): always colour AND a word, never colour alone. */
+export function VitalsStrip({ items }: { items: [string, unknown, string, VitalBand?][] }) {
   const shown = items.filter(([, v]) => v !== null && v !== undefined && v !== '');
+  const banded = shown.some((x) => x[3]);
   return (
+    <div>
     <section className="grid grid-cols-[repeat(auto-fit,minmax(78px,1fr))] overflow-hidden rounded-lg border border-border bg-surface" aria-label="Vitals">
-      {shown.map(([k, v, unit]) => (
+      {shown.map(([k, v, unit, band]) => (
         <div key={k} className="-ml-px min-w-0 border-l border-border px-3 py-2.5">
           <div className="text-xs text-muted-foreground">{k}</div>
           <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-base font-medium tabular-nums">{String(v)}{unit && <small className="text-xs font-normal text-muted-foreground">{unit}</small>}</div>
+          {band && <div className={cn('mt-0.5 inline-flex rounded px-1 text-[11px] font-medium', BAND_TONE[band.tone])}>{band.word}</div>}
         </div>
       ))}
     </section>
+    {banded && <p className="mt-1 text-[11px] text-faint">Pulse, BP and BMI bands: reference ranges pending clinical review.</p>}
+    </div>
   );
 }
 

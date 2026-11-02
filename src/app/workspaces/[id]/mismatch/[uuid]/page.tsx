@@ -9,6 +9,7 @@ import { VisitImages } from '@/components/mismatch/visit-images';
 import { displayName } from '@/lib/format-display';
 import { missingForDone, NO_REASON_VERDICTS, requiredSections, type MissingField } from '@/lib/review-rules';
 import { noteSections } from '@/lib/note-sections';
+import { bmiBand, bpBand, pulseBand, type VitalBand } from '@/lib/vital-bands';
 import { Card, DxList, Ladder, NoteBlock, Pill, ReasonChips, TreatmentPlan, VerdictButtons, VitalsStrip } from '@/components/mismatch/visit-layout';
 import Link from 'next/link';
 import { friendlyError } from '@/components/mismatch/shared';
@@ -136,10 +137,16 @@ export default function MismatchVisitPage() {
   const missing = missingForDone(a, form);
   const eq = a.equivalentNotPicked ?? null;
   const vit = v.vitals ?? {};
-  const vitals: [string, unknown, string][] = [
+  const ageY = v.demographics?.age ?? null;
+  const num = (x: unknown) => (x === null || x === undefined || x === '' ? NaN : Number(x));
+  // V10: pulse, BP and BMI carry a band (colour + word); SpO2 / temperature / RR are not banded (not requested).
+  const vitals: [string, unknown, string, VitalBand?][] = [
     // Age and sex are in the page title line (always on the first screen), so the strip fits one row.
-    ['BP', vit.sbp && vit.dbp ? `${vit.sbp}/${vit.dbp}` : null, 'mmHg'], ['Pulse', vit.pulse, '/min'], ['Temp', vit.temperature, Number(vit.temperature) > 45 ? '°F' : '°C'],
-    ['SpO₂', vit.spo2, '%'], ['RR', vit.rr, '/min'], ['Weight', vit.weight, 'kg'], ['Height', vit.height, 'cm'], ['BMI', vit.bmi, ''],
+    ['BP', vit.sbp && vit.dbp ? `${vit.sbp}/${vit.dbp}` : null, 'mmHg', vit.sbp && vit.dbp ? bpBand(num(vit.sbp), num(vit.dbp), ageY) : undefined],
+    ['Pulse', vit.pulse, '/min', Number.isFinite(num(vit.pulse)) ? pulseBand(num(vit.pulse), ageY) : undefined],
+    ['Temp', vit.temperature, Number(vit.temperature) > 45 ? '°F' : '°C'],
+    ['SpO₂', vit.spo2, '%'], ['RR', vit.rr, '/min'], ['Weight', vit.weight, 'kg'], ['Height', vit.height, 'cm'],
+    ['BMI', vit.bmi, '', Number.isFinite(num(vit.bmi)) ? bmiBand(num(vit.bmi), ageY) : undefined],
     ['Hb', vit.hb, ''], ['Sugar (R)', vit.sugarRandom, ''],
   ];
 
