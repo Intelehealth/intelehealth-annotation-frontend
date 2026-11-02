@@ -5,6 +5,7 @@ import { Empty, Section } from '@/components/dashboard/kpi';
 import { pct, timeAgo } from '@/components/dashboard/format';
 import { DDX_VERDICTS, doctorLabel, TTX_VERDICTS, type DashboardData, type DoctorStat, type GroupStat } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
+import { displayName } from '@/lib/format-display';
 import { rate, TableSearch, useRowFilter } from './shared';
 
 const PERSON_COLORS = ['#1e3a8a', '#2563eb', '#60a5fa', '#0f766e', '#64748b', '#93c5fd', '#334155'];
@@ -178,9 +179,9 @@ function PairList({ items, empty, left = 'AI' }: { items: { name: string; count:
               <div className="relative flex items-center gap-2 px-2 py-0.5">
                 <span className="w-7 text-xs text-muted-foreground">{items.indexOf(i) + 1}</span>
                 <span className="min-w-0 flex-1 truncate" title={i.name}>
-                  <span className="capitalize text-muted-foreground">{left}: {ai}</span>
+                  <span className="capitalize text-muted-foreground">{left}: {displayName(ai)}</span>
                   <span className="mx-1.5 text-muted-foreground">→</span>
-                  <span className="font-medium capitalize">{dr}</span>
+                  <span className="font-medium capitalize">{displayName(dr)}</span>
                 </span>
                 <span className="tabular-nums text-muted-foreground">{i.count}</span>
               </div>
@@ -254,7 +255,7 @@ export function DiagnosisPatterns({ data }: { data: DashboardData }) {
                 <tbody className="divide-y">
                   {data.specialties.map((r) => (
                     <tr key={r.name}>
-                      <td className={td}>{r.name}</td>
+                      <td className={td}>{displayName(r.name)}</td>
                       <td className={tdR}>{r.visits.toLocaleString()}</td>
                       <td className={tdR}>{pct(rate(r.top1, r.visits))}</td>
                       <td className={tdR}>{pct(rate(r.top5, r.visits))}</td>

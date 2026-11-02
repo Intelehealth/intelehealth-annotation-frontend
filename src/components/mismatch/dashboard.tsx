@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { ConsultingDoctors, DiagnosisPatterns, DoctorProgress } from './insights';
 import { exportDashboardExcel } from './export-excel';
+import { displayName } from '@/lib/format-display';
 import { rate, TableSearch, useRowFilter } from './shared';
 
 // White / blue / navy palette.
@@ -524,7 +525,7 @@ function EquivalentPanel({ data }: { data: DashboardData }) {
       )}>
         {pairs.filtered.map((p) => (
           <tr key={`${p.aiName}|${p.doctorName}|${p.rule}`}>
-            <td className={td}>{p.aiName}</td><td className={td}>{p.doctorName}</td><td className={td}>{RULE_LABEL[p.rule] ?? p.rule}</td>
+            <td className={td}>{displayName(p.aiName)}</td><td className={td}>{displayName(p.doctorName)}</td><td className={td}>{RULE_LABEL[p.rule] ?? p.rule}</td>
             <td className={tdR}>#{p.avgRank}</td><td className={tdR}>{fmt(p.count)}</td><td className={tdR}>{fmt(p.reviewed)}</td>
             <td className={cn(tdR, p.overruled > 0 && 'font-semibold text-red-700')}>{fmt(p.overruled)}</td>
           </tr>
@@ -585,7 +586,7 @@ function TreatmentTab({ data }: { data: DashboardData }) {
         )}>
           {meds.map((m) => (
             <tr key={m.name}>
-              <td className={td}>{m.name}</td>
+              <td className={td}>{displayName(m.name)}</td>
               <td className={tdR}>{fmt(m.suggested)}</td>
               <td className={tdR}>{pctOf(m.unchanged, m.suggested)}</td>
               <td className={tdR}>{pctOf(m.changed, m.suggested)}</td>
@@ -609,7 +610,7 @@ function TreatmentTab({ data }: { data: DashboardData }) {
         )}>
           {addedSearch.filtered.map((m) => (
             <tr key={m.name}>
-              <td className={td}>{m.name}</td>
+              <td className={td}>{displayName(m.name)}</td>
               <td className={tdR}>{fmt(m.count)}</td>
               <td className={tdR}>{m.paediatric ? fmt(m.paediatric) : '—'}</td>
               <td className={cn(td, 'text-xs text-slate-600')}>{m.dose ?? '—'}</td>
@@ -774,11 +775,11 @@ function OrdersTab({ data }: { data: DashboardData }) {
         <Stat label="Follow-up scheduled" n={h.followUp} of={h.visits} ofLabel={aiBase(data)} />
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
-        <Section title="Most ordered investigations" description={`Times ordered, ${aiBase(data)}`}><RankedList items={data.ai.orders.investigations} /></Section>
+        <Section title="Most ordered investigations" description={`Times ordered, ${aiBase(data)}`}><RankedList items={data.ai.orders.investigations} render={(n) => <span className="capitalize">{displayName(n)}</span>} /></Section>
         <Section title="Referred to" description={`Destination, with the facility type it was referred to · ${aiBase(data)}`}>
           <RankedList items={data.ai.orders.referrals} render={(name) => {
             const [who, where] = name.split(' · ');
-            return <>{who}{where && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{where}</span>}</>;
+            return <>{displayName(who)}{where && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{displayName(where)}</span>}</>;
           }} />
         </Section>
       </div>

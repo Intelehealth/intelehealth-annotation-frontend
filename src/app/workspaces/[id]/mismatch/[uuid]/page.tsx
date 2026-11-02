@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Section } from '@/components/dashboard/kpi';
 import { fmtDate, HighlightChip, Shell, StatusBadge, TypeBadge } from '@/components/mismatch/shared';
 import { VisitImages } from '@/components/mismatch/visit-images';
+import { displayName, referralText } from '@/lib/format-display';
 import { missingForDone, type MissingField } from '@/lib/review-rules';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
@@ -148,7 +149,7 @@ export default function MismatchVisitPage() {
           {[v.demographics?.gender === 'F' ? 'Female' : v.demographics?.gender === 'M' ? 'Male' : v.demographics?.gender, v.demographics?.age != null ? `${v.demographics.age} years` : null].filter(Boolean).join(', ')}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {SOURCE_LABEL[v.source] ?? v.source} · {v.attributes?.specialty ?? '—'} · prescription shared {fmtDate(v.encounterAt)}
+          {SOURCE_LABEL[v.source] ?? v.source} · {displayName(v.attributes?.specialty)} · prescription shared {fmtDate(v.encounterAt)}
           {v.providers?.doctorPseudoIds?.length ? <> · {v.providers.doctorPseudoIds.map(doctorLabel).join(', ')}</> : null}
           {v.providers?.creatorPseudoId ? <> · health worker #{v.providers.creatorPseudoId}</> : null}
           {v.langfuse?.model && <> · AI: {v.langfuse.model}{v.langfuse.engine ? ` (${v.langfuse.engine})` : ''}{typeof v.langfuse.latency === 'number' ? `, ${v.langfuse.latency.toFixed(1)} s` : ''}{v.langfuse.totalTokens ? `, ${v.langfuse.totalTokens.toLocaleString()} tokens` : ''}</>}
@@ -218,7 +219,7 @@ export default function MismatchVisitPage() {
                     <li key={`${d.rank}-${d.diagnosis}`} className={cn('rounded-md border px-2 py-1.5', d.picked && 'border-emerald-300 bg-emerald-50')}>
                       <div className="flex items-center gap-2">
                         <span className="w-5 text-xs text-muted-foreground">#{d.rank}</span>
-                        <span className="flex-1 capitalize">{d.diagnosis}</span>
+                        <span className="flex-1">{displayName(d.diagnosis)}</span>
                         {d.likelihood && <span className="text-xs text-muted-foreground">{d.likelihood}</span>}
                         <Tag t={d.picked === 'clicked' ? 'Y' : d.picked === 'name' ? 'T' : 'I'} map={DX_TAG} />
                       </div>
@@ -235,7 +236,7 @@ export default function MismatchVisitPage() {
                     const fromAi = top5.some((x) => x.picked && x.diagnosis.toLowerCase().replace(/\(.*?\)/g, '').trim() === d.name.toLowerCase().replace(/\(.*?\)/g, '').trim());
                     return (
                       <li key={i} className={cn('rounded-md border px-2 py-1.5', fromAi ? 'border-emerald-300 bg-emerald-50' : 'border-sky-300 bg-sky-50')}>
-                        <div className="font-medium capitalize">{d.name}</div>
+                        <div className="font-medium">{displayName(d.name)}</div>
                         <div className="text-xs text-muted-foreground">{[d.role, d.status, d.code && d.code !== 'NA' ? `SNOMED ${d.code}` : null, fromAi ? 'from AI list' : "doctor's own"].filter(Boolean).join(' · ')}</div>
                       </li>
                     );
@@ -291,9 +292,9 @@ export default function MismatchVisitPage() {
             )}
             {(v.visitNote?.medicalTest || v.visitNote?.medicalAdvice || v.visitNote?.referralAdvice) && (
               <dl className="space-y-1 border-t px-4 py-3 text-xs">
-                {v.visitNote?.medicalTest && <div><dt className="inline font-medium">Tests: </dt><dd className="inline text-muted-foreground">{v.visitNote.medicalTest}</dd></div>}
+                {v.visitNote?.medicalTest && <div><dt className="inline font-medium">Tests: </dt><dd className="inline text-muted-foreground">{v.visitNote.medicalTest.split(',').map((x) => displayName(x)).filter((x) => x !== '—').join(', ') || '—'}</dd></div>}
                 {v.visitNote?.medicalAdvice && <div><dt className="inline font-medium">Advice: </dt><dd className="inline text-muted-foreground">{v.visitNote.medicalAdvice}</dd></div>}
-                {v.visitNote?.referralAdvice && <div><dt className="inline font-medium">Referral: </dt><dd className="inline text-muted-foreground">{v.visitNote.referralAdvice}</dd></div>}
+                {v.visitNote?.referralAdvice && <div><dt className="inline font-medium">Referral: </dt><dd className="inline text-muted-foreground">{v.visitNote.referralAdvice.split(/[,;\n]+/).map(referralText).filter((x) => x !== '—').join(' | ') || '—'}</dd></div>}
               </dl>
             )}
           </Section>

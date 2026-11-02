@@ -11,6 +11,7 @@ import {
   DDX_VERDICTS, doctorLabel, mismatchAPI, TTX_VERDICTS, viewString,
   type Facets, type QueueItem, type QueuePage, type QueueQuery, type QueueTab,
 } from '@/lib/api/mismatch';
+import { dash, displayName } from '@/lib/format-display';
 import { cn } from '@/lib/utils';
 import { fmtDate, HighlightChip, StatusBadge, TypeBadge } from './shared';
 
@@ -205,7 +206,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
               </Labeled>
             )}
             <Labeled label="Specialty">
-              <Select opts={[{ value: '', label: 'Any specialty' }, ...(facets?.specialties ?? []).map((s) => ({ value: s, label: s }))]} value={q.specialty} onChange={(v) => set({ specialty: v })} />
+              <Select opts={[{ value: '', label: 'Any specialty' }, ...(facets?.specialties ?? []).map((s) => ({ value: s, label: displayName(s) }))]} value={q.specialty} onChange={(v) => set({ specialty: v })} />
             </Labeled>
             <div className="grid grid-cols-2 gap-2">
               <Labeled label="Gender"><Select opts={GENDERS} value={q.gender} onChange={(v) => set({ gender: v })} /></Labeled>
@@ -286,16 +287,16 @@ function Row({ v, workspaceId, view }: { v: QueueItem; workspaceId: string; view
     <tr className="align-top hover:bg-accent/30">
       <td className="whitespace-nowrap px-4 py-3">
         <Link href={`/workspaces/${workspaceId}/mismatch/${v.uuid}?view=${encodeURIComponent(view)}`} className="font-medium text-blue-700 hover:underline">{fmtDate(v.encounterAt)}</Link>
-        <div className="text-xs text-muted-foreground">{[v.gender, v.age != null ? `${v.age}y` : null, v.specialty].filter(Boolean).join(' · ')}</div>
+        <div className="text-xs text-muted-foreground">{[v.gender, v.age != null ? `${v.age}y` : null, v.specialty ? displayName(v.specialty) : null].filter(Boolean).join(' · ')}</div>
         {v.doctor && <div className="text-xs text-muted-foreground">{doctorLabel(v.doctor)}</div>}
       </td>
       <td className="max-w-[200px] px-4 py-3 text-xs text-muted-foreground"><span className="line-clamp-2">{v.complaint || '—'}</span></td>
       <td className="max-w-[260px] px-4 py-3 text-xs">
         <div className="text-muted-foreground">
-          AI: {v.aiTop1 ?? '—'}
+          AI: {displayName(v.aiTop1)}
           {v.bestRank ? <span className="ml-1 text-emerald-700">(picked #{v.bestRank}{v.pickedBy === 'name' ? ', typed' : ''})</span> : null}
         </div>
-        <div className="font-medium">Dr: {v.doctorDx.join(', ') || '—'}</div>
+        <div className="font-medium">Dr: {v.doctorDx.map(displayName).join(', ') || '—'}</div>
       </td>
       <td className="px-4 py-3"><TypeBadge type={v.mismatchType} /></td>
       <td className="max-w-[320px] px-4 py-3">
