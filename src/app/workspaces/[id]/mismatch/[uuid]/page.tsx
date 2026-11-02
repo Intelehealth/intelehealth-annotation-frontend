@@ -2,10 +2,11 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, ImageIcon } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Section } from '@/components/dashboard/kpi';
 import { fmtDate, HighlightChip, Shell, StatusBadge, TypeBadge } from '@/components/mismatch/shared';
+import { VisitImages } from '@/components/mismatch/visit-images';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
   DDX_REASONS, DDX_VERDICTS, doctorLabel, mismatchAPI, SOURCE_LABEL, TTX_REASONS, TTX_VERDICTS,
@@ -154,12 +155,8 @@ export default function MismatchVisitPage() {
             </div>
           </Section>
           {v.images.length > 0 && (
-            <Section title="Images" description="Stored in OpenMRS; opening needs an OpenMRS login">
-              <ul className="flex flex-wrap gap-2 px-4 py-3">
-                {v.images.map((src, i) => (
-                  <li key={src}><a href={src} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-accent"><ImageIcon className="h-3.5 w-3.5" /> Image {i + 1}</a></li>
-                ))}
-              </ul>
+            <Section title="Images" description={`${v.images.length} from OpenMRS · click to enlarge`}>
+              <VisitImages workspaceId={id} uuid={v.uuid} count={v.images.length} />
             </Section>
           )}
         </div>

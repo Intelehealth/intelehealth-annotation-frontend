@@ -215,6 +215,9 @@ export const mismatchAPI = {
   dashboard: (id: string, from?: string, to?: string, population?: string, followUps?: 'include' | 'exclude') =>
     jsonApi.get<DashboardData>(`${base}/${id}/dashboard`, { params: clean({ from, to, population, followUps }) }).then((r) => r.data),
   visit: (id: string, uuid: string) => jsonApi.get<VisitDetail>(`${base}/${id}/visits/${uuid}`).then((r) => r.data),
+  /** Image `index` of a visit as a blob, proxied from OpenMRS by the backend. */
+  image: (id: string, uuid: string, index: number) =>
+    jsonApi.get<Blob>(`${base}/${id}/visits/${uuid}/images/${index}`, { responseType: 'blob' }).then((r) => r.data),
   claim: (id: string, uuid: string) => jsonApi.post<{ claimed: boolean }>(`${base}/${id}/visits/${uuid}/claim`).then((r) => r.data),
   saveReview: (id: string, uuid: string, body: ReviewInput) =>
     jsonApi.put<{ ok: boolean }>(`${base}/${id}/visits/${uuid}/review`, body).then((r) => r.data),
