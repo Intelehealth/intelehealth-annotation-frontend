@@ -92,7 +92,7 @@ export interface Review {
 
 /** One save of a review; newest first. */
 export interface ReviewHistoryEntry {
-  by: { _id: string; name: string } | null; at: string; action: 'annotated' | 'edited';
+  by: { _id: string; name: string } | null; at: string; action: 'annotated' | 'edited' | 'draft';
   ddxVerdict?: string; ddxReason?: string; correctDiagnosis?: string;
   ttxVerdict?: string; ttxReason?: string; correctTreatment?: string; comment?: string; followUp?: boolean;
 }
@@ -219,8 +219,9 @@ export const mismatchAPI = {
   image: (id: string, uuid: string, index: number) =>
     jsonApi.get<Blob>(`${base}/${id}/visits/${uuid}/images/${index}`, { responseType: 'blob' }).then((r) => r.data),
   claim: (id: string, uuid: string) => jsonApi.post<{ claimed: boolean }>(`${base}/${id}/visits/${uuid}/claim`).then((r) => r.data),
-  saveReview: (id: string, uuid: string, body: ReviewInput) =>
-    jsonApi.put<{ ok: boolean }>(`${base}/${id}/visits/${uuid}/review`, body).then((r) => r.data),
+  /** final = "Save & next" (mark done; the API rejects it without the required verdicts); otherwise a draft. */
+  saveReview: (id: string, uuid: string, body: ReviewInput & { final?: boolean }) =>
+    jsonApi.put<{ ok: boolean; status: ReviewStatus; missing: string[] }>(`${base}/${id}/visits/${uuid}/review`, body).then((r) => r.data),
 };
 
 export const MISMATCH_LABEL: Record<MismatchType, string> = {

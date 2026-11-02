@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Section } from '@/components/dashboard/kpi';
 import { fmtDate, HighlightChip, Shell, StatusBadge, TypeBadge } from '@/components/mismatch/shared';
 import { VisitImages } from '@/components/mismatch/visit-images';
+import { missingForDone, type MissingField } from '@/lib/review-rules';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
   DDX_REASONS, DDX_VERDICTS, doctorLabel, mismatchAPI, SOURCE_LABEL, TTX_REASONS, TTX_VERDICTS,
@@ -66,7 +67,7 @@ export default function MismatchVisitPage() {
   const save = async (next: boolean) => {
     setSaving(true);
     try {
-      await mismatchAPI.saveReview(id, uuid, form);
+      await mismatchAPI.saveReview(id, uuid, { ...form, final: next });
       setSaved(true);
       if (!next) setV(await mismatchAPI.visit(id, uuid)); // refresh status and edit history
       if (next) {
@@ -91,6 +92,7 @@ export default function MismatchVisitPage() {
   const showDdx = a.ddxMismatch || a.doctorAddedDx.length > 0;
   const dxRationale = (name: string) => (v.ddx?.diagnoses ?? []).find((x) => String(x.diagnosis).toLowerCase() === name.toLowerCase())?.rationale;
   const showTtx = a.ttxAvailable;
+  const missing = missingForDone(a, form);
   const vit = v.vitals ?? {};
   const age = v.demographics?.age;
   const vitals: [string, unknown, string][] = [
@@ -281,8 +283,11 @@ export default function MismatchVisitPage() {
               <div className="flex items-center justify-end gap-2">
                 {saved && <span className="mr-auto inline-flex items-center text-sm text-emerald-700"><Check className="mr-1 h-4 w-4" /> Saved</span>}
                 <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => save(false)}>Save</Button>
-                <Button type="submit" size="sm" disabled={saving}>Save &amp; next</Button>
+                <Button type="submit" size="sm" disabled={saving || missing.length > 0} title={missing.length ? 'Fill the required fields first' : undefined}>Save &amp; next</Button>
               </div>
+              {missing.length > 0 && (
+                <p className="text-right text-xs text-amber-700">To finish this visit, add: {missing.map((m) => MISSING_LABEL[m]).join(', ')}. &quot;Save&quot; keeps a draft.</p>
+              )}
             </form>
           </Section>
 
@@ -292,7 +297,7 @@ export default function MismatchVisitPage() {
                 {v.review.history.map((h, i) => (
                   <li key={i} className="px-4 py-2.5">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="font-medium">{h.by?.name ?? 'Unknown'} <span className="font-normal text-muted-foreground">{h.action === 'edited' ? 'edited' : 'annotated'}</span></span>
+                      <span className="font-medium">{h.by?.name ?? 'Unknown'} <span className="font-normal text-muted-foreground">{h.action === 'edited' ? 'edited' : h.action === 'draft' ? 'saved a draft' : 'annotated'}</span></span>
                       <span className="text-xs text-muted-foreground">{fmtDate(h.at)}</span>
                     </div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
@@ -308,6 +313,10 @@ export default function MismatchVisitPage() {
     </Shell>
   );
 }
+
+const MISSING_LABEL: Record<MissingField, string> = {
+  ddxVerdict: 'a diagnosis verdict', ddxReason: 'a diagnosis reason', ttxVerdict: 'a treatment verdict', ttxReason: 'a treatment reason',
+};
 
 const VERDICT: Record<string, string> = Object.fromEntries([...DDX_VERDICTS, ...TTX_VERDICTS].map((x) => [x.value, x.label]));
 
