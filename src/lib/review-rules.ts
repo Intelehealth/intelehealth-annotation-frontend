@@ -8,8 +8,11 @@ export const TTX_VERDICTS = ['doctor_correct', 'ai_correct', 'both_acceptable', 
 // "AI was right" and "both acceptable / agree" need no reason; every other verdict does.
 export const NO_REASON_VERDICTS = new Set<string>(['ai_correct', 'both_acceptable']);
 
+/** The analysis fields the rule reads. */
+export type RuleAnalysis = { ddxMismatch?: boolean; doctorAddedDx?: unknown[]; ttxAvailable?: boolean; ttxMismatch?: boolean } | null | undefined;
+
 /** Which verdicts the form asks for: the same conditions that show the Dx / TTx questions. */
-export function requiredSections(a: any): { dx: boolean; ttx: boolean } {
+export function requiredSections(a: RuleAnalysis): { dx: boolean; ttx: boolean } {
   return {
     dx: !!(a?.ddxMismatch || (a?.doctorAddedDx?.length ?? 0) > 0),
     ttx: !!(a?.ttxAvailable && a?.ttxMismatch),
@@ -21,7 +24,7 @@ export type MissingField = 'ddxVerdict' | 'ddxReason' | 'ttxVerdict' | 'ttxReaso
 const filled = (v: unknown) => typeof v === 'string' && v.trim() !== '';
 
 /** Fields still needed before this review can be marked done (empty = ready). */
-export function missingForDone(a: any, r: { ddxVerdict?: string; ddxReason?: string; ttxVerdict?: string; ttxReason?: string }): MissingField[] {
+export function missingForDone(a: RuleAnalysis, r: { ddxVerdict?: string; ddxReason?: string; ttxVerdict?: string; ttxReason?: string }): MissingField[] {
   const need = requiredSections(a);
   const out: MissingField[] = [];
   if (need.dx) {
