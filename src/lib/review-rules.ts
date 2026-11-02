@@ -9,12 +9,19 @@ export const TTX_VERDICTS = ['doctor_correct', 'ai_correct', 'both_acceptable', 
 export const NO_REASON_VERDICTS = new Set<string>(['ai_correct', 'both_acceptable']);
 
 /** The analysis fields the rule reads. */
-export type RuleAnalysis = { ddxMismatch?: boolean; doctorAddedDx?: unknown[]; ttxAvailable?: boolean; ttxMismatch?: boolean } | null | undefined;
+export type RuleAnalysis = { ddxMismatch?: boolean; doctorAddedDx?: unknown[]; ttxAvailable?: boolean; ttxMismatch?: boolean; followUpOnly?: boolean } | null | undefined;
 
-/** Which verdicts the form asks for: the same conditions that show the Dx / TTx questions. */
+// The doctor's "Follow-up visit" placeholder is not a diagnosis (same rule as analysis.followUpOnly).
+const isFollowUpName = (x: unknown) => /follow[\s-]*up/i.test(String(x ?? ''));
+
+/**
+ * Which verdicts the form asks for: the same conditions that show the Dx / TTx questions.
+ * Dx: never on a follow-up-only visit; otherwise on a DDx mismatch or a real doctor-added Dx.
+ * TTx: on an AI TTx mismatch (follow-ups included: their TTx is still compared).
+ */
 export function requiredSections(a: RuleAnalysis): { dx: boolean; ttx: boolean } {
   return {
-    dx: !!(a?.ddxMismatch || (a?.doctorAddedDx?.length ?? 0) > 0),
+    dx: !a?.followUpOnly && !!(a?.ddxMismatch || (a?.doctorAddedDx ?? []).some((x) => !isFollowUpName(x))),
     ttx: !!(a?.ttxAvailable && a?.ttxMismatch),
   };
 }
