@@ -342,15 +342,13 @@ function Overview({ data, grain, population }: { data: DashboardData; grain: Gra
     <>
       <Group title="Diagnosis (DDx)"
         description={`Scored over visits with an AI list (${data.ai.headline.includeFollowUps ? 'follow-up visits INCLUDED' : 'follow-up visits are not counted'}; see the note at the bottom). A pick is the doctor clicking the AI diagnosis or typing the same name; a clinically equivalent but differently worded diagnosis counts as not picked.`}>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Stat label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} ofLabel={aiBase(data)} accent />
-          <Stat label="Doctor picked an AI Dx" n={h.dxPicked} of={h.dxScored} ofLabel={scoredLabel} />
           <Stat label="Final Dx was AI top 1" n={h.top1} of={h.dxScored} ofLabel={scoredLabel} />
           <Stat label="…in AI top 3" n={h.top3} of={h.dxScored} ofLabel={scoredLabel} />
           <Stat label="…in AI top 5" n={h.top5} of={h.dxScored} ofLabel={scoredLabel} />
           <Stat label="Doctor added a non-AI Dx" n={h.dxAddedNonAi} of={h.dxScored} ofLabel={scoredLabel} />
           <Stat label="Equivalent suggested, not picked" n={h.dxEquivalentNotPicked} of={h.dxScored} ofLabel={`${scoredLabel} · separate from top 1/3/5`} />
-          <Stat label="Doctor opened a rationale" value="—" note="Not logged by the app yet" />
         </div>
       </Group>
 
