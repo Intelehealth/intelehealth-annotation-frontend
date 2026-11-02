@@ -259,7 +259,22 @@ export default function MismatchVisitPage() {
                   {detailText(v.ddx?.details) && <div className="mt-1 whitespace-pre-wrap"><strong>Doctor&apos;s note:</strong> {detailText(v.ddx?.details)}</div>}
                 </div>
               )}
-              {a.highlights.length > 0 && <div className="flex flex-wrap gap-2">{a.highlights.map((h, i) => <HighlightChip key={i} h={h} full />)}</div>}
+              {/* What differs, folded to one line so the Dx verdict stays near the top; safety pills never fold. */}
+              {(a.highlights.length > 0 || urgentRef || fuSoon) && (
+                <details className="group text-[13px]">
+                  <summary className="flex cursor-pointer list-none flex-wrap items-center gap-1.5">
+                    {urgentRef && <Pill tone="neg">Urgent referral</Pill>}
+                    {fuSoon && fu && <Pill tone="warn">Follow-up {fu.inDays === 0 ? 'today' : `in ${fu.inDays} day${fu.inDays === 1 ? '' : 's'}`}</Pill>}
+                    {a.highlights.slice(0, 2).map((h, i) => <span key={i} className="max-w-[45%] group-open:hidden"><HighlightChip h={h} /></span>)}
+                    {a.highlights.length > 0 && (
+                      <span className="text-xs text-muted-foreground underline underline-offset-2">
+                        {a.highlights.length} difference{a.highlights.length === 1 ? '' : 's'} · <span className="group-open:hidden">show</span><span className="hidden group-open:inline">hide</span>
+                      </span>
+                    )}
+                  </summary>
+                  <div className="mt-2 flex flex-wrap gap-2">{a.highlights.map((h, i) => <HighlightChip key={i} h={h} full />)}</div>
+                </details>
+              )}
               {claimedByOther && <p className="text-xs text-pill-warn-ink">{claimedByOther.name} opened this visit recently; you can still annotate.</p>}
 
               {/* (1) Diagnosis: AI vs doctor, its verdict directly under it */}
@@ -279,7 +294,7 @@ export default function MismatchVisitPage() {
                 )}
                 {/* V7: one ranked list with the doctor's pick marked; folded when the Dx agreed. */}
                 <details className="group text-[13px]" open={!a.ddxBestRank || ownDx.length > 0}>
-                  <summary className="cursor-pointer text-xs text-muted-foreground">AI&apos;s ranked list and the doctor&apos;s diagnoses <span className="group-open:hidden">(show)</span></summary>
+                  <summary className="cursor-pointer text-xs text-muted-foreground"><span className="group-open:hidden">Show the AI&apos;s list and the doctor&apos;s diagnoses</span><span className="hidden group-open:inline">AI&apos;s ranked list and the doctor&apos;s diagnoses</span></summary>
                   <div className="mt-2">
                     {ranked.length || doctorRows.length ? (
                       <DxList ranked={ranked} doctor={doctorRows} otherAi={otherAi.map((d) => String(d.diagnosis))} why={(n) => <Why r={dxRationale(n)} />} />

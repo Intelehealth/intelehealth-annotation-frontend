@@ -10,11 +10,20 @@ export interface NoteGroup { title: string; rows: NoteRow[] }
 // Leading bullets, trailing full stops and dangling " -" fragments go; "Na" values are shown as a dash by the page.
 const tidy = (s: string) => s.replace(/^[•●\s]+/, '').replace(/(\s*-)+\s*$/, '').replace(/[.\s]+$/, '').trim();
 
-// Exam lines like "Jaundice-no jaundice seen": the finding, then its result, with a readable separator.
-const FINDING = /^(jaundice|pallor|cyanosis|clubbing|oedema|edema|lymphadenopathy|icterus|dehydration|pinch skin\*?|nails?|tongue|throat|tonsils?|skin|rash)\s*-\s*(\S.*)$/i;
+// Exam lines "Jaundice-no jaundice seen", "Ankle-no pedal oedema", "Skin Rash:-no rash": the finding, then its
+// result. One rule: ":-" always separates; a bare "-" separates when the left side is 5+ letters and the right
+// side is several words (so "Non-tender" and "Well-built" stay hyphenated words).
+const FINDING_SEP = /^([A-Za-z][A-Za-z ]*?[A-Za-z]\*?)\s*(:-|-)\s*(\S.*)$/;
+export function splitFinding(v: string): { label: string; value: string } | null {
+  const m = FINDING_SEP.exec(v.trim());
+  if (!m) return null;
+  const [, left, sep, right] = m;
+  if (sep === '-' && (left.replace(/[^A-Za-z]/g, '').length < 5 || !/\s/.test(right.trim()))) return null;
+  return { label: left.replace(/\*$/, '').trim(), value: right.trim() };
+}
 const finding = (v: string) => {
-  const m = FINDING.exec(v);
-  return m ? `${m[1][0].toUpperCase()}${m[1].slice(1).replace(/\*$/, '')} — ${m[2]}` : v;
+  const f = splitFinding(v);
+  return f ? `${f.label} — ${f.value}` : v;
 };
 
 export function noteSections(text: string): NoteGroup[] {
@@ -44,7 +53,10 @@ export function noteSections(text: string): NoteGroup[] {
     const colon = body.indexOf(': ');
     if (dash > 0 && dash <= 60) push({ label: body.slice(0, dash).trim(), value: finding(tidy(body.slice(dash + 3))) });
     else if (colon > 0 && colon <= 40) push({ label: body.slice(0, colon).trim(), value: finding(tidy(body.slice(colon + 2))) });
-    else push({ label: '', value: body });
+    else {
+      const f = splitFinding(body);
+      push(f ? { label: f.label, value: f.value } : { label: '', value: body });
+    }
   }
   if (pending) push({ label: pending, value: '' });
   return groups.filter((g) => g.rows.length || g.title);

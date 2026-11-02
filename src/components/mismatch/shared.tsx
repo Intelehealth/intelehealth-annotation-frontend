@@ -9,6 +9,7 @@ import { timeAgo } from '@/components/dashboard/format';
 import { cn } from '@/lib/utils';
 import { MISMATCH_LABEL, type Highlight, type MismatchType, type ReviewStatus, type SyncState } from '@/lib/api/mismatch';
 import { apiMessage } from '@/lib/api/workspaces';
+import { niceCase } from '@/lib/format-display';
 
 /** Error text for the mismatch screens: a request that never reached the server reads in plain words, never "Network Error" (Q4). */
 export function friendlyError(e: unknown, fallback: string): string {
@@ -68,7 +69,8 @@ const HL_STYLE: Record<Highlight['type'], string> = {
 export function HighlightChip({ h, full }: { h: Highlight; full?: boolean }) {
   return (
     <span className={cn('inline-flex max-w-full flex-col rounded-md border px-2 py-1 text-xs', HL_STYLE[h.type])}>
-      <span className="truncate font-medium">{h.text}</span>
+      {/* "Doctor added: ACIDITY" -> "Doctor added: Acidity" (the name part through niceCase). */}
+      <span className="truncate font-medium">{h.text.replace(/^([^:]+:\s*)(.*)$/, (_m, lead: string, name: string) => lead + niceCase(name))}</span>
       {full && h.detail && <span className="mt-0.5 opacity-80">{h.detail}</span>}
     </span>
   );

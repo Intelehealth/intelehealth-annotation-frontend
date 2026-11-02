@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ImageOff, Loader2, RotateCcw, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, ImageOff, Loader2, RotateCcw, X } from 'lucide-react';
 import { mismatchAPI } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 
@@ -137,7 +137,7 @@ function Thumb({ workspaceId, uuid, index, source, onOpen, onUrl }: { workspaceI
             <RotateCcw className="h-3 w-3" /> Retry
           </button>
           {openmrsLink(source) && (
-            <a href={openmrsLink(source)} target="_blank" rel="noopener noreferrer" title="Open in OpenMRS (needs an OpenMRS login)" className="inline-flex h-[26px] items-center rounded-md border border-control bg-surface px-2 text-xs text-foreground hover:bg-raised">OpenMRS ↗</a>
+            <a href={openmrsLink(source)} target="_blank" rel="noopener noreferrer" title="Open in OpenMRS (needs an OpenMRS login)" aria-label="Open in OpenMRS" className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-control bg-surface text-foreground hover:bg-raised"><ExternalLink className="h-3.5 w-3.5" /></a>
           )}
         </span>
       </div>
