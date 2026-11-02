@@ -47,6 +47,8 @@ export default function MismatchVisitPage() {
   const [pos, setPos] = useState<{ uuid: string; index: number; total: number; nextSummary?: { encounterAt: string | null; complaint: string } | null } | null>(null);
   // The "I" key opens the image lightbox (V5).
   const [openImages, setOpenImages] = useState(0);
+  // Which verdict group keys 1-4 act on: a click / focus in a group picks it; otherwise the first group still open.
+  const [keyGroup, setKeyGroup] = useState<'dx' | 'ttx' | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -99,7 +101,7 @@ export default function MismatchVisitPage() {
       if (t?.closest('input, textarea, select, a, [contenteditable="true"]')) return;
       if (document.querySelector('[role="dialog"]')) return;
       const need = requiredSections(v.analysis);
-      const group = need.dx && !form.ddxVerdict ? 'dx' : need.ttx && !form.ttxVerdict ? 'ttx' : need.ttx ? 'ttx' : need.dx ? 'dx' : null;
+      const group = keyGroup && need[keyGroup] ? keyGroup : need.dx && !form.ddxVerdict ? 'dx' : need.ttx && !form.ttxVerdict ? 'ttx' : need.ttx ? 'ttx' : need.dx ? 'dx' : null;
       if (/^[1-4]$/.test(e.key) && group) {
         const val = ['doctor_correct', 'ai_correct', 'both_acceptable', 'neither'][Number(e.key) - 1];
         update(group === 'dx' ? { ddxVerdict: val } : { ttxVerdict: val });
@@ -134,11 +136,8 @@ export default function MismatchVisitPage() {
   const missing = missingForDone(a, form);
   const eq = a.equivalentNotPicked ?? null;
   const vit = v.vitals ?? {};
-  const age = v.demographics?.age;
   const vitals: [string, unknown, string][] = [
-    // Age and sex first, so the doctor sees them next to the readings.
-    ['Age', age == null ? null : age < 1 ? '< 1' : age, age == null ? '' : 'yrs'],
-    ['Sex', v.demographics?.gender === 'F' ? 'Female' : v.demographics?.gender === 'M' ? 'Male' : v.demographics?.gender, ''],
+    // Age and sex are in the page title line (always on the first screen), so the strip fits one row.
     ['BP', vit.sbp && vit.dbp ? `${vit.sbp}/${vit.dbp}` : null, 'mmHg'], ['Pulse', vit.pulse, '/min'], ['Temp', vit.temperature, Number(vit.temperature) > 45 ? '°F' : '°C'],
     ['SpO₂', vit.spo2, '%'], ['RR', vit.rr, '/min'], ['Weight', vit.weight, 'kg'], ['Height', vit.height, 'cm'], ['BMI', vit.bmi, ''],
     ['Hb', vit.hb, ''], ['Sugar (R)', vit.sugarRandom, ''],
@@ -160,6 +159,8 @@ export default function MismatchVisitPage() {
     fromAi: top5.some((x) => x.picked && x.diagnosis.toLowerCase().replace(/\(.*?\)/g, '').trim() === d.name.toLowerCase().replace(/\(.*?\)/g, '').trim()),
   }));
   const plan = v.plan ?? [];
+  // Doctor's own diagnoses (not picked from the AI list): why a Dx verdict is needed on an otherwise agreed visit.
+  const ownDx = a.followUpOnly ? [] : doctorRows.filter((d) => !d.fromAi && !/follow[\s-]*up/i.test(d.name)).map((d) => displayName(d.name));
   const urgentRef = plan.some((i) => i.type === 'referral' && /urgent|emergency/i.test(i.referral?.urgency ?? ''));
   const fu = plan.find((i) => i.type === 'followup')?.followUp;
   const fuSoon = !!fu && ((fu.inDays !== null && fu.inDays >= 0 && fu.inDays <= 3) || /urgent/i.test(fu.remark));
@@ -168,8 +169,9 @@ export default function MismatchVisitPage() {
     : !a.ddxAvailable ? 'No AI diagnosis for this visit'
     : a.ddxBestRank ? `Diagnosis agreed: the doctor picked the AI's #${a.ddxBestRank}${a.ddxPickedBy === 'name' ? ' (typed the same name)' : ''}`
     : 'The doctor picked none of the AI top 5';
+  const cutOf = (k: 'chiefComplaint' | 'physicalExamination' | 'patientMedicalHistory' | 'familyHistory') => !!v.notesCut?.[k]?.[lang === 'mr' && hasMr ? 'mr' : 'en'];
   const nextLine = pos?.uuid === uuid ? pos.nextSummary ?? undefined : undefined;
-  const activeGroup: 'dx' | 'ttx' | null = needs.dx && !form.ddxVerdict ? 'dx' : needs.ttx && !form.ttxVerdict ? 'ttx' : needs.ttx ? 'ttx' : needs.dx ? 'dx' : null;
+  const activeGroup: 'dx' | 'ttx' | null = keyGroup && needs[keyGroup] ? keyGroup : needs.dx && !form.ddxVerdict ? 'dx' : needs.ttx && !form.ttxVerdict ? 'ttx' : needs.ttx ? 'ttx' : needs.dx ? 'dx' : null;
 
   return (
     <Shell wide>
@@ -196,6 +198,7 @@ export default function MismatchVisitPage() {
         </div>
         <div className="flex items-center gap-2">
           <TypeBadge type={v.mismatchType} />
+          {ownDx.length > 0 && !a.ddxMismatch && <Pill>doctor added {ownDx.length} Dx</Pill>}
           <StatusBadge status={v.review.status} />
           {v.review.annotatedBy && <span className="text-xs text-muted-foreground">by {v.review.annotatedBy.name}</span>}
         </div>
@@ -234,7 +237,7 @@ export default function MismatchVisitPage() {
 
           {v.images.length > 0 && (
             <Card title="Images" meta={`${v.images.length} from OpenMRS · click or press I to open`}>
-              <VisitImages workspaceId={id} uuid={v.uuid} count={v.images.length} openSignal={openImages} />
+              <VisitImages workspaceId={id} uuid={v.uuid} count={v.images.length} openSignal={openImages} sources={v.images} />
             </Card>
           )}
 
@@ -248,10 +251,10 @@ export default function MismatchVisitPage() {
               ))}
             </div>
           ) : undefined}>
-            <NoteBlock heading="Chief complaint" text={note.chiefComplaint} />
-            <NoteBlock heading="Physical examination" text={note.physicalExamination} />
-            <NoteBlock heading="Medical history" text={note.patientMedicalHistory} />
-            <NoteBlock heading="Family history" text={note.familyHistory} />
+            <NoteBlock heading="Chief complaint" text={note.chiefComplaint} cut={cutOf('chiefComplaint')} />
+            <NoteBlock heading="Physical examination" text={note.physicalExamination} cut={cutOf('physicalExamination')} />
+            <NoteBlock heading="Medical history" text={note.patientMedicalHistory} cut={cutOf('patientMedicalHistory')} />
+            <NoteBlock heading="Family history" text={note.familyHistory} cut={cutOf('familyHistory')} />
           </Card>
 
           {!!v.review.history?.length && (
@@ -313,7 +316,9 @@ export default function MismatchVisitPage() {
 
               {needs.dx && (
                 <div>
-                  <VerdictButtons label="Your diagnosis verdict" options={DX4} value={form.ddxVerdict} active={activeGroup === 'dx'} onChange={(x) => update({ ddxVerdict: x })} />
+                  <VerdictButtons label="Your diagnosis verdict" options={DX4} value={form.ddxVerdict} active={activeGroup === 'dx'} showKeysTag={needs.ttx}
+                    onActivate={() => setKeyGroup('dx')} onChange={(x) => update({ ddxVerdict: x })}
+                    prompt={!a.ddxMismatch && ownDx.length ? <>The doctor also added {ownDx.join(', ')}. Did the AI miss {ownDx.length === 1 ? 'it' : 'them'}?</> : undefined} />
                   <button type="button" className="mt-1.5 text-xs text-muted-foreground underline underline-offset-2" onClick={() => update({ ddxVerdict: form.ddxVerdict === 'insufficient' ? undefined : 'insufficient' })}>
                     {form.ddxVerdict === 'insufficient' ? '✓ Note too thin to judge (click to clear)' : 'Other: note too thin to judge'}
                   </button>
@@ -325,7 +330,8 @@ export default function MismatchVisitPage() {
 
               {needs.ttx && (
                 <div>
-                  <VerdictButtons label="Your treatment-plan verdict" options={TX4} value={form.ttxVerdict} active={activeGroup === 'ttx'} onChange={(x) => update({ ttxVerdict: x })} />
+                  <VerdictButtons label="Your treatment-plan verdict" options={TX4} value={form.ttxVerdict} active={activeGroup === 'ttx'} showKeysTag={needs.dx}
+                    onActivate={() => setKeyGroup('ttx')} onChange={(x) => update({ ttxVerdict: x })} />
                   {form.ttxVerdict && !NO_REASON_VERDICTS.has(form.ttxVerdict) && (
                     <ReasonChips label="Main reason" options={TTX_REASONS} value={form.ttxReason} onChange={(x) => update({ ttxReason: x })} />
                   )}

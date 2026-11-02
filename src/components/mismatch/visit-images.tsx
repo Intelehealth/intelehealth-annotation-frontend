@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
  * close. `openSignal` (a counter) opens the lightbox from the page's "I" key.
  * A failed image never blocks the verdict.
  */
-export function VisitImages({ workspaceId, uuid, count, openSignal = 0 }: { workspaceId: string; uuid: string; count: number; openSignal?: number }) {
+export function VisitImages({ workspaceId, uuid, count, openSignal = 0, sources = [] }: { workspaceId: string; uuid: string; count: number; openSignal?: number; sources?: string[] }) {
   const [urls, setUrls] = useState<Record<number, string>>({});
   const [open, setOpen] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -52,7 +52,7 @@ export function VisitImages({ workspaceId, uuid, count, openSignal = 0 }: { work
       <ul className="flex flex-wrap gap-3">
         {Array.from({ length: count }, (_, i) => (
           <li key={i}>
-            <Thumb workspaceId={workspaceId} uuid={uuid} index={i}
+            <Thumb workspaceId={workspaceId} uuid={uuid} index={i} source={sources[i]}
               onUrl={(u) => setUrls((m) => { const n = { ...m }; if (u) n[i] = u; else delete n[i]; return n; })}
               onOpen={() => { setOpen(i); setZoom(1); }} />
           </li>
@@ -82,9 +82,27 @@ export function VisitImages({ workspaceId, uuid, count, openSignal = 0 }: { work
   );
 }
 
-function Thumb({ workspaceId, uuid, index, onOpen, onUrl }: { workspaceId: string; uuid: string; index: number; onOpen: () => void; onUrl: (url: string | null) => void }) {
+// The proxy's error code in plain words (T5 codes); the raw code stays in the tooltip.
+const REASON: Record<string, string> = {
+  OPENMRS_NOT_CONFIGURED: 'OpenMRS account not set up', IMAGE_HOST_NOT_ALLOWED: 'OpenMRS account not set up',
+  OPENMRS_AUTH_FAILED: 'OpenMRS refused the image account', OPENMRS_IMAGE_NOT_FOUND: 'Image not found',
+  OPENMRS_UNREACHABLE: 'OpenMRS unreachable', OPENMRS_TIMEOUT: 'OpenMRS unreachable', OPENMRS_UPSTREAM_ERROR: 'OpenMRS unreachable',
+  OPENMRS_NOT_AN_IMAGE: 'Not an image', IMAGE_URL_INVALID: 'Image link is broken',
+};
+async function failure(e: unknown): Promise<{ code: string; text: string }> {
+  const r = (e as { response?: { status?: number; data?: unknown } })?.response;
+  if (!r) return { code: 'NETWORK', text: 'Could not reach the server' };
+  let code = '';
+  try { code = JSON.parse(await (r.data as Blob).text()).error ?? ''; } catch { /* not JSON */ }
+  if (r.status === 404 && !code) return { code: 'NOT_FOUND', text: 'Image not found' };
+  return { code, text: REASON[code] ?? 'Image unavailable' };
+}
+// The stored OpenMRS link, opened in a new tab (needs an OpenMRS login there); http upgraded to https.
+const openmrsLink = (s?: string) => (s ? s.replace(/^http:\/\//i, 'https://') : undefined);
+
+function Thumb({ workspaceId, uuid, index, source, onOpen, onUrl }: { workspaceId: string; uuid: string; index: number; source?: string; onOpen: () => void; onUrl: (url: string | null) => void }) {
   const [attempt, setAttempt] = useState(0);
-  const [result, setResult] = useState<{ attempt: number; url?: string; failed?: boolean } | null>(null);
+  const [result, setResult] = useState<{ attempt: number; url?: string; failed?: boolean; reason?: { code: string; text: string } } | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -95,7 +113,7 @@ function Thumb({ workspaceId, uuid, index, onOpen, onUrl }: { workspaceId: strin
         url = URL.createObjectURL(blob);
         if (live) { setResult({ attempt, url }); onUrl(url); } else URL.revokeObjectURL(url);
       })
-      .catch(() => live && setResult({ attempt, failed: true }));
+      .catch(async (e) => { const reason = await failure(e); if (live) setResult({ attempt, failed: true, reason }); });
     return () => {
       live = false;
       if (url) { URL.revokeObjectURL(url); onUrl(null); }
@@ -110,12 +128,18 @@ function Thumb({ workspaceId, uuid, index, onOpen, onUrl }: { workspaceId: strin
   }
   if (result.failed || !result.url) {
     return (
-      <div className={box}>
+      <div className={box} title={result.reason?.code || undefined}>
         <ImageOff className="h-4 w-4" />
         <span>Image {index + 1} unavailable</span>
-        <button type="button" onClick={() => setAttempt((a) => a + 1)} className="inline-flex h-[26px] items-center gap-1 rounded-md border border-control bg-surface px-2 text-xs text-foreground hover:bg-raised">
-          <RotateCcw className="h-3 w-3" /> Retry
-        </button>
+        <span className="text-faint">{result.reason?.text ?? 'Image unavailable'}</span>
+        <span className="flex gap-1.5">
+          <button type="button" onClick={() => setAttempt((a) => a + 1)} className="inline-flex h-[26px] items-center gap-1 rounded-md border border-control bg-surface px-2 text-xs text-foreground hover:bg-raised">
+            <RotateCcw className="h-3 w-3" /> Retry
+          </button>
+          {openmrsLink(source) && (
+            <a href={openmrsLink(source)} target="_blank" rel="noopener noreferrer" className="inline-flex h-[26px] items-center rounded-md border border-control bg-surface px-2 text-xs text-foreground hover:bg-raised">Open in OpenMRS</a>
+          )}
+        </span>
       </div>
     );
   }

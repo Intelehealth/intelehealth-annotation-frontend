@@ -11,7 +11,7 @@
  */
 import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { displayName, referralParts } from '@/lib/format-display';
+import { dash, displayName, referralParts } from '@/lib/format-display';
 import { noteSections } from '@/lib/note-sections';
 import { PLAN_TYPE_LABEL, type PlanItem, type PlanType, type RankedDx } from '@/lib/api/mismatch';
 
@@ -49,11 +49,11 @@ export function Ladder({ rank, miss }: { rank: number | null; miss?: boolean }) 
 export function VitalsStrip({ items }: { items: [string, unknown, string][] }) {
   const shown = items.filter(([, v]) => v !== null && v !== undefined && v !== '');
   return (
-    <section className="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] overflow-hidden rounded-lg border border-border bg-surface" aria-label="Vitals">
+    <section className="grid grid-cols-[repeat(auto-fit,minmax(78px,1fr))] overflow-hidden rounded-lg border border-border bg-surface" aria-label="Vitals">
       {shown.map(([k, v, unit]) => (
-        <div key={k} className="-ml-px border-l border-border px-3.5 py-3">
+        <div key={k} className="-ml-px min-w-0 border-l border-border px-3 py-2.5">
           <div className="text-xs text-muted-foreground">{k}</div>
-          <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-lg font-medium tabular-nums">{String(v)}{unit && <small className="text-xs font-normal text-muted-foreground">{unit}</small>}</div>
+          <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-base font-medium tabular-nums">{String(v)}{unit && <small className="text-xs font-normal text-muted-foreground">{unit}</small>}</div>
         </div>
       ))}
     </section>
@@ -131,7 +131,9 @@ export function TreatmentPlan({ plan, lang, medWhy, unflagged }: {
                     {type === 'medicine' && medWhy(i.name)}
                   </td>
                   <td className={cn('block pr-2 sm:table-cell sm:border-b sm:border-rule sm:py-2', !i.ai && 'text-faint')}>
-                    <span className="mr-1 text-xs text-muted-foreground sm:hidden">AI:</span>{i.ai ?? (i.outcome === 'ai_not_available' ? 'Not suggested by the AI yet' : 'Not suggested')}
+                    {/* "Not suggested by the AI yet" once per group, not on every line. */}
+                    {(i.ai || i.outcome !== 'ai_not_available' || k === 0) && <span className="mr-1 text-xs text-muted-foreground sm:hidden">AI:</span>}
+                    {i.ai ?? (i.outcome === 'ai_not_available' ? (k === 0 ? 'Not suggested by the AI yet' : '') : 'Not suggested')}
                   </td>
                   <td className="block sm:table-cell sm:border-b sm:border-rule sm:py-2">
                     <span className="mr-1 text-xs text-muted-foreground sm:hidden">Doctor:</span>
@@ -166,9 +168,10 @@ export function TreatmentPlan({ plan, lang, medWhy, unflagged }: {
 }
 
 /** Clinical note as labelled rows (one group per complaint / section). */
-export function NoteBlock({ heading, text }: { heading: string; text: string }) {
+export function NoteBlock({ heading, text, cut }: { heading: string; text: string; cut?: boolean }) {
   const groups = noteSections(text);
   if (!groups.length) return null;
+  const show = (v: string) => (dash(v) === '—' ? <span className="text-faint">—</span> : v);
   return (
     <div className="border-t border-rule py-3.5 first:border-t-0">
       {groups.map((g, gi) => (
@@ -176,24 +179,33 @@ export function NoteBlock({ heading, text }: { heading: string; text: string }) 
           <h3 className="mb-2 text-[13px] font-semibold">{heading}{g.title ? ` · ${g.title}` : ''}</h3>
           <dl className="grid grid-cols-[minmax(96px,38%)_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm md:grid-cols-[200px_minmax(0,1fr)]">
             {g.rows.map((r, i) => r.label ? (
-              <div key={i} className="contents"><dt className="text-muted-foreground">{r.label}</dt><dd>{r.value || '—'}</dd></div>
+              <div key={i} className="contents"><dt className="text-muted-foreground">{r.label}</dt><dd>{show(r.value)}</dd></div>
             ) : (
-              <dd key={i} className="col-span-2">{r.value}</dd>
+              <dd key={i} className="col-span-2">{show(r.value)}</dd>
             ))}
           </dl>
         </div>
       ))}
+      {cut && <p className="mt-1.5 text-xs text-pill-warn-ink">(cut off in the source record)</p>}
     </div>
   );
 }
 
 /** V6: four big verdict buttons; keys 1-4 select them when this group is the active one. */
-export function VerdictButtons({ label, options, value, onChange, active }: {
+export function VerdictButtons({ label, options, value, onChange, active, onActivate, prompt, showKeysTag }: {
   label: string; options: { value: string; label: string }[]; value?: string; onChange: (v: string) => void; active: boolean;
+  /** Clicking or focusing the group makes it the one keys 1-4 act on. */
+  onActivate?: () => void;
+  prompt?: ReactNode;
+  /** Show the "keys 1-4" tag on the active group (only when there are several groups). */
+  showKeysTag?: boolean;
 }) {
   return (
-    <div>
-      <h2 className="text-[15px] font-semibold">{label}</h2>
+    <div onFocusCapture={onActivate} onMouseDown={onActivate}
+      className={cn('-mx-2 rounded-md px-2 py-1.5', active && showKeysTag && 'bg-data-soft/40 ring-1 ring-data/40')}>
+      <h2 className="flex items-center justify-between gap-2 text-[15px] font-semibold">{label}
+        {active && showKeysTag && <span className="rounded bg-data px-1.5 text-[11px] font-medium text-white">keys 1–4</span>}</h2>
+      {prompt && <p className="mt-0.5 text-[13px] text-muted-foreground">{prompt}</p>}
       <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label={label}>
         {options.map((o, i) => (
           <button key={o.value} type="button" role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}

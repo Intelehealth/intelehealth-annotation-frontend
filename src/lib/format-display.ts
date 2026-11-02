@@ -21,6 +21,8 @@ export const deUnderscore = (s: unknown) => String(s ?? '').replace(/_+/g, ' ').
  */
 export function niceCase(s: unknown): string {
   const t = String(s ?? '').trim();
+  // all lower case ("acute gastritis") -> sentence case, so AI and doctor names read alike
+  if (/[a-z]/.test(t) && !/[A-Z]/.test(t)) return t.replace(/[a-z]/, (c) => c.toUpperCase());
   if (!/[A-Z]/.test(t) || /[a-z]/.test(t) || t.replace(/[^A-Z]/g, '').length <= 4) return t;
   let first = true;
   return t.replace(/[A-Z][A-Z0-9'’/.-]*/g, (w) => {

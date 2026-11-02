@@ -152,6 +152,8 @@ export interface VisitDetail {
   langfuse?: { model?: string; engine?: string; latency?: number; totalTokens?: number | null; success?: unknown; name?: string } | null;
   notes: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };
   /** Marathi text of the same fields (empty string when the note has none). */
+  /** Note fields cut off in the stored record, per language. */
+  notesCut?: Record<string, { en: boolean; mr: boolean }>;
   /** Treatment plan as one item model (backend treatment-plan.ts). */
   plan?: PlanItem[];
   notesMr?: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };

@@ -15,6 +15,7 @@ describe('format-display (G2)', () => {
     expect(niceCase('URINE R/M')).toBe('Urine R/M');
     expect(niceCase('CBC')).toBe('CBC');
     expect(niceCase('Acute rhinitis')).toBe('Acute rhinitis');
+    expect(niceCase('acute gastritis')).toBe('Acute gastritis');
     expect(displayName('SCABIES')).toBe('Scabies');
   });
   it('splits a referral into labelled parts', () => {

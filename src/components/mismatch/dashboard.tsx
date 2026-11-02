@@ -168,7 +168,10 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!data ? <div className="h-96 animate-pulse rounded-xl bg-slate-100" /> : (
         <div className={cn('space-y-5 transition-opacity', loading && 'opacity-60')}>
-          {tab !== 'tat' && <ModeBadge included={data.ai.headline.includeFollowUps} />}
+          {tab !== 'tat' && tab !== 'annotation' && <ModeBadge included={data.ai.headline.includeFollowUps} />}
+          {tab === 'annotation' && (
+            <p className="text-xs text-muted-foreground">Annotation counts every visit in the period, follow-ups included, whatever the follow-up switch says; only “Why the equivalent AI suggestion was not picked” follows the switch ({data.ai.headline.includeFollowUps ? 'follow-ups included' : 'follow-ups excluded'}).</p>
+          )}
           {tab === 'overview' && <Overview data={data} grain={grain} population={population} />}
           {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} />}
           {tab === 'treatment' && <TreatmentTab data={data} />}

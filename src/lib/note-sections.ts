@@ -7,7 +7,8 @@
 export interface NoteRow { label: string; value: string }
 export interface NoteGroup { title: string; rows: NoteRow[] }
 
-const tidy = (s: string) => s.replace(/^[•●\s]+/, '').replace(/[.\s]+$/, '').trim();
+// Leading bullets, trailing full stops and dangling " -" fragments go; "Na" values are shown as a dash by the page.
+const tidy = (s: string) => s.replace(/^[•●\s]+/, '').replace(/(\s*-)+\s*$/, '').replace(/[.\s]+$/, '').trim();
 
 export function noteSections(text: string): NoteGroup[] {
   const groups: NoteGroup[] = [];
