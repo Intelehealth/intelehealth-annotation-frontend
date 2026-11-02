@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Flag, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import {
   type Facets, type QueueItem, type QueuePage, type QueueQuery, type QueueTab,
 } from '@/lib/api/mismatch';
 import { dash, displayName } from '@/lib/format-display';
+import { Ladder, Pill } from './visit-layout';
 import { cn } from '@/lib/utils';
 import { fmtDate, HighlightChip, StatusBadge, TypeBadge } from './shared';
 
@@ -55,7 +57,11 @@ const VERDICTS: Opt[] = [
   ...DDX_VERDICTS.map((v) => ({ value: v.value, label: v.label })),
   ...TTX_VERDICTS.filter((t) => !DDX_VERDICTS.some((d) => d.value === t.value)).map((v) => ({ value: v.value, label: v.label })),
 ];
-const SORTS: Opt[] = [{ value: 'newest', label: 'Newest first' }, { value: 'oldest', label: 'Oldest first' }];
+const SORTS: Opt[] = [{ value: 'missed', label: 'AI missed first' }, { value: 'newest', label: 'Newest first' }, { value: 'oldest', label: 'Oldest first' }];
+const SORT_LABEL: Record<string, string> = { missed: 'AI missed first, then newest', newest: 'Newest first', oldest: 'Oldest first' };
+const POPS: { value: '' | 'paediatric' | 'general'; label: string; key: 'all' | 'paediatric' | 'general' }[] = [
+  { value: '', label: 'All', key: 'all' }, { value: 'paediatric', label: 'Paediatric', key: 'paediatric' }, { value: 'general', label: 'General', key: 'general' },
+];
 
 const istDay = (offset = 0) => new Date(Date.now() + 5.5 * 3600_000 - offset * 86400_000).toISOString().slice(0, 10);
 const DATE_PRESETS = [
@@ -65,7 +71,7 @@ const DATE_PRESETS = [
 ];
 
 const field = 'h-9 w-full rounded-md border bg-background px-2 text-sm';
-const DEFAULT: QueueQuery = { sort: 'newest', page: 1, limit: 25 };
+const DEFAULT: QueueQuery = { sort: 'missed', page: 1, limit: 25 };
 // Keys that count as user filters (shown as chips, cleared by "Clear all").
 const FILTER_KEYS: (keyof QueueQuery)[] = ['mismatch', 'ddx', 'ttx', 'flag', 'model', 'doctor', 'status', 'from', 'to', 'specialty', 'gender', 'age', 'dx', 'med', 'reviewer', 'verdict', 'followUp', 'images', 'q'];
 const reasonLabel = (r: string) => r.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
@@ -89,7 +95,9 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
   useEffect(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem(storeKey) ?? '{}') as QueueQuery;
-      setQ({ ...DEFAULT, ...saved, page: 1 });
+      // ?population= in the URL wins over the saved filters (Q1).
+      const urlPop = new URLSearchParams(window.location.search).get('population');
+      setQ({ ...DEFAULT, ...saved, ...(urlPop === 'paediatric' || urlPop === 'general' ? { population: urlPop } : {}), page: 1 });
       setSearch(saved.q ?? ''); setDx(saved.dx ?? ''); setMed(saved.med ?? '');
     } catch { /* storage unavailable */ }
     setReady(true);
@@ -111,6 +119,14 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
 
   // Carried on visit links so "Save & next" stays in this exact view (ticket V3).
   const view = useMemo(() => viewString({ ...q, tab }), [q, tab]);
+  // Q1: the population toggle lives in the URL (?population=) as well as in the saved filters.
+  const router = useRouter();
+  const setPopulation = (p: '' | 'paediatric' | 'general') => {
+    set({ population: p || undefined });
+    const u = new URL(window.location.href);
+    if (p) u.searchParams.set('population', p); else u.searchParams.delete('population');
+    router.replace(`${u.pathname}${u.search}`, { scroll: false });
+  };
   const set = (patch: Partial<QueueQuery>) => setQ((p) => ({ ...p, ...patch, page: patch.page ?? 1 }));
   const clearAll = () => { setSearch(''); setDx(''); setMed(''); setQ({ ...DEFAULT, sort: q.sort }); };
   const pages = data ? Math.max(1, Math.ceil(data.total / (q.limit ?? 25))) : 1;
@@ -149,6 +165,18 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
 
   return (
     <div className="space-y-4">
+      {/* Q1: All / Paediatric (≤ 17 y) / General, with counts; kept in the URL and in the ?view= that V3 follows. */}
+      <div className="max-w-full overflow-x-auto">
+        <div className="inline-flex gap-0.5 rounded-lg bg-active p-0.5" role="group" aria-label="Patients">
+          {POPS.map((o) => (
+            <button key={o.key} type="button" aria-pressed={(q.population ?? '') === o.value} onClick={() => setPopulation(o.value)}
+              className={cn('h-7 whitespace-nowrap rounded-md px-2.5 text-[13px]', (q.population ?? '') === o.value ? 'bg-surface font-medium text-foreground outline outline-1 outline-border' : 'text-muted-foreground hover:text-foreground')}>
+              {o.label}{data?.populationCounts && <span className="ml-1 tabular-nums text-faint">{data.populationCounts[o.key].toLocaleString()}</span>}
+            </button>
+          ))}
+        </div>
+        <span className="ml-2 text-xs text-muted-foreground">Paediatric = age 17 or under</span>
+      </div>
       <div className="rounded-lg border bg-card">
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
           <div className="inline-flex rounded-lg border bg-muted/40 p-0.5" role="group" aria-label="Mismatch type">
@@ -219,7 +247,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
               </Labeled>
             )}
             {tab !== 'todo' && <Labeled label="Reviewer verdict"><Select opts={VERDICTS} value={q.verdict} onChange={(v) => set({ verdict: v })} /></Labeled>}
-            <Labeled label="Sort"><Select opts={SORTS} value={q.sort} onChange={(v) => set({ sort: v || 'newest' })} /></Labeled>
+            <Labeled label="Sort"><Select opts={SORTS} value={q.sort} onChange={(v) => set({ sort: v || 'missed' })} /></Labeled>
             <div className="flex items-end gap-4 pb-2 text-sm">
               <label className="flex items-center gap-2"><input type="checkbox" checked={q.followUp === '1'} onChange={(e) => set({ followUp: e.target.checked ? '1' : undefined })} /> Flagged for follow-up</label>
               <label className="flex items-center gap-2"><input type="checkbox" checked={q.images === '1'} onChange={(e) => set({ images: e.target.checked ? '1' : undefined })} /> Has images</label>
@@ -246,7 +274,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b px-4 py-2.5 text-xs text-muted-foreground">
           <span className="tabular-nums">{data ? `${data.total.toLocaleString()} visit${data.total === 1 ? '' : 's'}` : 'Loading…'}</span>
-          <span>{q.sort === 'oldest' ? 'Oldest first' : 'Newest first'}</span>
+          <span>{SORT_LABEL[q.sort ?? 'missed'] ?? 'AI missed first, then newest'}</span>
         </div>
         {error && <p className="px-4 py-3 text-sm text-destructive">{error}</p>}
         {!data ? (
@@ -255,18 +283,18 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
           <Empty>{tab === 'todo' ? 'Nothing left to annotate with these filters. New mismatches appear automatically after each sync.' : 'No visits match these filters.'}</Empty>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
+            <table className="block w-full text-sm sm:table">
+              <thead className="hidden bg-muted/40 text-left text-xs text-muted-foreground sm:table-header-group">
                 <tr>
                   <th className="px-4 py-2 font-medium">Visit</th>
                   <th className="px-4 py-2 font-medium">Complaint</th>
-                  <th className="px-4 py-2 font-medium">AI top-1 → doctor</th>
+                  <th className="px-4 py-2 font-medium">Where the doctor&apos;s Dx sat in the AI list</th>
                   <th className="px-4 py-2 font-medium">Mismatch</th>
                   <th className="px-4 py-2 font-medium">What differs</th>
                   <th className="px-4 py-2 font-medium">{tab === 'todo' ? 'Status' : 'Review'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">{data.items.map((v) => <Row key={v.uuid} v={v} workspaceId={workspaceId} view={view} />)}</tbody>
+              <tbody className="block divide-y sm:table-row-group">{data.items.map((v) => <Row key={v.uuid} v={v} workspaceId={workspaceId} view={view} />)}</tbody>
             </table>
           </div>
         )}
@@ -284,28 +312,31 @@ const VERDICT_LABEL = Object.fromEntries([...DDX_VERDICTS, ...TTX_VERDICTS].map(
 
 function Row({ v, workspaceId, view }: { v: QueueItem; workspaceId: string; view: string }) {
   return (
-    <tr className="align-top hover:bg-accent/30">
-      <td className="whitespace-nowrap px-4 py-3">
+    // Phone: each row becomes a stacked card (date + status, complaints, rank ladder + AI vs doctor, pills).
+    <tr className="block border-b border-rule px-4 py-3 align-top hover:bg-raised sm:table-row sm:border-0 sm:p-0">
+      <td className="block whitespace-nowrap sm:table-cell sm:px-4 sm:py-3">
         <Link href={`/workspaces/${workspaceId}/mismatch/${v.uuid}?view=${encodeURIComponent(view)}`} className="font-medium text-blue-700 hover:underline">{fmtDate(v.encounterAt)}</Link>
         <div className="text-xs text-muted-foreground">{[v.gender, v.age != null ? `${v.age}y` : null, v.specialty ? displayName(v.specialty) : null].filter(Boolean).join(' · ')}</div>
         {v.doctor && <div className="text-xs text-muted-foreground">{doctorLabel(v.doctor)}</div>}
       </td>
-      <td className="max-w-[220px] px-4 py-3 text-xs text-muted-foreground">{dash(v.complaint)}</td>
-      <td className="max-w-[260px] px-4 py-3 text-xs">
+      <td className="block pt-1 text-xs text-muted-foreground sm:table-cell sm:max-w-[220px] sm:px-4 sm:py-3">{dash(v.complaint)}</td>
+      <td className="block pt-1 text-xs sm:table-cell sm:max-w-[280px] sm:px-4 sm:py-3">
+        <div className="mb-1"><Ladder rank={v.bestRank} miss={!v.bestRank && !v.followUpOnly && !!v.aiTop1} /></div>
         <div className="text-muted-foreground">
-          AI: {displayName(v.aiTop1)}
+          AI #1: {displayName(v.aiTop1)}
           {v.bestRank ? <span className="ml-1 text-emerald-700">(picked #{v.bestRank}{v.pickedBy === 'name' ? ', typed' : ''})</span> : null}
         </div>
         <div className="font-medium">Dr: {v.doctorDx.map(displayName).join(', ') || '—'}</div>
       </td>
-      <td className="px-4 py-3"><TypeBadge type={v.mismatchType} /></td>
-      <td className="max-w-[320px] px-4 py-3">
+      <td className="block pt-1 sm:table-cell sm:px-4 sm:py-3"><TypeBadge type={v.mismatchType} /></td>
+      <td className="block pt-1 sm:table-cell sm:max-w-[320px] sm:px-4 sm:py-3">
         <div className="flex flex-wrap gap-1">
+          {v.referral && <Pill tone={v.referral.urgent ? 'neg' : 'n'}>{v.referral.urgent ? 'Urgent referral' : 'Referred'}: {displayName(v.referral.specialist)}</Pill>}
           {v.highlights.slice(0, 3).map((h, i) => <HighlightChip key={i} h={h} />)}
           {v.highlights.length > 3 && <span className="self-center text-xs text-muted-foreground">+{v.highlights.length - 3} more</span>}
         </div>
       </td>
-      <td className="px-4 py-3">
+      <td className="block pt-1 sm:table-cell sm:px-4 sm:py-3">
         <div className="flex items-center gap-1.5 whitespace-nowrap">
           <StatusBadge status={v.review.status} />
           {v.review.followUp && <Flag className="h-3.5 w-3.5 text-rose-600" aria-label="Flagged for follow-up" />}

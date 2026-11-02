@@ -39,7 +39,7 @@ export interface Highlight {
 
 export interface QueueItem {
   uuid: string; visitId?: number; visitPseudoId: string | null; doctor: string | null; encounterAt?: string; gender?: string; age?: number; specialty?: string;
-  complaint?: string; referral?: string | null; mismatchType: MismatchType; aiTop1: string | null; bestRank: number | null;
+  complaint?: string; referral?: { specialist: string; urgent: boolean } | null; mismatchType: MismatchType; aiTop1: string | null; bestRank: number | null;
   pickedBy: 'clicked' | 'name' | null; followUpOnly: boolean;
   doctorDx: string[]; highlights: Highlight[];
   ttx: { exact: number; modified: number; ignored: number; added: number } | null;
@@ -55,11 +55,13 @@ export interface QueueQuery {
   tab?: QueueTab; mismatch?: string; ddx?: string; ttx?: string; status?: string;
   from?: string; to?: string; specialty?: string; gender?: string; age?: string;
   dx?: string; med?: string; reviewer?: string; verdict?: string; followUp?: string; images?: string;
+  /** Q1: paediatric (age <= 17) | general. */
+  population?: string;
   flag?: string; model?: string; doctor?: string;
   q?: string; sort?: string; page?: number; limit?: number;
 }
 
-export interface QueuePage { total: number; page: number; limit: number; counts: Record<QueueTab, number>; items: QueueItem[] }
+export interface QueuePage { total: number; page: number; limit: number; counts: Record<QueueTab, number>; populationCounts?: Record<'all' | 'paediatric' | 'general', number>; items: QueueItem[] }
 export interface Facets { specialties: string[]; models: string[]; doctors: string[]; rejectReasons: string[]; reviewers: { _id: string; name: string }[] }
 
 export interface AiDiagnosis { diagnosis: string; rank: string | null; likelihood?: string | null; aiAssisted?: string | null; rationale?: unknown }
