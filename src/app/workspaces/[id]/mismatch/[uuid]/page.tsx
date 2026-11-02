@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Section } from '@/components/dashboard/kpi';
@@ -42,6 +42,15 @@ export default function MismatchVisitPage() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ReviewInput>({});
   const [saving, setSaving] = useState(false);
+  const claimed = useRef(false);
+  // First interaction with the form claims the visit (30-min expiry on the server); a save claims it too.
+  const update = (patch: Partial<ReviewInput>) => {
+    if (!claimed.current) {
+      claimed.current = true;
+      mismatchAPI.claim(id, uuid).catch(() => { claimed.current = false; });
+    }
+    setForm((f) => ({ ...f, ...patch }));
+  };
   const [saved, setSaved] = useState(false);
   // The queue view this visit was opened from (?view=); "Save & next" stays inside it (ticket V3).
   const viewQs = useSearchParams().get('view') ?? 'tab=todo';
@@ -58,11 +67,11 @@ export default function MismatchVisitPage() {
   useEffect(() => {
     let live = true;
     setV(null); setSaved(false);
-    // Claim and load in parallel; the read may land before the claim is written, so mirror a successful claim.
-    Promise.all([mismatchAPI.claim(id, uuid).catch(() => null), mismatchAPI.visit(id, uuid)])
-      .then(([c, d]) => {
+    claimed.current = false;
+    // Opening a visit does not claim it; the first edit does (ticket A1).
+    mismatchAPI.visit(id, uuid)
+      .then((d) => {
         if (!live) return;
-        if (c?.claimed && d.review.status === 'pending') d = { ...d, review: { ...d.review, status: 'in_progress' } };
         setV(d);
         const r = d.review ?? {};
         setForm({
@@ -270,25 +279,25 @@ export default function MismatchVisitPage() {
               {showDdx && (
                 <fieldset className="space-y-2">
                   <legend className="text-sm font-medium">Diagnosis</legend>
-                  <Choices name="ddxVerdict" options={DDX_VERDICTS} value={form.ddxVerdict} onChange={(x) => setForm({ ...form, ddxVerdict: x })} />
-                  <Select label="Main reason" options={DDX_REASONS} value={form.ddxReason} onChange={(x) => setForm({ ...form, ddxReason: x })} />
-                  <TextInput label="Correct diagnosis (if different)" value={form.correctDiagnosis} onChange={(x) => setForm({ ...form, correctDiagnosis: x })} />
+                  <Choices name="ddxVerdict" options={DDX_VERDICTS} value={form.ddxVerdict} onChange={(x) => update({ ddxVerdict: x })} />
+                  <Select label="Main reason" options={DDX_REASONS} value={form.ddxReason} onChange={(x) => update({ ddxReason: x })} />
+                  <TextInput label="Correct diagnosis (if different)" value={form.correctDiagnosis} onChange={(x) => update({ correctDiagnosis: x })} />
                 </fieldset>
               )}
               {showTtx && a.ttxMismatch && (
                 <fieldset className="space-y-2">
                   <legend className="text-sm font-medium">Treatment</legend>
-                  <Choices name="ttxVerdict" options={TTX_VERDICTS} value={form.ttxVerdict} onChange={(x) => setForm({ ...form, ttxVerdict: x })} />
-                  <Select label="Main reason" options={TTX_REASONS} value={form.ttxReason} onChange={(x) => setForm({ ...form, ttxReason: x })} />
-                  <TextInput label="Correct treatment (if different)" value={form.correctTreatment} onChange={(x) => setForm({ ...form, correctTreatment: x })} />
+                  <Choices name="ttxVerdict" options={TTX_VERDICTS} value={form.ttxVerdict} onChange={(x) => update({ ttxVerdict: x })} />
+                  <Select label="Main reason" options={TTX_REASONS} value={form.ttxReason} onChange={(x) => update({ ttxReason: x })} />
+                  <TextInput label="Correct treatment (if different)" value={form.correctTreatment} onChange={(x) => update({ correctTreatment: x })} />
                 </fieldset>
               )}
               <label className="block text-sm">
                 <span className="text-xs font-medium text-muted-foreground">Comment</span>
-                <textarea className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" rows={3} value={form.comment ?? ''} onChange={(e) => setForm({ ...form, comment: e.target.value })} />
+                <textarea className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" rows={3} value={form.comment ?? ''} onChange={(e) => update({ comment: e.target.value })} />
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={!!form.followUp} onChange={(e) => setForm({ ...form, followUp: e.target.checked })} />
+                <input type="checkbox" checked={!!form.followUp} onChange={(e) => update({ followUp: e.target.checked })} />
                 Flag for clinical team follow-up
               </label>
               {error && <p className="text-sm text-destructive">{error}</p>}
