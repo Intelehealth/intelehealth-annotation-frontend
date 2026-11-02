@@ -1,5 +1,5 @@
 import type { AiHeadline, DashboardData, TatRow } from '@/lib/api/mismatch';
-import { doctorLabel } from '@/lib/api/mismatch';
+import { doctorLabel, EQUIV_REASON_LABEL, RULE_LABEL } from '@/lib/api/mismatch';
 
 type Cell = string | number | null;
 type Col = { header: string; pct?: boolean; width?: number };
@@ -81,9 +81,9 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
     pa.map((r, i) => [r[0], r[1], r[2], ad[i][1], ad[i][2]]));
 
   // Diagnosis
-  const dxCols: Col[] = [{ header: 'Visits' }, { header: 'Scored' }, { header: 'Picked AI Dx %', pct: true }, { header: 'Top 1 %', pct: true }, { header: 'Top 3 %', pct: true }, { header: 'Top 5 %', pct: true }, { header: 'Added non-AI Dx' }];
-  const dxCells = (r: { visits: number; scored: number; picked: number; top1: number; top3: number; top5: number; addedNonAi: number }): Cell[] =>
-    [r.visits, r.scored, share(r.picked, r.scored), share(r.top1, r.scored), share(r.top3, r.scored), share(r.top5, r.scored), r.addedNonAi];
+  const dxCols: Col[] = [{ header: 'Visits' }, { header: 'Scored' }, { header: 'Picked AI Dx %', pct: true }, { header: 'Top 1 %', pct: true }, { header: 'Top 3 %', pct: true }, { header: 'Top 5 %', pct: true }, { header: 'Added non-AI Dx' }, { header: 'Equivalent, not picked (separate)' }];
+  const dxCells = (r: { visits: number; scored: number; picked: number; top1: number; top3: number; top5: number; addedNonAi: number; equivalent?: number }): Cell[] =>
+    [r.visits, r.scored, share(r.picked, r.scored), share(r.top1, r.scored), share(r.top3, r.scored), share(r.top5, r.scored), r.addedNonAi, r.equivalent ?? 0];
   const dx = sheet('Diagnosis');
   block(dx, 'Top 1 / 3 / 5 by day', [{ header: 'Date' }, ...dxCols], ai.byDay.map((r) => [r.name, ...dxCells(r)]));
   block(dx, 'By doctor and day', [{ header: 'Date' }, { header: 'Doctor' }, ...dxCols], ai.byDoctorDay.map((r) => [r.date, doctorLabel(r.doctor), ...dxCells(r)]));
@@ -106,6 +106,22 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
   block(tx, 'Medicines the doctor added', [{ header: 'Medicine', width: 50 }, { header: 'Times added' }, { header: 'Paediatric' }, { header: 'Commonest dose', width: 24 }, { header: 'Commonest frequency', width: 24 }, { header: 'Commonest duration', width: 20 }],
     ai.addedMedicines.map((m) => [m.name, m.count, m.paediatric, m.dose, m.frequency, m.duration]));
   block(tx, 'Medicines added, by diagnosis', [{ header: 'Diagnosis → medicine', width: 70 }, { header: 'Times' }], data.addedForDiagnosis.map((r) => [r.name, r.count]));
+
+  // D3: equivalent suggested but not picked (separate from the strict numbers)
+  if (ai.equivalent) {
+    const eqs = sheet('Equivalent not picked');
+    block(eqs, 'Equivalent suggested, not picked', [{ header: 'Metric', width: 40 }, { header: 'Visits' }, { header: '% of visits with an AI list', pct: true }], [
+      ['Strict: final Dx in AI top 1', all.top1, share(all.top1, all.dxScored)],
+      ['Strict: final Dx in AI top 5', all.top5, share(all.top5, all.dxScored)],
+      ['Equivalent suggested, not picked', all.dxEquivalentNotPicked, share(all.dxEquivalentNotPicked, all.dxScored)],
+    ], 'Separate metric: an AI suggestion matching the doctor\'s own Dx by a named rule that the doctor did not pick. Strict numbers are unchanged.');
+    block(eqs, 'Pairs', [{ header: 'AI suggestion', width: 40 }, { header: "Doctor's diagnosis", width: 40 }, { header: 'Rule', width: 26 }, { header: 'Avg AI rank' }, { header: 'Visits' }, { header: 'Reviewed' }, { header: 'Overruled' }],
+      ai.equivalent.pairs.map((p) => [p.aiName, p.doctorName, RULE_LABEL[p.rule] ?? p.rule, p.avgRank, p.count, p.reviewed, p.overruled]));
+    block(eqs, 'By rule', [{ header: 'Rule', width: 26 }, { header: 'Visits' }, { header: 'Reviewed' }, { header: 'Overruled' }],
+      ai.equivalent.byRule.map((r) => [RULE_LABEL[r.rule] ?? r.rule, r.count, r.reviewed, r.overruled]));
+    block(eqs, 'Why not picked (annotators)', [{ header: 'Reason', width: 50 }, { header: 'Visits' }],
+      ai.equivalent.reasons.map((r) => [EQUIV_REASON_LABEL[r.name] ?? r.name, r.count]));
+  }
 
   // Doctors
   const dr = sheet('Doctors');

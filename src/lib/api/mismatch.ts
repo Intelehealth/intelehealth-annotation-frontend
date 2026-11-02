@@ -74,11 +74,30 @@ export interface VisitAnalysis {
   ddxAvailable: boolean; ddxRanked: RankedDx[]; ddxPickedBy: 'clicked' | 'name' | null; followUpOnly: boolean;
   ddxRejectReason: string | null; ttxRejectReason: string | null; ddxSelectedRanks: number[]; ddxBestRank: number | null; top1: boolean; top3: boolean; top5: boolean;
   ddxMismatch: boolean; doctorAddedDx: string[];
+  /** D3: an unpicked AI suggestion equivalent to the doctor's own Dx (separate from strict top-k). */
+  equivalentNotPicked?: EquivalentNotPicked | null;
   ttxAvailable: boolean; ttxExact: number; ttxModified: number; ttxIgnored: number; ttxAdded: number;
   ttxUsed: boolean; ttxFullyAccepted: boolean; ttxMismatch: boolean; mismatchType: MismatchType; highlights: Highlight[];
   doctorDiagnoses: { code: string; name: string; role: string; status: string }[];
   doctorMedications: { name: string; dose: string; duration: string; unit: string; instructions: string; frequency: string }[];
 }
+
+export type EquivalenceRule = 'code' | 'normalised' | 'qualifier' | 'synonym';
+export interface EquivalentNotPicked { aiName: string; aiRank: number; doctorName: string; rule: EquivalenceRule }
+export const RULE_LABEL: Record<EquivalenceRule, string> = {
+  code: 'Same code', normalised: 'Same name (case / punctuation)', qualifier: 'Qualifier only (acute, left …)', synonym: 'Synonym / abbreviation',
+};
+/** D3: why the doctor did not pick the AI's equivalent suggestion (final list, 7 options). */
+export const EQUIV_REASONS: { value: string; label: string }[] = [
+  { value: 'more_specific', label: 'Wanted a more specific term' },
+  { value: 'not_noticed', label: "Didn't notice it in the list" },
+  { value: 'terminology', label: 'Coding / terminology preference' },
+  { value: 'workflow', label: 'App or workflow friction' },
+  { value: 'disagreed', label: 'Disagreed with the AI despite the similar name' },
+  { value: 'not_same_condition', label: 'Not the same condition (matching rule is wrong)' },
+  { value: 'other', label: 'Other' },
+];
+export const EQUIV_REASON_LABEL: Record<string, string> = Object.fromEntries(EQUIV_REASONS.map((r) => [r.value, r.label]));
 
 export interface Review {
   status: ReviewStatus;
@@ -86,6 +105,7 @@ export interface Review {
   ddxVerdict?: string; ddxReason?: string; correctDiagnosis?: string;
   ttxVerdict?: string; ttxReason?: string; correctTreatment?: string;
   comment?: string; followUp?: boolean;
+  equivReason?: string; equivReasonText?: string;
   annotatedBy?: { _id: string; name: string } | null; annotatedAt?: string;
   history?: ReviewHistoryEntry[];
 }
@@ -95,6 +115,7 @@ export interface ReviewHistoryEntry {
   by: { _id: string; name: string } | null; at: string; action: 'annotated' | 'edited' | 'draft';
   ddxVerdict?: string; ddxReason?: string; correctDiagnosis?: string;
   ttxVerdict?: string; ttxReason?: string; correctTreatment?: string; comment?: string; followUp?: boolean;
+  equivReason?: string; equivReasonText?: string;
 }
 
 export interface VisitDetail {
@@ -118,7 +139,7 @@ export interface VisitDetail {
   review: Review;
 }
 
-export type ReviewInput = Pick<Review, 'ddxVerdict' | 'ddxReason' | 'correctDiagnosis' | 'ttxVerdict' | 'ttxReason' | 'correctTreatment' | 'comment' | 'followUp'>;
+export type ReviewInput = Pick<Review, 'ddxVerdict' | 'ddxReason' | 'correctDiagnosis' | 'ttxVerdict' | 'ttxReason' | 'correctTreatment' | 'comment' | 'followUp' | 'equivReason' | 'equivReasonText'>;
 
 export interface DashboardData {
   source: MismatchSource; from: string | null; to: string | null;
@@ -162,8 +183,10 @@ export interface AiHeadline {
   ttxGenerated: number; aiMedicines: number;
   casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number; casesFullyAccepted: number;
   investigations: number; advice: number; referral: number; followUp: number;
+  /** D3, separate from the strict picks. */
+  dxEquivalentNotPicked: number;
 }
-export interface DxAgg { name: string; visits: number; scored: number; picked: number; top1: number; top3: number; top5: number; addedNonAi: number }
+export interface DxAgg { name: string; visits: number; scored: number; picked: number; top1: number; top3: number; top5: number; addedNonAi: number; equivalent: number }
 export type ChangeType = 'dose' | 'frequency' | 'duration' | 'instructions' | 'not_in_prescription' | 'no_visible_difference';
 export interface AiMetrics {
   headline: { all: AiHeadline; paediatric: AiHeadline; adult: AiHeadline; paediatricMaxAge: number; includeFollowUps: boolean };
@@ -178,6 +201,12 @@ export interface AiMetrics {
   changeTypes: Record<ChangeType, number>;
   addedMedicines: { name: string; count: number; paediatric: number; dose: string | null; frequency: string | null; duration: string | null }[];
   orders: Record<'investigations' | 'advice' | 'referrals', { name: string; count: number }[]>;
+  /** D3 pairs table (overruled = annotators answered "Not the same condition"), per-rule totals and reason counts. */
+  equivalent: {
+    pairs: { aiName: string; doctorName: string; rule: EquivalenceRule; count: number; avgRank: number; reviewed: number; overruled: number }[];
+    byRule: { rule: EquivalenceRule; count: number; reviewed: number; overruled: number }[];
+    reasons: { name: string; count: number }[];
+  };
 }
 
 /** Minutes. wait = visit start -> doctor opened the note; consult = note -> prescription shared; total = visit start -> shared. */

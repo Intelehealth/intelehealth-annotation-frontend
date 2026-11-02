@@ -9,7 +9,7 @@ import { Empty, Section } from '@/components/dashboard/kpi';
 import { pct } from '@/components/dashboard/format';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
-  doctorLabel, mismatchAPI, type AiHeadline, type ChangeType, type DashboardData, type DxAgg, type TatRow,
+  doctorLabel, EQUIV_REASON_LABEL, mismatchAPI, RULE_LABEL, type AiHeadline, type ChangeType, type DashboardData, type DxAgg, type TatRow,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 import { ConsultingDoctors, DiagnosisPatterns, DoctorProgress } from './insights';
@@ -321,6 +321,7 @@ function Overview({ data, grain, population }: { data: DashboardData; grain: Gra
           <Stat label="…in AI top 3" n={h.top3} of={h.dxScored} ofLabel={scoredLabel} />
           <Stat label="…in AI top 5" n={h.top5} of={h.dxScored} ofLabel={scoredLabel} />
           <Stat label="Doctor added a non-AI Dx" n={h.dxAddedNonAi} of={h.dxScored} ofLabel={scoredLabel} />
+          <Stat label="Equivalent suggested, not picked" n={h.dxEquivalentNotPicked} of={h.dxScored} ofLabel={`${scoredLabel} · separate from top 1/3/5`} />
           <Stat label="Doctor opened a rationale" value="—" note="Not logged by the app yet" />
         </div>
       </Group>
@@ -410,6 +411,7 @@ const DxHead = ({ first }: { first: string }) => (
   <tr>
     <th className={th}>{first}</th><th className={thR}>Visits</th><th className={thR}>Scored</th><th className={thR}>Picked AI Dx</th>
     <th className={thR}>Top 1</th><th className={thR}>Top 3</th><th className={thR}>Top 5</th><th className={thR}>Added non-AI Dx</th>
+    <th className={thR} title="Separate metric, not part of the strict picks">Equivalent, not picked</th>
   </tr>
 );
 const DxCells = ({ r }: { r: DxAgg }) => (
@@ -421,6 +423,7 @@ const DxCells = ({ r }: { r: DxAgg }) => (
     <td className={tdR}>{pctOf(r.top3, r.scored)}</td>
     <td className={tdR}>{pctOf(r.top5, r.scored)}</td>
     <td className={tdR}>{r.addedNonAi ? `${fmt(r.addedNonAi)} (${pctOf(r.addedNonAi, r.scored)})` : '—'}</td>
+    <td className={tdR}>{r.equivalent ? `${fmt(r.equivalent)} (${pctOf(r.equivalent, r.scored)})` : '—'}</td>
   </>
 );
 
@@ -434,6 +437,7 @@ function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
   const dd = data.ai.byDoctorDay.filter((r) => !doctor || r.doctor === doctor);
   return (
     <>
+      <EquivalentPanel data={data} />
       <div className="grid gap-5 xl:grid-cols-2">
         <Section title={`Top 1 / 3 / 5 by ${grain}`} description="% of visits with an AI list">
           <Table empty={!days.length} head={<DxHead first={grain === 'day' ? 'Date' : grain === 'week' ? 'Week of' : 'Month'} />}>
@@ -465,6 +469,42 @@ function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
       </Section>
       <DiagnosisPatterns data={data} />
     </>
+  );
+}
+
+/**
+ * D3: AI suggested something clinically the same as the doctor's Dx (by a named
+ * rule) but the doctor did not pick it. Shown NEXT to the strict numbers, never
+ * merged into them; the pairs table lets a human spot wrong equivalences.
+ */
+function EquivalentPanel({ data }: { data: DashboardData }) {
+  const h = data.ai.headline.all;
+  const eqv = data.ai.equivalent;
+  const pairs = useRowFilter(eqv?.pairs ?? [], (p) => `${p.aiName} ${p.doctorName}`);
+  if (!eqv) return null;
+  return (
+    <Section title="Equivalent suggested, not picked"
+      description={`Separate from the strict top 1/3/5: the AI listed a diagnosis that matches the doctor's own by one of the rules below, but the doctor did not pick it. Base: ${fmt(h.dxScored)} visits with an AI list.`}
+      action={<TableSearch q={pairs.q} setQ={pairs.setQ} shown={pairs.filtered.length} total={eqv.pairs.length} placeholder="Find a pair…" />}>
+      <div className="grid grid-cols-2 gap-3 px-4 pt-4 md:grid-cols-4">
+        <Stat label="Strict: final Dx in AI top 1" n={h.top1} of={h.dxScored} ofLabel="visits with an AI list" />
+        <Stat label="Strict: final Dx in AI top 5" n={h.top5} of={h.dxScored} ofLabel="visits with an AI list" />
+        <Stat label="Equivalent suggested, not picked" n={h.dxEquivalentNotPicked} of={h.dxScored} ofLabel="visits with an AI list" accent />
+        <Stat label="Matches overruled by annotators" value={fmt(eqv.byRule.reduce((s, r) => s + r.overruled, 0))}
+          note={eqv.byRule.map((r) => `${RULE_LABEL[r.rule]}: ${r.overruled} of ${r.reviewed} reviewed`).join(' · ') || 'None reviewed yet'} />
+      </div>
+      <Table empty={!pairs.filtered.length} head={(
+        <tr><th className={th}>AI suggestion</th><th className={th}>Doctor&apos;s diagnosis</th><th className={th}>Matching rule</th><th className={thR}>Avg AI rank</th><th className={thR}>Visits</th><th className={thR}>Reviewed</th><th className={thR}>Overruled</th></tr>
+      )}>
+        {pairs.filtered.map((p) => (
+          <tr key={`${p.aiName}|${p.doctorName}|${p.rule}`}>
+            <td className={td}>{p.aiName}</td><td className={td}>{p.doctorName}</td><td className={td}>{RULE_LABEL[p.rule] ?? p.rule}</td>
+            <td className={tdR}>#{p.avgRank}</td><td className={tdR}>{fmt(p.count)}</td><td className={tdR}>{fmt(p.reviewed)}</td>
+            <td className={cn(tdR, p.overruled > 0 && 'font-semibold text-red-700')}>{fmt(p.overruled)}</td>
+          </tr>
+        ))}
+      </Table>
+    </Section>
   );
 }
 
@@ -567,6 +607,7 @@ function DoctorsTab({ data }: { data: DashboardData }) {
           <tr>
             <th className={th}>Doctor</th><th className={thR}>Visits</th><th className={thR}>Picked AI Dx</th><th className={thR}>Top 1</th>
             <th className={thR}>Top 3</th><th className={thR}>Top 5</th><th className={thR}>Added non-AI Dx</th>
+            <th className={thR} title="Separate metric, not part of the strict picks">Equivalent, not picked</th>
             <th className={thR}>TTx cases</th><th className={thR}>Picked unchanged</th><th className={thR}>Picked with changes</th>
           </tr>
         )}>
@@ -579,6 +620,7 @@ function DoctorsTab({ data }: { data: DashboardData }) {
               <td className={tdR}>{pctOf(r.top3, r.scored)}</td>
               <td className={tdR}>{pctOf(r.top5, r.scored)}</td>
               <td className={tdR}>{pctOf(r.addedNonAi, r.scored)}</td>
+              <td className={tdR}>{pctOf(r.equivalent, r.scored)}</td>
               <td className={tdR}>{fmt(r.ttxGenerated)}</td>
               <td className={tdR}>{pctOf(r.casesUnchanged, r.ttxGenerated)}</td>
               <td className={tdR}>{pctOf(r.casesChanged, r.ttxGenerated)}</td>
@@ -733,6 +775,9 @@ function AnnotationTab({ data }: { data: DashboardData }) {
           <RankedList items={data.rejections ?? []} empty="No reasons recorded in this period." />
         </Section>
       </div>
+      <Section title="Why the equivalent AI suggestion was not picked" description="Annotators' answers on visits flagged “Equivalent suggested, not picked”">
+        <RankedList items={(data.ai.equivalent?.reasons ?? []).filter((r) => r.count).map((r) => ({ name: EQUIV_REASON_LABEL[r.name] ?? r.name, count: r.count }))} empty="No answers yet in this period." />
+      </Section>
       {(data.models ?? []).some((m) => m.model !== 'Not logged') && (
         <Section title="By AI model / engine" description="From the AI call log; visits without a log entry are grouped as “Not logged”">
           <Table head={(

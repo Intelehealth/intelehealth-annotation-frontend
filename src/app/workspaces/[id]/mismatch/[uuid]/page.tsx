@@ -10,7 +10,7 @@ import { VisitImages } from '@/components/mismatch/visit-images';
 import { missingForDone, type MissingField } from '@/lib/review-rules';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
-  DDX_REASONS, DDX_VERDICTS, doctorLabel, mismatchAPI, parseView, SOURCE_LABEL, TTX_REASONS, TTX_VERDICTS,
+  DDX_REASONS, DDX_VERDICTS, doctorLabel, EQUIV_REASON_LABEL, EQUIV_REASONS, mismatchAPI, parseView, RULE_LABEL, SOURCE_LABEL, TTX_REASONS, TTX_VERDICTS,
   type AiMedication, type ReviewInput, type VisitDetail,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
@@ -81,7 +81,7 @@ export default function MismatchVisitPage() {
         setForm({
           ddxVerdict: r.ddxVerdict, ddxReason: r.ddxReason, correctDiagnosis: r.correctDiagnosis,
           ttxVerdict: r.ttxVerdict, ttxReason: r.ttxReason, correctTreatment: r.correctTreatment,
-          comment: r.comment, followUp: r.followUp,
+          comment: r.comment, followUp: r.followUp, equivReason: r.equivReason, equivReasonText: r.equivReasonText,
         });
       })
       .catch((e) => live && setError(apiMessage(e, 'Could not load this visit')));
@@ -120,6 +120,7 @@ export default function MismatchVisitPage() {
   const hasMr = Object.values(v.notesMr ?? {}).some(Boolean);
   const note = lang === 'mr' && hasMr ? { ...v.notes, ...Object.fromEntries(Object.entries(v.notesMr ?? {}).filter(([, t]) => t)) } : v.notes;
   const missing = missingForDone(a, form);
+  const eq = a.equivalentNotPicked ?? null;
   const vit = v.vitals ?? {};
   const age = v.demographics?.age;
   const vitals: [string, unknown, string][] = [
@@ -203,6 +204,12 @@ export default function MismatchVisitPage() {
 
         <div className="space-y-6">
           <Section title="Diagnosis: AI vs doctor" description={a.followUpOnly ? 'Follow-up visit: not scored' : a.ddxMismatch ? 'The doctor picked none of the AI top 5' : a.ddxBestRank ? `The doctor picked the AI's #${a.ddxBestRank}${a.ddxPickedBy === 'name' ? ' (typed the same name)' : ''}` : 'No AI diagnosis for this visit'}>
+            {eq && (
+              <div className="mx-4 mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                AI suggested the equivalent &lsquo;{eq.aiName}&rsquo; at #{eq.aiRank}; the doctor entered &lsquo;{eq.doctorName}&rsquo;.
+                <span className="ml-1 text-xs text-amber-800">Matched by: {RULE_LABEL[eq.rule] ?? eq.rule}. Not counted as a pick.</span>
+              </div>
+            )}
             <div className="grid gap-4 px-4 py-4 md:grid-cols-2">
               <div>
                 <div className="mb-2 text-xs font-medium text-muted-foreground">AI top 5</div>
@@ -301,6 +308,20 @@ export default function MismatchVisitPage() {
                   <TextInput label="Correct diagnosis (if different)" value={form.correctDiagnosis} onChange={(x) => update({ correctDiagnosis: x })} />
                 </fieldset>
               )}
+              {eq && (
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">Why didn&apos;t the doctor pick the AI&apos;s equivalent suggestion?</legend>
+                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Reason">
+                    {EQUIV_REASONS.map((o) => (
+                      <button key={o.value} type="button" role="radio" aria-checked={form.equivReason === o.value} onClick={() => update({ equivReason: form.equivReason === o.value ? undefined : o.value })}
+                        className={cn('rounded-full border px-2.5 py-1 text-xs', form.equivReason === o.value ? 'border-slate-900 bg-slate-900 text-white' : 'hover:bg-accent')}>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                  <TextInput label={form.equivReason === 'other' ? 'Describe the reason' : 'Notes (optional)'} value={form.equivReasonText} onChange={(x) => update({ equivReasonText: x })} />
+                </fieldset>
+              )}
               {showTtx && a.ttxMismatch && (
                 <fieldset className="space-y-2">
                   <legend className="text-sm font-medium">Treatment</legend>
@@ -339,7 +360,7 @@ export default function MismatchVisitPage() {
                       <span className="text-xs text-muted-foreground">{fmtDate(h.at)}</span>
                     </div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
-                      {[VERDICT[h.ddxVerdict ?? ''] && `Diagnosis: ${VERDICT[h.ddxVerdict ?? '']}`, VERDICT[h.ttxVerdict ?? ''] && `Treatment: ${VERDICT[h.ttxVerdict ?? '']}`, h.correctDiagnosis && `Correct Dx: ${h.correctDiagnosis}`, h.comment && `“${h.comment}”`, h.followUp && 'Flagged for follow-up'].filter(Boolean).join(' · ') || 'No fields filled'}
+                      {[VERDICT[h.ddxVerdict ?? ''] && `Diagnosis: ${VERDICT[h.ddxVerdict ?? '']}`, VERDICT[h.ttxVerdict ?? ''] && `Treatment: ${VERDICT[h.ttxVerdict ?? '']}`, h.correctDiagnosis && `Correct Dx: ${h.correctDiagnosis}`, h.comment && `“${h.comment}”`, h.followUp && 'Flagged for follow-up', h.equivReason && `Equivalent not picked: ${EQUIV_REASON_LABEL[h.equivReason] ?? h.equivReason}`].filter(Boolean).join(' · ') || 'No fields filled'}
                     </div>
                   </li>
                 ))}

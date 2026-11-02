@@ -30,6 +30,7 @@ const DDX: Opt[] = [
   { value: 'picked_2_5', label: 'Doctor picked AI #2–#5' },
   { value: 'by_name', label: 'Picked by typing the AI name' },
   { value: 'doctor_added', label: 'Doctor added own diagnosis' },
+  { value: 'equivalent_not_picked', label: 'Equivalent suggested, not picked' },
   { value: 'follow_up', label: 'Follow-up visit' },
   { value: 'no_ai', label: 'No AI diagnosis' },
 ];
