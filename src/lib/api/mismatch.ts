@@ -39,7 +39,7 @@ export interface Highlight {
 
 export interface QueueItem {
   uuid: string; visitId?: number; visitPseudoId: string | null; doctor: string | null; encounterAt?: string; gender?: string; age?: number; specialty?: string;
-  complaint?: string; referral?: { specialist: string; urgent: boolean } | null; mismatchType: MismatchType; aiTop1: string | null; bestRank: number | null;
+  complaint?: string; referral?: { specialist: string; urgent: boolean } | null; followUpInDays?: number | null; mismatchType: MismatchType; aiTop1: string | null; bestRank: number | null;
   pickedBy: 'clicked' | 'name' | null; followUpOnly: boolean;
   doctorDx: string[]; highlights: Highlight[];
   ttx: { exact: number; modified: number; ignored: number; added: number } | null;

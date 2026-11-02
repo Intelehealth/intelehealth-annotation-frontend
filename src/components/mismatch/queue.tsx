@@ -332,6 +332,7 @@ function Row({ v, workspaceId, view }: { v: QueueItem; workspaceId: string; view
       <td className="block pt-1 sm:table-cell sm:max-w-[320px] sm:px-4 sm:py-3">
         <div className="flex flex-wrap gap-1">
           {v.referral && <Pill tone={v.referral.urgent ? 'neg' : 'n'}>{v.referral.urgent ? 'Urgent referral' : 'Referred'}: {displayName(v.referral.specialist)}</Pill>}
+          {v.followUpInDays != null && v.followUpInDays >= 0 && v.followUpInDays <= 3 && <Pill tone="warn">Follow-up {v.followUpInDays === 0 ? 'today' : `in ${v.followUpInDays} day${v.followUpInDays === 1 ? '' : 's'}`}</Pill>}
           {v.highlights.slice(0, 3).map((h, i) => <HighlightChip key={i} h={h} />)}
           {v.highlights.length > 3 && <span className="self-center text-xs text-muted-foreground">+{v.highlights.length - 3} more</span>}
         </div>
