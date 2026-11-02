@@ -280,7 +280,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
         {!data ? (
           <div className="m-4 h-40 animate-pulse rounded-md bg-muted" />
         ) : data.items.length === 0 ? (
-          <Empty>{tab === 'todo' ? 'Nothing left to annotate with these filters. New mismatches appear automatically after each sync.' : 'No visits match these filters.'}</Empty>
+          <Empty>{tab === 'todo' ? 'Nothing left to annotate' : 'No visits match'}</Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="block w-full text-sm sm:table">

@@ -29,7 +29,7 @@ export function ConsultingDoctors({ rows }: { rows: DoctorStat[] }) {
   return (
     <Section
       title="Mismatches and annotator verdicts by doctor"
-      description="Doctor who saw the patient in OpenMRS, shown by pseudo id. Visits and mismatches = every visit in the period, follow-ups included; verdicts count only reviewed visits. AI agreement rates (follow-ups excluded) are in the table above."
+      description="Pseudo id · all visits · follow-ups included"
     >
       {rows.length === 0 ? <Empty>No visits in this range.</Empty> : (
         <div className="overflow-x-auto">
@@ -76,7 +76,7 @@ export function DoctorProgress({ p }: { p: DashboardData['progress'] }) {
   return (
     <Section
       title="Annotator progress"
-      description={`${p.total.toLocaleString()} annotations made in this range, counted by the day they were made · ${p.openInRange.toLocaleString()} mismatches from this range still open`}
+      description={`${p.total.toLocaleString()} annotations · ${p.openInRange.toLocaleString()} open`}
     >
       {p.reviewers.length === 0 ? <Empty>No annotations made in this range yet.</Empty> : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -232,23 +232,23 @@ export function DiagnosisPatterns({ data }: { data: DashboardData }) {
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Diagnosis patterns</h3>
       <Section
         title="Is the AI's confidence label calibrated?"
-        description={`Every AI suggestion (ranks 1-5) on visits with an AI list (${fuLabel(data)}), grouped by the likelihood label the AI gave it. If the labels mean something, “Doctor picked it” should fall from High to Low. Label spellings are merged (e.g. “Moderate to High” → Moderate-High).`}
+        description={`All AI suggestions #1–#5 · ${fuLabel(data)}`}
       >
         <ConfidenceTable rows={data.confidence} />
       </Section>
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Most common misses" description={`AI's #1 → the doctor's diagnosis, when the doctor's diagnosis was not in the AI top 5 · visits with an AI list, ${fuLabel(data)}`}>
+        <Section title="Most common misses" description={`AI #1 → doctor · not in top 5 · ${fuLabel(data)}`}>
           <PairList items={data.mismatchPairs.missed} empty="No misses in this range." />
         </Section>
-        <Section title="Most common “right list, wrong order”" description={`AI's #1 → the doctor's diagnosis, when the doctor picked the AI's #2–#5 · visits with an AI list, ${fuLabel(data)}`}>
+        <Section title="Most common “right list, wrong order”" description={`AI #1 → doctor · picked #2–#5 · ${fuLabel(data)}`}>
           <PairList items={data.mismatchPairs.rankedLower} empty="None in this range." />
         </Section>
       </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Section title="When the AI says X first, how often does the doctor agree?" description={`Per AI #1 diagnosis, most frequent first · visits with an AI list, ${fuLabel(data)}`}>
+        <Section title="When the AI says X first, how often does the doctor agree?" description={`Per AI #1 Dx · ${fuLabel(data)}`}>
           <GroupTable rows={data.aiTop1Agreement} first="AI's #1 diagnosis" />
         </Section>
-        <Section title="By specialty" description={`Adults (General Physician) vs children (Pediatrician) and others · visits with an AI list, ${fuLabel(data)}`}>
+        <Section title="By specialty" description={fuLabel(data)}>
           {data.specialties.length === 0 ? <Empty>Nothing in this range.</Empty> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

@@ -170,7 +170,7 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
         <div className={cn('space-y-5 transition-opacity', loading && 'opacity-60')}>
           {tab !== 'tat' && tab !== 'annotation' && <ModeBadge included={data.ai.headline.includeFollowUps} />}
           {tab === 'annotation' && (
-            <p className="text-xs text-muted-foreground">Annotation counts every visit in the period, follow-ups included, whatever the follow-up switch says; only “Why the equivalent AI suggestion was not picked” follows the switch ({data.ai.headline.includeFollowUps ? 'follow-ups included' : 'follow-ups excluded'}).</p>
+            <p className="text-xs text-muted-foreground">All visits · follow-ups included</p>
           )}
           {tab === 'overview' && <Overview data={data} grain={grain} population={population} />}
           {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} />}
@@ -179,7 +179,6 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
           {tab === 'tat' && <TatTab data={data} />}
           {tab === 'orders' && <OrdersTab data={data} />}
           {tab === 'annotation' && <AnnotationTab data={data} />}
-          {tab !== 'tat' && <FollowUpNote included={data.ai.headline.includeFollowUps} n={data.ai.followUpVisits ?? data.ai.followUpVisitsExcluded} />}
         </div>
       )}
     </div>
@@ -190,37 +189,12 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
 function ModeBadge({ included }: { included: boolean }) {
   return (
     <div className={cn('inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium', included ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 bg-slate-50 text-slate-700')}>
-      <Info className="h-3.5 w-3.5" /> {included ? 'Follow-up visits INCLUDED in these numbers' : 'Follow-up visits excluded from these numbers'}
+      <Info className="h-3.5 w-3.5" /> {included ? 'Follow-ups included' : 'Follow-ups excluded'}
     </div>
   );
 }
 
-/** Footer on every tab: whether follow-up visits are in these numbers, and why they are left out by default. */
-function FollowUpNote({ n, included }: { n: number; included: boolean }) {
-  if (included) {
-    return (
-      <footer className="flex items-start gap-2 border-t pt-4 text-xs text-amber-800">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <p>
-          <span className="font-medium">Follow-up visits are INCLUDED{n ? ` (${fmt(n)} in this period)` : ''}.</span>{' '}
-          A follow-up note only records whether the patient got and took the medicines and how they feel, so the AI has nothing to diagnose or treat from; expect lower Dx and TTx rates in this mode. Switch Follow-ups to “Excluded” for the standard numbers.
-        </p>
-      </footer>
-    );
-  }
-  return (
-    <footer className="flex items-start gap-2 border-t pt-4 text-xs text-slate-500">
-      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      <p>
-        <span className="font-medium text-slate-700">Follow-up visits are not counted{n ? ` (${fmt(n)} in this period)` : ''}.</span>{' '}
-        A follow-up note only records whether the patient got and took the medicines and how they feel; it has no symptoms or history for the AI to diagnose or treat from, so the AI suggestions on these visits are not considered.
-        They will be included once follow-ups capture a proper patient story.
-      </p>
-    </footer>
-  );
-}
 
-// ---------- building blocks ----------
 function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button onClick={onClick}
@@ -345,7 +319,7 @@ function Overview({ data, grain, population }: { data: DashboardData; grain: Gra
   return (
     <>
       <Group title="Diagnosis (DDx)"
-        description={`Scored over visits with an AI list (${data.ai.headline.includeFollowUps ? 'follow-up visits INCLUDED' : 'follow-up visits are not counted'}; see the note at the bottom). A pick is the doctor clicking the AI diagnosis or typing the same name; a clinically equivalent but differently worded diagnosis counts as not picked.`}>
+        description={`% of visits with an AI list · ${aiBase(data)}`}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Stat label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} ofLabel={aiBase(data)} accent />
           <Stat label="Final Dx was AI top 1" n={h.top1} of={h.dxScored} ofLabel={scoredLabel} />
@@ -356,7 +330,7 @@ function Overview({ data, grain, population }: { data: DashboardData; grain: Gra
         </div>
       </Group>
 
-      <Group title="Treatment (TTx)" description={`Base: TTx cases = ${aiBase(data)} where the AI suggested medicines. Counted per case: a case counts once in each row that applies (one case can have an unchanged and a changed medicine).`}>
+      <Group title="Treatment (TTx)" description={`% of TTx cases · ${aiBase(data)}`}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Stat label="AI generated a TTx list" n={h.ttxGenerated} of={h.visits} ofLabel={aiBase(data)} accent />
           <Stat label="AI medicines per case" value={h.ttxGenerated ? (h.aiMedicines / h.ttxGenerated).toFixed(1) : '—'} note={`${fmt(h.aiMedicines)} medicines suggested`} />
@@ -368,10 +342,10 @@ function Overview({ data, grain, population }: { data: DashboardData; grain: Gra
       </Group>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <Section title="Diagnosis: top 1 / 3 / 5 over time" description={`% of visits with an AI list (${aiBase(data)}), by ${grain}`}>
+        <Section title="Diagnosis: top 1 / 3 / 5 over time" description={`% of visits with an AI list · by ${grain}`}>
           <TrendChart rows={trend} lines={[['top1', 'Top 1', C.navy], ['top3', 'Top 3', C.blue], ['top5', 'Top 5', C.sky]]} />
         </Section>
-        <Section title="Treatment: medicines picked over time" description={`% of TTx cases (${aiBase(data)} with AI medicines), by ${grain}`}>
+        <Section title="Treatment: medicines picked over time" description={`% of TTx cases · by ${grain}`}>
           <TrendChart rows={trend} lines={[['unchanged', 'Picked unchanged', C.navy], ['changed', 'Picked with changes', C.sky]]} />
         </Section>
       </div>
@@ -420,7 +394,7 @@ function PopulationTable({ data }: { data: DashboardData }) {
     ['Added a new medicine', (h) => pctOf(h.casesAdded, h.ttxGenerated)],
   ];
   return (
-    <Section title="Paediatric vs adult" description={`Paediatric = age ${paediatricMaxAge} or under. Base: ${aiBase(data)}; visits without an age are counted only in “All”.`}>
+    <Section title="Paediatric vs adult" description={`Paediatric ≤ ${paediatricMaxAge} y · ${aiBase(data)}`}>
       <Table head={<tr><th className={th}>Metric</th><th className={thR}>All</th><th className={thR}>Paediatric</th><th className={thR}>Adult</th></tr>}>
         {rows.map(([label, f]) => (
           <tr key={label}>
@@ -468,12 +442,12 @@ function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
     <>
       <EquivalentPanel data={data} />
       <div className="grid gap-5 xl:grid-cols-2">
-        <Section title={`Top 1 / 3 / 5 by ${grain}`} description={`Visits = ${aiBase(data)}; Scored = those with an AI list; % are of Scored`}>
+        <Section title={`Top 1 / 3 / 5 by ${grain}`} description={`% of scored · ${aiBase(data)}`}>
           <Table empty={!days.length} head={<DxHead first={grain === 'day' ? 'Date' : grain === 'week' ? 'Week of' : 'Month'} />}>
             {days.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap')}>{r.name}</td><DxCells r={r} /></tr>)}
           </Table>
         </Section>
-        <Section title="Top 1 / 3 / 5 by doctor and day" description={`Visits = ${aiBase(data)}; % are of visits with an AI list`}
+        <Section title="Top 1 / 3 / 5 by doctor and day" description={`% of scored · ${aiBase(data)}`}
           action={(
             <select className="h-8 rounded-md border bg-white px-2 text-xs" value={doctor} onChange={(e) => setDoctor(e.target.value)}>
               <option value="">All doctors</option>
@@ -490,7 +464,7 @@ function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
           </Table>
         </Section>
       </div>
-      <Section title="Report by diagnosis" description={`Grouped by the doctor's final diagnosis (${aiBase(data)}): how often the AI list contained it, and how often the doctor added a diagnosis of their own; % are of visits with an AI list`}
+      <Section title="Report by diagnosis" description={`Doctor's final Dx · % of scored · ${aiBase(data)}`}
         action={<TableSearch q={dxSearch.q} setQ={dxSearch.setQ} shown={dxSearch.filtered.length} total={data.ai.byDx.length} placeholder="Find a diagnosis…" />}>
         <Table empty={!dxSearch.filtered.length} head={<DxHead first="Doctor's final diagnosis" />}>
           {dxSearch.filtered.map((r) => <tr key={r.name}><td className={cn(td, 'capitalize')}>{r.name}</td><DxCells r={r} /></tr>)}
@@ -513,7 +487,7 @@ function EquivalentPanel({ data }: { data: DashboardData }) {
   if (!eqv) return null;
   return (
     <Section title="Equivalent suggested, not picked"
-      description={`Separate from the strict top 1/3/5: the AI listed a diagnosis that matches the doctor's own by one of the rules below, but the doctor did not pick it. Base: ${fmt(h.dxScored)} visits with an AI list.`}
+      description={`Separate from top 1 / 3 / 5 · ${fmt(h.dxScored)} scored`}
       action={<TableSearch q={pairs.q} setQ={pairs.setQ} shown={pairs.filtered.length} total={eqv.pairs.length} placeholder="Find a pair…" />}>
       <div className="grid grid-cols-2 gap-3 px-4 pt-4 md:grid-cols-4">
         <Stat label="Strict: final Dx in AI top 1" n={h.top1} of={h.dxScored} ofLabel="visits with an AI list" />
@@ -549,7 +523,7 @@ function TreatmentTab({ data }: { data: DashboardData }) {
   return (
     <>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <Section title="Type of change" description={`AI medicines the doctor kept but changed (${aiBase(data)}), compared field by field with the prescription. One medicine can have several changes.`}>
+        <Section title="Type of change" description={`Changed AI medicines · ${aiBase(data)}`}>
           {!totalChanges ? <Empty>No changed medicines in this period.</Empty> : (
             <div className="h-64 px-2 py-3">
               <ResponsiveContainer width="100%" height="100%">
@@ -564,12 +538,12 @@ function TreatmentTab({ data }: { data: DashboardData }) {
             </div>
           )}
         </Section>
-        <Section title="Medicines doctors added, by diagnosis" description={`Doctor's diagnosis → medicine the doctor added (not suggested by the AI) · ${aiBase(data)}`}>
+        <Section title="Medicines doctors added, by diagnosis" description={aiBase(data)}>
           <RankedList items={data.addedForDiagnosis} />
         </Section>
       </div>
 
-      <Section title="Report by AI medicine" description={`Each AI-suggested medicine, ${aiBase(data)}; % are of the times it was suggested`}
+      <Section title="Report by AI medicine" description={`% of times suggested · ${aiBase(data)}`}
         action={(
           <div className="flex items-center gap-2">
             <TableSearch q={medSearch.q} setQ={medSearch.setQ} shown={meds.length} total={sorted.length} placeholder="Find a medicine…" />
@@ -602,7 +576,7 @@ function TreatmentTab({ data }: { data: DashboardData }) {
         </Table>
       </Section>
 
-      <Section title="Medicines the doctor added" description={`Not suggested by the AI (${aiBase(data)}). Most common dose, frequency and duration as prescribed (count in brackets).`}
+      <Section title="Medicines the doctor added" description={`Commonest dose · frequency · duration · ${aiBase(data)}`}
         action={<TableSearch q={addedSearch.q} setQ={addedSearch.setQ} shown={addedSearch.filtered.length} total={data.ai.addedMedicines.length} placeholder="Find a medicine…" />}>
         <Table empty={!addedSearch.filtered.length} head={(
           <tr>
@@ -631,7 +605,7 @@ function DoctorsTab({ data }: { data: DashboardData }) {
   const rows = data.ai.byDoctor;
   return (
     <>
-      <Section title="AI use by doctor" description={`Consulting doctor in OpenMRS, by pseudo id. Visits = ${aiBase(data)}; Dx % are of visits with an AI list; TTx % are of TTx cases.`}>
+      <Section title="AI use by doctor" description={`Pseudo id · ${aiBase(data)}`}>
         <Table empty={!rows.length} head={(
           <tr>
             <th className={th}>Doctor</th><th className={thR}>Visits</th><th className={thR}>Picked AI Dx</th><th className={thR}>Top 1</th>
@@ -705,7 +679,7 @@ function TatTab({ data }: { data: DashboardData }) {
         <Stat label="Total turnaround (median)" value={fmtMin(a.totalMedian)} note={`visit started → prescription shared · p90 ${fmtMin(a.totalP90)}`} />
         <Stat label="Prescription shared within 1 hour" n={a.sharedWithin1h} of={a.shared} ofLabel="shared" />
       </div>
-      <Section title="Paediatric vs adult" description="Every visit in the period, follow-ups included">
+      <Section title="Paediatric vs adult" description="All visits · follow-ups included">
         <Table head={<TatHead first="Patients" />}>
           {[a, t.paediatric, t.adult].map((r) => (
             <tr key={r.name}><td className={cn(td, 'font-medium capitalize')}>{r.name === 'all' ? 'All' : r.name}</td><TatCells r={r} /></tr>
@@ -713,14 +687,14 @@ function TatTab({ data }: { data: DashboardData }) {
         </Table>
       </Section>
       {t.byKind && (
-        <Section title="New vs follow-up visits" description="Follow-up = the doctor's only diagnosis is “Follow-up visit” (same rule as the AI metrics) · every visit in the period">
+        <Section title="New vs follow-up visits" description="All visits">
           <Table head={<TatHead first="Visit type" />}>
             {t.byKind.map((r) => <tr key={r.name}><td className={cn(td, 'font-medium')}>{KIND_LABEL[r.name] ?? r.name}</td><TatCells r={r} /></tr>)}
           </Table>
         </Section>
       )}
       {t.byDoctorKind && (
-        <Section title="By doctor: new vs follow-up" description="Consulting doctor in OpenMRS, by pseudo id · every visit in the period">
+        <Section title="By doctor: new vs follow-up" description="Pseudo id · all visits">
           <Table empty={!t.byDoctorKind.length} head={<TatHead first="Doctor · visit type" />}>
             {t.byDoctorKind.map((r) => (
               <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{doctorLabel(r.doctor)} <span className="font-normal text-slate-500">· {KIND_LABEL[r.kind]}</span></td><TatCells r={r} /></tr>
@@ -728,35 +702,28 @@ function TatTab({ data }: { data: DashboardData }) {
           </Table>
         </Section>
       )}
-      <Section title="By doctor" description="Consulting doctor in OpenMRS, by pseudo id · every visit in the period, follow-ups included">
+      <Section title="By doctor" description="Pseudo id · all visits · follow-ups included">
         <Table empty={!t.byDoctor.length} head={<TatHead first="Doctor" />}>
           {t.byDoctor.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{doctorLabel(r.name)}</td><TatCells r={r} /></tr>)}
         </Table>
       </Section>
       <div className="grid gap-6 xl:grid-cols-2">
-        <Section title="By month" description="Every visit, follow-ups included">
+        <Section title="By month" description="All visits · follow-ups included">
           <Table empty={!months.length} head={<TatHead first="Month" />}>
             {months.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{r.name}</td><TatCells r={r} /></tr>)}
           </Table>
         </Section>
-        <Section title="By doctor and month" description="Every visit, follow-ups included">
+        <Section title="By doctor and month" description="All visits · follow-ups included">
           <Table empty={!t.byDoctorMonth.length} head={<TatHead first="Month · doctor" />}>
             {t.byDoctorMonth.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{r.month} · {doctorLabel(r.doctor)}</td><TatCells r={r} /></tr>)}
           </Table>
         </Section>
       </div>
-      <Section title="By day" description="Every visit, follow-ups included">
+      <Section title="By day" description="All visits · follow-ups included">
         <Table empty={!days.length} head={<TatHead first="Date" />}>
           {days.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{r.name}</td><TatCells r={r} /></tr>)}
         </Table>
       </Section>
-      <footer className="flex items-start gap-2 border-t pt-4 text-xs text-slate-500">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <p>
-          Every visit counts here, follow-ups included. Times come from OpenMRS: visit start, when the doctor opened the visit note, and when the prescription was shared.
-          Medians and the 90th percentile are shown because a few visits stay open for days. TAT with vs without AI cannot be measured, as every visit now has AI.
-        </p>
-      </footer>
     </>
   );
 }
@@ -766,10 +733,6 @@ function OrdersTab({ data }: { data: DashboardData }) {
   const h = data.ai.headline.all;
   return (
     <>
-      <div className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-sm text-blue-950">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>These are entered by the doctor. The AI does not suggest tests, advice, referrals or follow-up yet; once it does, the same picked / changed / not used comparison will appear here.</span>
-      </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Investigations ordered" n={h.investigations} of={h.visits} ofLabel={aiBase(data)} />
         <Stat label="Advice given" n={h.advice} of={h.visits} ofLabel={aiBase(data)} />
@@ -778,14 +741,14 @@ function OrdersTab({ data }: { data: DashboardData }) {
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <Section title="Most ordered investigations" description={`Times ordered, ${aiBase(data)}`}><RankedList items={data.ai.orders.investigations} render={(n) => <span className="capitalize">{displayName(n)}</span>} /></Section>
-        <Section title="Referred to" description={`Destination, with the facility type it was referred to · ${aiBase(data)}`}>
+        <Section title="Referred to" description={`Destination · facility · ${aiBase(data)}`}>
           <RankedList items={data.ai.orders.referrals} render={(name) => {
             const [who, where] = name.split(' · ');
             return <>{displayName(who)}{where && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{displayName(where)}</span>}</>;
           }} />
         </Section>
       </div>
-      <Section title="Most common advice" description={`As written in the prescription; the local-language version is shown underneath · ${aiBase(data)}`}>
+      <Section title="Most common advice" description={`As written · ${aiBase(data)}`}>
         <RankedList items={data.ai.orders.advice} wrap render={(name) => {
           // "drink lots of water - भरपूर पाणी प्या": English first, translation below.
           const m = name.match(/^(.*?)\s+-\s+(.*[^\x00-\x7F].*)$/);
@@ -810,7 +773,7 @@ function AnnotationTab({ data }: { data: DashboardData }) {
       </div>
       <DoctorProgress p={data.progress} />
       <div className="grid gap-5 lg:grid-cols-2">
-        <Section title="Mismatch type" description="Every visit in the period, follow-ups included">
+        <Section title="Mismatch type" description="All visits · follow-ups included">
           <RankedList items={[
             { name: 'Diagnosis only', count: s.mismatch.ddx },
             { name: 'Treatment only', count: s.mismatch.ttx },
@@ -818,15 +781,15 @@ function AnnotationTab({ data }: { data: DashboardData }) {
             { name: 'No mismatch', count: s.mismatch.none },
           ]} />
         </Section>
-        <Section title="Doctor rejected the AI (stated reason)" description="Every visit in the period, follow-ups included">
+        <Section title="Doctor rejected the AI (stated reason)" description="All visits · follow-ups included">
           <RankedList items={data.rejections ?? []} empty="No reasons recorded in this period." />
         </Section>
       </div>
-      <Section title="Why the equivalent AI suggestion was not picked" description="Annotators' answers on visits flagged “Equivalent suggested, not picked”">
+      <Section title="Why the equivalent AI suggestion was not picked" description="Annotators' answers">
         <RankedList items={(data.ai.equivalent?.reasons ?? []).filter((r) => r.count).map((r) => ({ name: EQUIV_REASON_LABEL[r.name] ?? r.name, count: r.count }))} empty="No answers yet in this period." />
       </Section>
       {(data.models ?? []).some((m) => m.model !== 'Not logged') && (
-        <Section title="By AI model / engine" description="From the AI call log; visits without a log entry are grouped as “Not logged” · every visit in the period, follow-ups included">
+        <Section title="By AI model / engine" description="AI call log · all visits">
           <Table head={(
             <tr><th className={th}>Model · engine</th><th className={thR}>Visits</th><th className={thR}>Top 1</th><th className={thR}>Top 5</th><th className={thR}>AI meds used</th><th className={thR}>Avg latency</th></tr>
           )}>

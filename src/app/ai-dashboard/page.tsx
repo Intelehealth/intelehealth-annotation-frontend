@@ -39,7 +39,6 @@ function AiDashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-blue-950">AI Use Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-500">How doctors use the AI diagnosis and treatment suggestions, synced from OpenMRS.</p>
         </div>
         {current && (
           <Link href={`/workspaces/${current._id}/mismatch`} className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline">
@@ -49,7 +48,7 @@ function AiDashboardPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {workspaces && workspaces.length === 0 && <p className="text-sm text-slate-500">You are not a member of any programme workspace yet.</p>}
+      {workspaces && workspaces.length === 0 && <p className="text-sm text-slate-500">No programme workspace</p>}
 
       {workspaces && workspaces.length > 1 && (
         <div className="inline-flex rounded-xl border bg-white p-1 shadow-sm" role="tablist" aria-label="Programme">
