@@ -36,3 +36,17 @@ describe('vital bands (V10)', () => {
     expect(bmiBand(15, 10)).toEqual({ word: 'child: no reference', tone: 'none' });
   });
 });
+
+describe('V10b: no one-sided gaps', () => {
+  it('adult hypotension is Low, checked before the other bands', () => {
+    expect(bpBand(85, 55, 40)).toEqual({ word: 'Low', tone: 'out' });
+    expect(bpBand(118, 58, 40)).toEqual({ word: 'Low', tone: 'out' });
+    expect(bpBand(119, 78, 40)).toEqual({ word: 'Normal', tone: 'normal' });
+    expect(bpBand(85, 55, 8)).toEqual({ word: 'child: no reference', tone: 'none' });
+  });
+  it('non-numeric values are No reference, never Normal', () => {
+    expect(bpBand(NaN, 70, 40).tone).toBe('none');
+    expect(pulseBand(NaN, 40).tone).toBe('none');
+    expect(bmiBand(NaN, 40).tone).toBe('none');
+  });
+});
