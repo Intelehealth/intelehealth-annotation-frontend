@@ -39,7 +39,7 @@ export interface Highlight {
 
 export interface QueueItem {
   uuid: string; visitId?: number; visitPseudoId: string | null; doctor: string | null; encounterAt?: string; gender?: string; age?: number; specialty?: string;
-  complaint?: string; mismatchType: MismatchType; aiTop1: string | null; bestRank: number | null;
+  complaint?: string; referral?: string | null; mismatchType: MismatchType; aiTop1: string | null; bestRank: number | null;
   pickedBy: 'clicked' | 'name' | null; followUpOnly: boolean;
   doctorDx: string[]; highlights: Highlight[];
   ttx: { exact: number; modified: number; ignored: number; added: number } | null;
@@ -120,6 +120,21 @@ export interface ReviewHistoryEntry {
   equivReason?: string; equivReasonText?: string;
 }
 
+export type PlanType = 'medicine' | 'test' | 'advice' | 'referral' | 'followup';
+export type PlanOutcome = 'exact' | 'changed' | 'not_used' | 'added' | 'ai_not_available';
+export interface PlanItem {
+  type: PlanType; name: string; ai: string | null; doctor: string | null; outcome: PlanOutcome; changes?: string[];
+  referral?: { specialist: string; facility: string; urgency: string; reason: string };
+  followUp?: { date: string; time: string; remark: string; inDays: number | null };
+}
+export const PLAN_TYPE_LABEL: Record<PlanType, string> = { medicine: 'Medicines', test: 'Tests', advice: 'Advice', referral: 'Referral', followup: 'Follow-up' };
+export interface PlanTypeStats {
+  type: PlanType; aiAvailable: boolean; visits: number; generated: number; aiItems: number;
+  casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number; doctorEntered: number;
+  byItem: { name: string; suggested: number; unchanged: number; changed: number; notPicked: number; added: number }[];
+  byDoctor: { doctor: string; generated: number; casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number; doctorEntered: number }[];
+}
+
 export interface VisitDetail {
   uuid: string; visitId?: number; visitPseudoId?: string; source: MismatchSource; encounterAt?: string;
   demographics?: { patientId?: number; patientPseudoId?: string; gender?: string; age?: number; visitStartedDate?: string | null };
@@ -135,6 +150,8 @@ export interface VisitDetail {
   langfuse?: { model?: string; engine?: string; latency?: number; totalTokens?: number | null; success?: unknown; name?: string } | null;
   notes: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };
   /** Marathi text of the same fields (empty string when the note has none). */
+  /** Treatment plan as one item model (backend treatment-plan.ts). */
+  plan?: PlanItem[];
   notesMr?: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };
   analysis: VisitAnalysis;
   mismatchType: MismatchType;
@@ -162,6 +179,8 @@ export interface DashboardData {
   ai: AiMetrics;
   /** Consultation turnaround, every visit in range (follow-ups included). */
   tat: TatMetrics;
+  /** Treatment plan per type (aiAvailable=false: the AI does not suggest that type yet). */
+  plan?: PlanTypeStats[];
   mrr: number;
   aiTop1Agreement: GroupStat[];
   specialties: (GroupStat & { ttxVisits: number; ttxUsed: number })[];
@@ -268,7 +287,7 @@ export const mismatchAPI = {
     jsonApi.get<Blob>(`${base}/${id}/visits/${uuid}/images/${index}`, { responseType: 'blob' }).then((r) => r.data),
   /** Position of a visit in a queue view and the visit after it (fallbackIndex = its index before it left the view). */
   position: (id: string, uuid: string, view: QueueQuery & { tab?: QueueTab }, fallbackIndex?: number) =>
-    jsonApi.get<{ index: number; total: number; next: string | null }>(`${base}/${id}/queue/position`, { params: clean({ ...view, uuid, fallbackIndex }) }).then((r) => r.data),
+    jsonApi.get<{ index: number; total: number; next: string | null; nextSummary?: { encounterAt: string | null; complaint: string } | null }>(`${base}/${id}/queue/position`, { params: clean({ ...view, uuid, fallbackIndex }) }).then((r) => r.data),
   claim: (id: string, uuid: string) => jsonApi.post<{ claimed: boolean }>(`${base}/${id}/visits/${uuid}/claim`).then((r) => r.data),
   /** final = "Save & next" (mark done; the API rejects it without the required verdicts); otherwise a draft. */
   saveReview: (id: string, uuid: string, body: ReviewInput & { final?: boolean }) =>
@@ -299,5 +318,5 @@ export const TTX_VERDICTS = [
 export const TTX_REASONS = [
   'Dose adjusted (age / weight)', 'Frequency or duration changed', 'Formulary / stock availability',
   'AI medicine unnecessary', 'AI medicine unsafe or contraindicated', 'AI missed a needed medicine',
-  'Doctor preference (equivalent drug)', 'Other',
+  'Doctor preference (equivalent drug)', 'Doctor referred instead', 'Follow-up or advice covers it', 'Other',
 ];
