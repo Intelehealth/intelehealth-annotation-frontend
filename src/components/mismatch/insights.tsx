@@ -25,7 +25,7 @@ export function ConsultingDoctors({ rows }: { rows: DoctorStat[] }) {
   return (
     <Section
       title="Mismatches and annotator verdicts by doctor"
-      description="Doctor who saw the patient in OpenMRS, shown by pseudo id. Verdicts count only reviewed visits. AI agreement rates are in the table above."
+      description="Doctor who saw the patient in OpenMRS, shown by pseudo id. Visits and mismatches = every visit in the period, follow-ups included; verdicts count only reviewed visits. AI agreement rates (follow-ups excluded) are in the table above."
     >
       {rows.length === 0 ? <Empty>No visits in this range.</Empty> : (
         <div className="overflow-x-auto">
@@ -228,23 +228,23 @@ export function DiagnosisPatterns({ data }: { data: DashboardData }) {
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Diagnosis patterns</h3>
       <Section
         title="Is the AI's confidence label calibrated?"
-        description="Every AI suggestion (ranks 1-5) grouped by the likelihood label the AI gave it. If the labels mean something, “Doctor picked it” should fall from High to Low. Label spellings are merged (e.g. “Moderate to High” → Moderate-High)."
+        description="Every AI suggestion (ranks 1-5) on every visit in the period with an AI list (follow-ups included), grouped by the likelihood label the AI gave it. If the labels mean something, “Doctor picked it” should fall from High to Low. Label spellings are merged (e.g. “Moderate to High” → Moderate-High)."
       >
         <ConfidenceTable rows={data.confidence} />
       </Section>
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Most common misses" description="AI's #1 → the doctor's diagnosis, when the doctor's diagnosis was not in the AI top 5">
+        <Section title="Most common misses" description="AI's #1 → the doctor's diagnosis, when the doctor's diagnosis was not in the AI top 5 · every visit in the period with an AI list, follow-ups included">
           <PairList items={data.mismatchPairs.missed} empty="No misses in this range." />
         </Section>
-        <Section title="Most common “right list, wrong order”" description="AI's #1 → the doctor's diagnosis, when the doctor picked the AI's #2–#5">
+        <Section title="Most common “right list, wrong order”" description="AI's #1 → the doctor's diagnosis, when the doctor picked the AI's #2–#5 · every visit in the period with an AI list, follow-ups included">
           <PairList items={data.mismatchPairs.rankedLower} empty="None in this range." />
         </Section>
       </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Section title="When the AI says X first, how often does the doctor agree?" description="Per AI #1 diagnosis, most frequent first">
+        <Section title="When the AI says X first, how often does the doctor agree?" description="Per AI #1 diagnosis, most frequent first · every visit in the period with an AI list, follow-ups included">
           <GroupTable rows={data.aiTop1Agreement} first="AI's #1 diagnosis" />
         </Section>
-        <Section title="By specialty" description="Adults (General Physician) vs children (Pediatrician) and others">
+        <Section title="By specialty" description="Adults (General Physician) vs children (Pediatrician) and others · every visit in the period with an AI list, follow-ups included">
           {data.specialties.length === 0 ? <Empty>Nothing in this range.</Empty> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
