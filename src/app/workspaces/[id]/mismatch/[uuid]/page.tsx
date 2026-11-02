@@ -50,6 +50,8 @@ export default function MismatchVisitPage() {
   const [openImages, setOpenImages] = useState(0);
   // Which verdict group keys 1-4 act on: a click / focus in a group picks it; otherwise the first group still open.
   const [keyGroup, setKeyGroup] = useState<'dx' | 'ttx' | null>(null);
+  // V9 phone tabs: "Patient" (context) and "AI vs doctor" (comparison + annotation).
+  const [paneTab, setPaneTab] = useState<'patient' | 'ai'>('patient');
 
   useEffect(() => {
     let live = true;
@@ -182,65 +184,34 @@ export default function MismatchVisitPage() {
 
   return (
     <Shell wide>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
-        <Link href={`/workspaces/${id}/mismatch`} className="hover:text-foreground">← {SOURCE_LABEL[v.source] ?? v.source} mismatches</Link>
-        {pos?.uuid === uuid && pos.index >= 0 && <><span>·</span><span>{(pos.index + 1).toLocaleString()} of {pos.total.toLocaleString()} in this view</span></>}
-        <span className="ml-auto text-faint">Visit {v.visitPseudoId ?? v.visitId ?? ''}</span>
+      {/* V9: two independently scrolling panes at full height on desktop (>= 1024 px): patient context on the left
+          (nothing from the AI), AI vs doctor + the annotation on the right with Save pinned at its bottom.
+          Phone: two tabs, Save & next pinned to the bottom of the screen. */}
+      <div className="flex gap-1 rounded-lg bg-active p-0.5 lg:hidden" role="tablist" aria-label="Visit sections">
+        {([['patient', 'Patient'], ['ai', 'AI vs doctor']] as const).map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={paneTab === k} onClick={() => setPaneTab(k)}
+            className={cn('h-8 flex-1 rounded-md text-sm', paneTab === k ? 'bg-surface font-medium text-foreground outline outline-1 outline-border' : 'text-muted-foreground')}>{l}</button>
+        ))}
       </div>
 
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {[v.demographics?.gender === 'F' ? 'Female' : v.demographics?.gender === 'M' ? 'Male' : v.demographics?.gender, v.demographics?.age != null ? `${v.demographics.age} years` : null].filter(Boolean).join(', ')}
-            {complaints.length > 0 && <span> · {complaints.join(' · ')}</span>}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            <b className="font-medium text-foreground">{SOURCE_LABEL[v.source] ?? v.source}</b> · {displayName(v.attributes?.specialty)}
-            {v.providers?.doctorPseudoIds?.length ? <> · {v.providers.doctorPseudoIds.map(doctorLabel).join(', ')}</> : null}
-            {' · '}{fmtDate(v.encounterAt)}
-            {v.providers?.creatorPseudoId ? <> · health worker #{v.providers.creatorPseudoId}</> : null}
-            {v.langfuse?.model && <> · AI: {v.langfuse.model}{v.langfuse.engine ? ` (${v.langfuse.engine})` : ''}{typeof v.langfuse.latency === 'number' ? `, ${v.langfuse.latency.toFixed(1)} s` : ''}{v.langfuse.totalTokens ? `, ${v.langfuse.totalTokens.toLocaleString()} tokens` : ''}</>}
-          </p>
-          <VisitTiming v={v} />
-        </div>
-        <div className="flex items-center gap-2">
-          <TypeBadge type={v.mismatchType} />
-          {ownDx.length > 0 && !a.ddxMismatch && <Pill>doctor added {ownDx.length} Dx</Pill>}
-          <StatusBadge status={v.review.status} />
-          {v.review.annotatedBy && <span className="text-xs text-muted-foreground">by {v.review.annotatedBy.name}</span>}
-        </div>
-      </header>
+      <div className="grid gap-4 lg:h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,45fr)_minmax(0,55fr)]">
+        {/* LEFT: patient context only */}
+        <section aria-label="Patient" data-pane="patient" className={cn('min-h-0 space-y-4 lg:overflow-y-auto lg:pr-1', paneTab !== 'patient' && 'hidden lg:block')}>
+          <header>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {[v.demographics?.gender === 'F' ? 'Female' : v.demographics?.gender === 'M' ? 'Male' : v.demographics?.gender, v.demographics?.age != null ? `${v.demographics.age} years` : null].filter(Boolean).join(', ')}
+              {complaints.length > 0 && <span> · {complaints.join(' · ')}</span>}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              <b className="font-medium text-foreground">{SOURCE_LABEL[v.source] ?? v.source}</b> · {displayName(v.attributes?.specialty)}
+              {v.providers?.doctorPseudoIds?.length ? <> · {v.providers.doctorPseudoIds.map(doctorLabel).join(', ')}</> : null}
+              {' · '}{fmtDate(v.encounterAt)}
+              {v.providers?.creatorPseudoId ? <> · health worker #{v.providers.creatorPseudoId}</> : null}
+            </p>
+            <VisitTiming v={v} />
+          </header>
 
-      {(a.ddxRejectReason || a.ttxRejectReason) && (
-        <div className="rounded-lg border border-bad/40 bg-pill-neg-bg px-4 py-3 text-sm text-pill-neg-ink">
-          <strong>The doctor rejected the AI and said why:</strong>{' '}
-          {[a.ddxRejectReason && `diagnosis marked “${a.ddxRejectReason.replace(/_/g, ' ')}”${surface(v.ddx?.aiSurface)}`, a.ttxRejectReason && `treatment marked “${a.ttxRejectReason.replace(/_/g, ' ')}”${surface(v.ttx?.aiSurface)}`].filter(Boolean).join('; ')}.
-          {detailText(v.ddx?.details) && <div className="mt-1 whitespace-pre-wrap"><strong>Doctor&apos;s note:</strong> {detailText(v.ddx?.details)}</div>}
-        </div>
-      )}
-
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_448px]">
-        {/* Evidence */}
-        <div className="min-w-0 space-y-4">
           <VitalsStrip items={vitals} />
-
-          {a.highlights.length > 0 && (
-            <div className="flex flex-wrap gap-2">{a.highlights.map((h, i) => <HighlightChip key={i} h={h} full />)}</div>
-          )}
-
-
-          <Card id="plan" title={<>Treatment plan: AI vs doctor {urgentRef && <Pill tone="neg">Urgent referral</Pill>} {fuSoon && fu && <Pill tone="warn">Follow-up {fu.inDays === 0 ? 'today' : `in ${fu.inDays} day${fu.inDays === 1 ? '' : 's'}`}</Pill>}</>}
-            meta={`${medCounts} The AI doesn't suggest tests, advice, referral or follow-up yet.`}>
-            <TreatmentPlan plan={plan} lang={lang}
-              medWhy={(n) => <Why r={(v.ttx?.medications ?? []).find((m) => String(m.medication).trim().toLowerCase() === n.toLowerCase())?.rationale} />}
-              unflagged={(n) => { const u = a.ttxUnflagged?.find((x) => x.medication.toLowerCase() === n.toLowerCase()); return u ? `The app said exact; ${u.changes.join(', ')} differs from the prescription.` : null; }} />
-            {v.ttx?.planRationale && (
-              <details className="mt-3 text-sm">
-                <summary className="cursor-pointer text-xs font-medium text-muted-foreground">AI reasoning for the whole treatment plan</summary>
-                <p className="mt-2 whitespace-pre-wrap">{v.ttx.planRationale}</p>
-              </details>
-            )}
-          </Card>
 
           {v.images.length > 0 && (
             <Card title="Images" meta={`${v.images.length} from OpenMRS · click or press I to open`}>
@@ -263,125 +234,161 @@ export default function MismatchVisitPage() {
             <NoteBlock heading="Medical history" text={note.patientMedicalHistory} cut={cutOf('patientMedicalHistory')} />
             <NoteBlock heading="Family history" text={note.familyHistory} cut={cutOf('familyHistory')} />
           </Card>
+        </section>
 
-          {!!v.review.history?.length && (
-            <Card title="Edit history" meta="Every save is kept, newest first">
-              <ol className="divide-y divide-rule text-sm">
-                {v.review.history.map((h, i) => (
-                  <li key={i} className="py-2.5">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="font-medium">{h.by?.name ?? 'Unknown'} <span className="font-normal text-muted-foreground">{h.action === 'edited' ? 'edited' : h.action === 'draft' ? 'saved a draft' : 'annotated'}</span></span>
-                      <span className="text-xs text-muted-foreground">{fmtDate(h.at)}</span>
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      {[VERDICT[h.ddxVerdict ?? ''] && `Diagnosis: ${VERDICT[h.ddxVerdict ?? '']}`, VERDICT[h.ttxVerdict ?? ''] && `Treatment plan: ${VERDICT[h.ttxVerdict ?? '']}`, h.correctDiagnosis && `Correct Dx: ${h.correctDiagnosis}`, h.comment && `“${h.comment}”`, h.followUp && 'Flagged for follow-up', h.equivReason && `Equivalent not picked: ${EQUIV_REASON_LABEL[h.equivReason] ?? h.equivReason}`].filter(Boolean).join(' · ') || 'No fields filled'}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </Card>
-          )}
-        </div>
-
-        {/* Decision rail (V1): sticky on desktop; on a phone it follows the evidence and the save bar is pinned to the bottom. */}
-        <aside aria-label="Verdict" className="flex flex-col rounded-lg border border-border bg-surface lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]">
+        {/* RIGHT: AI vs doctor + annotation */}
+        <section aria-label="AI vs doctor" data-pane="ai" className={cn('flex min-h-0 flex-col rounded-lg border border-border bg-surface', paneTab !== 'ai' && 'hidden lg:flex')}>
           <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => { e.preventDefault(); if (!missing.length) save(true); }}>
-            <div className="min-h-0 flex-1 space-y-4 overflow-auto px-5 pb-3 pt-4">
-              {/* V7: one ranked Dx list with the doctor's pick marked; folded when the Dx agreed, and when a treatment verdict also needs the space. */}
-              <details className="group text-[13px]" open={a.ddxMismatch && !needs.ttx}>
-                <summary className="flex cursor-pointer list-none items-center gap-2.5 rounded-md border border-border bg-raised px-2.5 py-2">
-                  <Ladder rank={a.ddxBestRank} miss={a.ddxMismatch} />
-                  <span className="min-w-0 flex-1">{dxSummary}{a.ddxBestRank ? `, ${displayName(top5.find((x) => x.rank === a.ddxBestRank)?.diagnosis)}` : ''}</span>
-                  <span className="text-xs text-muted-foreground group-open:hidden">Show</span>
-                </summary>
-                <div className="mt-2">
-            {ranked.length || doctorRows.length ? (
-              <DxList ranked={ranked} doctor={doctorRows} otherAi={otherAi.map((d) => String(d.diagnosis))} why={(n) => <Why r={dxRationale(n)} />} />
-            ) : <p className="text-sm text-muted-foreground">No diagnosis recorded.</p>}
-            {(v.ddx?.conclusion || (v.ddx?.furtherQuestions?.length ?? 0) > 0) && (
-              <details className="mt-3 border-t border-rule pt-3 text-sm">
-                <summary className="cursor-pointer text-xs font-medium text-muted-foreground">AI conclusion and suggested questions</summary>
-                {v.ddx?.conclusion && <p className="mt-2">{v.ddx.conclusion}</p>}
-                {(v.ddx?.furtherQuestions?.length ?? 0) > 0 && <ul className="mt-2 list-disc space-y-0.5 pl-5">{v.ddx!.furtherQuestions!.map((q, i) => <li key={i}>{q}</li>)}</ul>}
-              </details>
-            )}
-                </div>
-              </details>
-              {claimedByOther && <p className="text-xs text-pill-warn-ink">{claimedByOther.name} opened this visit recently; you can still annotate.</p>}
-
-              {eq && (
-                <div className="rounded-md border border-border bg-raised p-3 text-[13px]">
-                  <div className="text-xs text-muted-foreground">The AI listed an equivalent</div>
-                  <div className="my-1 text-sm">AI #{eq.aiRank} <b className="font-semibold">{displayName(eq.aiName)}</b> ≈ doctor <b className="font-semibold">{displayName(eq.doctorName)}</b></div>
-                  <div className="text-xs text-muted-foreground">Rule: {RULE_LABEL[eq.rule] ?? eq.rule}. Not counted as a pick.</div>
-                  <ReasonChips label="Why didn't the doctor pick the AI's name?" options={EQUIV_REASONS.map((o) => o.label)}
-                    value={EQUIV_REASONS.find((o) => o.value === form.equivReason)?.label}
-                    onChange={(l) => update({ equivReason: EQUIV_REASONS.find((o) => o.label === l)?.value })} />
-                  {form.equivReason === 'other' && <div className="mt-2"><TextInput label="Describe the reason" value={form.equivReasonText} onChange={(x) => update({ equivReasonText: x })} /></div>}
-                </div>
-              )}
-
-              {needs.dx && (
-                <div>
-                  <VerdictButtons label="Your diagnosis verdict" options={DX4} value={form.ddxVerdict} active={activeGroup === 'dx'} showKeysTag={needs.ttx}
-                    onActivate={() => setKeyGroup('dx')} onChange={(x) => update({ ddxVerdict: x })}
-                    prompt={!a.ddxMismatch && ownDx.length ? <>The doctor also added {ownDx.join(', ')}. Did the AI miss {ownDx.length === 1 ? 'it' : 'them'}?</> : undefined} />
-                  <button type="button" className="mt-1.5 text-xs text-muted-foreground underline underline-offset-2" onClick={() => update({ ddxVerdict: form.ddxVerdict === 'insufficient' ? undefined : 'insufficient' })}>
-                    {form.ddxVerdict === 'insufficient' ? '✓ Note too thin to judge (click to clear)' : 'Other: note too thin to judge'}
-                  </button>
-                  {form.ddxVerdict && !NO_REASON_VERDICTS.has(form.ddxVerdict) && (
-                    <ReasonChips label="Main reason" options={DDX_REASONS} value={form.ddxReason} onChange={(x) => update({ ddxReason: x })} />
-                  )}
-                </div>
-              )}
-
-              {needs.ttx && (
-                <div>
-                  <VerdictButtons label="Your treatment-plan verdict" options={TX4} value={form.ttxVerdict} active={activeGroup === 'ttx'} showKeysTag={needs.dx}
-                    onActivate={() => setKeyGroup('ttx')} onChange={(x) => update({ ttxVerdict: x })} />
-                  {form.ttxVerdict && !NO_REASON_VERDICTS.has(form.ttxVerdict) && (
-                    <ReasonChips label="Main reason" options={TTX_REASONS} value={form.ttxReason} onChange={(x) => update({ ttxReason: x })} />
-                  )}
-                </div>
-              )}
-
-              {!needs.dx && !needs.ttx && <p className="text-sm text-muted-foreground">No mismatch to judge on this visit. You can still leave a comment or flag it.</p>}
-
-              <details className="text-[13px]" open={!!(form.comment || form.correctDiagnosis || form.correctTreatment)}>
-                <summary className="cursor-pointer underline underline-offset-2">Add a comment or the correct {needs.dx && needs.ttx ? 'diagnosis / treatment' : needs.ttx ? 'treatment' : 'diagnosis'}</summary>
-                <div className="mt-2 space-y-2">
-                  {needs.dx && <TextInput label="Correct diagnosis (if different)" value={form.correctDiagnosis} onChange={(x) => update({ correctDiagnosis: x })} />}
-                  {needs.ttx && <TextInput label="Correct treatment (if different)" value={form.correctTreatment} onChange={(x) => update({ correctTreatment: x })} />}
-                  <label className="block text-sm">
-                    <span className="text-xs font-medium text-muted-foreground">Comment</span>
-                    <textarea className="mt-1 w-full rounded-md border border-control bg-surface px-3 py-2 text-sm" rows={3} value={form.comment ?? ''} onChange={(e) => update({ comment: e.target.value })} />
-                  </label>
-                </div>
-              </details>
-              <label className="flex items-center gap-2 text-[13px]">
-                <input type="checkbox" checked={!!form.followUp} onChange={(e) => update({ followUp: e.target.checked })} />
-                Flag for the clinical team
-              </label>
-              {error && <p className="text-sm text-bad">{error}</p>}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-5 py-2.5 text-xs text-muted-foreground">
+              <Link href={`/workspaces/${id}/mismatch`} className="text-[13px] hover:text-foreground">← {SOURCE_LABEL[v.source] ?? v.source} mismatches</Link>
+              <TypeBadge type={v.mismatchType} />
+              {ownDx.length > 0 && !a.ddxMismatch && <Pill>doctor added {ownDx.length} Dx</Pill>}
+              <StatusBadge status={v.review.status} />
+              {v.review.annotatedBy && <span>by {v.review.annotatedBy.name}</span>}
+              <span className="ml-auto text-faint">
+                {v.langfuse?.model && <>AI: {v.langfuse.model}{v.langfuse.engine ? ` (${v.langfuse.engine})` : ''}{typeof v.langfuse.latency === 'number' ? `, ${v.langfuse.latency.toFixed(1)} s` : ''}{v.langfuse.totalTokens ? `, ${v.langfuse.totalTokens.toLocaleString()} tokens` : ''} · </>}
+                Visit {v.visitPseudoId ?? v.visitId ?? ''}
+              </span>
             </div>
 
+            <div data-pane-scroll="ai" className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4">
+              {(a.ddxRejectReason || a.ttxRejectReason) && (
+                <div className="rounded-lg border border-bad/40 bg-pill-neg-bg px-4 py-3 text-sm text-pill-neg-ink">
+                  <strong>The doctor rejected the AI and said why:</strong>{' '}
+                  {[a.ddxRejectReason && `diagnosis marked “${a.ddxRejectReason.replace(/_/g, ' ')}”${surface(v.ddx?.aiSurface)}`, a.ttxRejectReason && `treatment marked “${a.ttxRejectReason.replace(/_/g, ' ')}”${surface(v.ttx?.aiSurface)}`].filter(Boolean).join('; ')}.
+                  {detailText(v.ddx?.details) && <div className="mt-1 whitespace-pre-wrap"><strong>Doctor&apos;s note:</strong> {detailText(v.ddx?.details)}</div>}
+                </div>
+              )}
+              {a.highlights.length > 0 && <div className="flex flex-wrap gap-2">{a.highlights.map((h, i) => <HighlightChip key={i} h={h} full />)}</div>}
+              {claimedByOther && <p className="text-xs text-pill-warn-ink">{claimedByOther.name} opened this visit recently; you can still annotate.</p>}
+
+              {/* (1) Diagnosis: AI vs doctor, its verdict directly under it */}
+              <section aria-label="Diagnosis" className="space-y-3">
+                <h2 className="flex items-center gap-2.5 text-base font-semibold"><Ladder rank={a.ddxBestRank} miss={a.ddxMismatch} /> Diagnosis: AI vs doctor</h2>
+                <p className="text-[13px] text-muted-foreground">{dxSummary}{a.ddxBestRank ? `, ${displayName(top5.find((x) => x.rank === a.ddxBestRank)?.diagnosis)}` : ''}</p>
+                {eq && (
+                  <div className="rounded-md border border-border bg-raised p-3 text-[13px]">
+                    <div className="text-xs text-muted-foreground">The AI listed an equivalent</div>
+                    <div className="my-1 text-sm">AI #{eq.aiRank} <b className="font-semibold">{displayName(eq.aiName)}</b> ≈ doctor <b className="font-semibold">{displayName(eq.doctorName)}</b></div>
+                    <div className="text-xs text-muted-foreground">Rule: {RULE_LABEL[eq.rule] ?? eq.rule}. Not counted as a pick.</div>
+                    <ReasonChips label="Why didn't the doctor pick the AI's name?" options={EQUIV_REASONS.map((o) => o.label)}
+                      value={EQUIV_REASONS.find((o) => o.value === form.equivReason)?.label}
+                      onChange={(l) => update({ equivReason: EQUIV_REASONS.find((o) => o.label === l)?.value })} />
+                    {form.equivReason === 'other' && <div className="mt-2"><TextInput label="Describe the reason" value={form.equivReasonText} onChange={(x) => update({ equivReasonText: x })} /></div>}
+                  </div>
+                )}
+                {/* V7: one ranked list with the doctor's pick marked; folded when the Dx agreed. */}
+                <details className="group text-[13px]" open={!a.ddxBestRank || ownDx.length > 0}>
+                  <summary className="cursor-pointer text-xs text-muted-foreground">AI&apos;s ranked list and the doctor&apos;s diagnoses <span className="group-open:hidden">(show)</span></summary>
+                  <div className="mt-2">
+                    {ranked.length || doctorRows.length ? (
+                      <DxList ranked={ranked} doctor={doctorRows} otherAi={otherAi.map((d) => String(d.diagnosis))} why={(n) => <Why r={dxRationale(n)} />} />
+                    ) : <p className="text-sm text-muted-foreground">No diagnosis recorded.</p>}
+                    {(v.ddx?.conclusion || (v.ddx?.furtherQuestions?.length ?? 0) > 0) && (
+                      <details className="mt-3 border-t border-rule pt-3 text-sm">
+                        <summary className="cursor-pointer text-xs font-medium text-muted-foreground">AI conclusion and suggested questions</summary>
+                        {v.ddx?.conclusion && <p className="mt-2">{v.ddx.conclusion}</p>}
+                        {(v.ddx?.furtherQuestions?.length ?? 0) > 0 && <ul className="mt-2 list-disc space-y-0.5 pl-5">{v.ddx!.furtherQuestions!.map((q, i) => <li key={i}>{q}</li>)}</ul>}
+                      </details>
+                    )}
+                  </div>
+                </details>
+                {needs.dx && (
+                  <div>
+                    <VerdictButtons label="Your diagnosis verdict" options={DX4} value={form.ddxVerdict} active={activeGroup === 'dx'} showKeysTag={needs.ttx}
+                      onActivate={() => setKeyGroup('dx')} onChange={(x) => update({ ddxVerdict: x })}
+                      prompt={!a.ddxMismatch && ownDx.length ? <>The doctor also added {ownDx.join(', ')}. Did the AI miss {ownDx.length === 1 ? 'it' : 'them'}?</> : undefined} />
+                    <button type="button" className="mt-1.5 text-xs text-muted-foreground underline underline-offset-2" onClick={() => update({ ddxVerdict: form.ddxVerdict === 'insufficient' ? undefined : 'insufficient' })}>
+                      {form.ddxVerdict === 'insufficient' ? '✓ Note too thin to judge (click to clear)' : 'Other: note too thin to judge'}
+                    </button>
+                    {form.ddxVerdict && !NO_REASON_VERDICTS.has(form.ddxVerdict) && (
+                      <ReasonChips label="Main reason" options={DDX_REASONS} value={form.ddxReason} onChange={(x) => update({ ddxReason: x })} />
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* (2) Treatment plan: AI vs doctor, its verdict directly under it */}
+              <section id="plan" aria-label="Treatment plan" className="space-y-3 border-t border-rule pt-5">
+                <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold">Treatment plan: AI vs doctor {urgentRef && <Pill tone="neg">Urgent referral</Pill>} {fuSoon && fu && <Pill tone="warn">Follow-up {fu.inDays === 0 ? 'today' : `in ${fu.inDays} day${fu.inDays === 1 ? '' : 's'}`}</Pill>}</h2>
+                <p className="text-[13px] text-muted-foreground">{medCounts} The AI doesn&apos;t suggest tests, advice, referral or follow-up yet.</p>
+                <TreatmentPlan plan={plan} lang={lang}
+                  medWhy={(n) => <Why r={(v.ttx?.medications ?? []).find((m) => String(m.medication).trim().toLowerCase() === n.toLowerCase())?.rationale} />}
+                  unflagged={(n) => { const u = a.ttxUnflagged?.find((x) => x.medication.toLowerCase() === n.toLowerCase()); return u ? `The app said exact; ${u.changes.join(', ')} differs from the prescription.` : null; }} />
+                {v.ttx?.planRationale && (
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">AI reasoning for the whole treatment plan</summary>
+                    <p className="mt-2 whitespace-pre-wrap">{v.ttx.planRationale}</p>
+                  </details>
+                )}
+                {needs.ttx && (
+                  <div>
+                    <VerdictButtons label="Your treatment-plan verdict" options={TX4} value={form.ttxVerdict} active={activeGroup === 'ttx'} showKeysTag={needs.dx}
+                      onActivate={() => setKeyGroup('ttx')} onChange={(x) => update({ ttxVerdict: x })} />
+                    {form.ttxVerdict && !NO_REASON_VERDICTS.has(form.ttxVerdict) && (
+                      <ReasonChips label="Main reason" options={TTX_REASONS} value={form.ttxReason} onChange={(x) => update({ ttxReason: x })} />
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* (3) Annotation */}
+              <section aria-label="Annotation" className="space-y-3 border-t border-rule pt-5">
+                <h2 className="text-base font-semibold">Annotation</h2>
+                {!needs.dx && !needs.ttx && <p className="text-sm text-muted-foreground">No mismatch to judge on this visit. You can still leave a comment or flag it.</p>}
+                {needs.dx && <TextInput label="Correct diagnosis (if different)" value={form.correctDiagnosis} onChange={(x) => update({ correctDiagnosis: x })} />}
+                {needs.ttx && <TextInput label="Correct treatment (if different)" value={form.correctTreatment} onChange={(x) => update({ correctTreatment: x })} />}
+                <label className="block text-sm">
+                  <span className="text-xs font-medium text-muted-foreground">Comment</span>
+                  <textarea className="mt-1 w-full rounded-md border border-control bg-surface px-3 py-2 text-sm" rows={2} value={form.comment ?? ''} onChange={(e) => update({ comment: e.target.value })} />
+                </label>
+                <label className="flex items-center gap-2 text-[13px]">
+                  <input type="checkbox" checked={!!form.followUp} onChange={(e) => update({ followUp: e.target.checked })} />
+                  Flag for the clinical team
+                </label>
+                {error && <p className="text-sm text-bad">{error}</p>}
+                {!!v.review.history?.length && (
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Edit history ({v.review.history.length}, newest first)</summary>
+                    <ol className="mt-2 divide-y divide-rule">
+                      {v.review.history.map((h, i) => (
+                        <li key={i} className="py-2">
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="font-medium">{h.by?.name ?? 'Unknown'} <span className="font-normal text-muted-foreground">{h.action === 'edited' ? 'edited' : h.action === 'draft' ? 'saved a draft' : 'annotated'}</span></span>
+                            <span className="text-xs text-muted-foreground">{fmtDate(h.at)}</span>
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            {[VERDICT[h.ddxVerdict ?? ''] && `Diagnosis: ${VERDICT[h.ddxVerdict ?? '']}`, VERDICT[h.ttxVerdict ?? ''] && `Treatment plan: ${VERDICT[h.ttxVerdict ?? '']}`, h.correctDiagnosis && `Correct Dx: ${h.correctDiagnosis}`, h.comment && `“${h.comment}”`, h.followUp && 'Flagged for follow-up', h.equivReason && `Equivalent not picked: ${EQUIV_REASON_LABEL[h.equivReason] ?? h.equivReason}`].filter(Boolean).join(' · ') || 'No fields filled'}
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                )}
+              </section>
+            </div>
+
+            {/* Save bar: pinned at the bottom of the right pane (desktop) / of the screen (phone). */}
             <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface lg:static lg:z-auto">
               <div className="flex items-center gap-2 px-5 py-3">
                 <div className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                  {saved ? <span className="inline-flex items-center text-good"><Check className="mr-1 h-4 w-4" /> Saved</span>
-                    : nextLine ? <>Next in this view: <b className="font-medium text-foreground">{fmtDate(nextLine.encounterAt ?? undefined)}{nextLine.complaint ? ` · ${nextLine.complaint}` : ''}</b></>
-                    : pos?.uuid === uuid && pos.index >= 0 ? 'Last visit in this view' : null}
+                  {saved ? <span className="inline-flex items-center text-good"><Check className="mr-1 h-4 w-4" /> Saved</span> : (
+                    <>
+                      {pos?.uuid === uuid && pos.index >= 0 && <b className="mr-1.5 font-medium text-foreground">{(pos.index + 1).toLocaleString()} of {pos.total.toLocaleString()} in this view</b>}
+                      {nextLine ? <>· Next: {fmtDate(nextLine.encounterAt ?? undefined)}{nextLine.complaint ? ` · ${nextLine.complaint}` : ''}</> : pos?.uuid === uuid && pos.index >= 0 ? '· last in this view' : null}
+                    </>
+                  )}
                 </div>
                 <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => save(false)}>Save</Button>
                 <Button type="submit" size="sm" disabled={saving || missing.length > 0} title={missing.length ? 'Fill the required fields first' : undefined}>Save &amp; next ↵</Button>
               </div>
               {missing.length > 0 && <p className="px-5 pb-2 text-xs text-bad">To finish, add: {missing.map((m) => MISSING_LABEL[m]).join(', ')}. &quot;Save&quot; keeps a draft.</p>}
-              <p className="hidden px-5 pb-3 text-xs text-faint lg:block">1–4 verdict · Enter save &amp; next · I images · Esc back to the queue</p>
+              <p className="hidden px-5 pb-3 text-xs text-faint lg:block">1–4 verdict (marked section) · Enter save &amp; next · I images · Esc back to the queue</p>
             </div>
           </form>
-        </aside>
+        </section>
       </div>
-      <div className="h-24 lg:hidden" aria-hidden />
+      <div className="h-28 lg:hidden" aria-hidden />
     </Shell>
   );
 }
