@@ -19,14 +19,17 @@ export const deUnderscore = (s: unknown) => String(s ?? '').replace(/_+/g, ' ').
  * ("Tinea corporis"); short all-caps tokens (CBC, HB, UTI, R/M) stay as they
  * are. Anything already in mixed case is left alone.
  */
+const SHORT_WORDS = new Set(['a', 'an', 'and', 'as', 'at', 'be', 'by', 'day', 'do', 'eat', 'for', 'if', 'in', 'is', 'it', 'no', 'not', 'of', 'on', 'or', 'per', 'put', 'see', 'the', 'to', 'up', 'use', 'via', 'was', 'with', 'you', 'all', 'any', 'can', 'get', 'oil', 'hot', 'raw', 'dry', 'wet', 'new', 'old', 'one', 'two', 'six', 'ten', 'are', 'but', 'has', 'had', 'may', 'now', 'out', 'own', 'too', 'how', 'why', 'who', 'its', 'our', 'off', 'low', 'big', 'add', 'try', 'ask', 'let', 'set', 'run', 'cut']);
+
 export function niceCase(s: unknown): string {
   const t = String(s ?? '').trim();
   // all lower case ("acute gastritis") -> sentence case, so AI and doctor names read alike
   if (/[a-z]/.test(t) && !/[A-Z]/.test(t)) return t.replace(/[a-z]/, (c) => c.toUpperCase());
   if (!/[A-Z]/.test(t) || /[a-z]/.test(t) || t.replace(/[^A-Z]/g, '').length <= 4) return t;
   let first = true;
-  return t.replace(/[A-Z][A-Z0-9'’/.-]*/g, (w) => {
-    const keep = w.replace(/[^A-Z]/g, '').length <= 3;
+  // Tokens split on "/" too (HB/WBC/RBC); short tokens stay upper case (acronyms) unless they are common words.
+  return t.replace(/[A-Z][A-Z0-9'’.-]*/g, (w) => {
+    const keep = w.replace(/[^A-Z]/g, '').length <= 3 && !SHORT_WORDS.has(w.toLowerCase());
     const out = keep ? w : first ? w[0] + w.slice(1).toLowerCase() : w.toLowerCase();
     first = false;
     return out;

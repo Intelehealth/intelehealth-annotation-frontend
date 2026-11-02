@@ -13,6 +13,8 @@ describe('format-display (G2)', () => {
     expect(niceCase('TINEA CORPORIS')).toBe('Tinea corporis');
     expect(niceCase('INSECT BITE')).toBe('Insect bite');
     expect(niceCase('URINE R/M')).toBe('Urine R/M');
+    expect(niceCase('EAT PLENTY OF GREEN LEAF VEGETABLES AND FRUITS')).toBe('Eat plenty of green leaf vegetables and fruits');
+    expect(niceCase('CBC: HB/WBC/RBC PLATELET')).toBe('CBC: HB/WBC/RBC platelet');
     expect(niceCase('CBC')).toBe('CBC');
     expect(niceCase('Acute rhinitis')).toBe('Acute rhinitis');
     expect(niceCase('acute gastritis')).toBe('Acute gastritis');

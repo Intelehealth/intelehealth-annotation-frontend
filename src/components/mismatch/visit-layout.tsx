@@ -152,7 +152,7 @@ export function TreatmentPlan({ plan, lang, medWhy, unflagged }: {
                     ) : type === 'advice' && i.doctor ? (
                       displayName(adviceIn(i.doctor, lang))
                     ) : (
-                      i.doctor ?? <span className="text-faint">{i.outcome === 'not_used' ? 'Not prescribed' : '—'}</span>
+                      (type === 'test' && i.doctor ? displayName(i.doctor) : i.doctor) ?? <span className="text-faint">{i.outcome === 'not_used' ? 'Not prescribed' : '—'}</span>
                     )}
                     {o.text && <div className="mt-1"><Pill tone={o.tone}>{o.text}{i.changes?.length ? `: ${i.changes.join(', ')}` : ''}</Pill></div>}
                     {flag && <div className="mt-1 text-xs text-pill-warn-ink">{flag}</div>}
