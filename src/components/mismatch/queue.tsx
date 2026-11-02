@@ -290,7 +290,7 @@ function Row({ v, workspaceId, view }: { v: QueueItem; workspaceId: string; view
         <div className="text-xs text-muted-foreground">{[v.gender, v.age != null ? `${v.age}y` : null, v.specialty ? displayName(v.specialty) : null].filter(Boolean).join(' · ')}</div>
         {v.doctor && <div className="text-xs text-muted-foreground">{doctorLabel(v.doctor)}</div>}
       </td>
-      <td className="max-w-[200px] px-4 py-3 text-xs text-muted-foreground"><span className="line-clamp-2">{v.complaint || '—'}</span></td>
+      <td className="max-w-[220px] px-4 py-3 text-xs text-muted-foreground">{dash(v.complaint)}</td>
       <td className="max-w-[260px] px-4 py-3 text-xs">
         <div className="text-muted-foreground">
           AI: {displayName(v.aiTop1)}
