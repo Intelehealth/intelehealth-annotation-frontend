@@ -9,7 +9,7 @@ import { Empty, Section } from '@/components/dashboard/kpi';
 import { pct } from '@/components/dashboard/format';
 import { apiMessage } from '@/lib/api/workspaces';
 import {
-  doctorLabel, mismatchAPI, type AiHeadline, type ChangeType, type DashboardData, type DxAgg,
+  doctorLabel, mismatchAPI, type AiHeadline, type ChangeType, type DashboardData, type DxAgg, type TatRow,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 import { ConsultingDoctors, DiagnosisPatterns, DoctorProgress } from './insights';
@@ -57,6 +57,7 @@ const TABS = [
   { key: 'diagnosis', label: 'Diagnosis' },
   { key: 'treatment', label: 'Treatment' },
   { key: 'doctors', label: 'Doctors' },
+  { key: 'tat', label: 'Turnaround time' },
   { key: 'orders', label: 'Tests, advice & referrals' },
   { key: 'annotation', label: 'Annotation' },
 ] as const;
@@ -163,9 +164,10 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
           {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} />}
           {tab === 'treatment' && <TreatmentTab data={data} />}
           {tab === 'doctors' && <DoctorsTab data={data} />}
+          {tab === 'tat' && <TatTab data={data} />}
           {tab === 'orders' && <OrdersTab data={data} />}
           {tab === 'annotation' && <AnnotationTab data={data} />}
-          <FollowUpNote n={data.ai.followUpVisitsExcluded} />
+          {tab !== 'tat' && <FollowUpNote n={data.ai.followUpVisitsExcluded} />}
         </div>
       )}
     </div>
@@ -585,6 +587,87 @@ function DoctorsTab({ data }: { data: DashboardData }) {
         </Table>
       </Section>
       <ConsultingDoctors rows={data.doctors ?? []} />
+    </>
+  );
+}
+
+// ---------- Turnaround time ----------
+// Minutes from the API timestamps; medians, because a few visits stay open for days.
+const fmtMin = (m: number | null) => (m == null ? '—' : m < 10 ? `${m.toFixed(1)} min` : m < 120 ? `${Math.round(m)} min` : m < 2880 ? `${(m / 60).toFixed(1)} h` : `${(m / 1440).toFixed(1)} days`);
+
+function TatHead({ first }: { first: string }) {
+  return (
+    <tr>
+      <th className={th}>{first}</th><th className={thR}>Visits</th><th className={thR}>Prescription shared</th>
+      <th className={thR}>Wait (median)</th><th className={thR}>Wait (p90)</th>
+      <th className={thR}>In the note (median)</th><th className={thR}>In the note (p90)</th>
+      <th className={thR}>Total (median)</th><th className={thR}>Total (p90)</th>
+      <th className={thR}>Shared within 1 h</th><th className={thR}>Over 24 h</th>
+    </tr>
+  );
+}
+function TatCells({ r }: { r: TatRow }) {
+  return (
+    <>
+      <td className={tdR}>{fmt(r.visits)}</td><td className={tdR}>{fmt(r.shared)}</td>
+      <td className={tdR}>{fmtMin(r.waitMedian)}</td><td className={tdR}>{fmtMin(r.waitP90)}</td>
+      <td className={tdR}>{fmtMin(r.consultMedian)}</td><td className={tdR}>{fmtMin(r.consultP90)}</td>
+      <td className={tdR}>{fmtMin(r.totalMedian)}</td><td className={tdR}>{fmtMin(r.totalP90)}</td>
+      <td className={tdR}>{pctOf(r.sharedWithin1h, r.shared)}</td><td className={tdR}>{fmt(r.over24h)}</td>
+    </>
+  );
+}
+
+function TatTab({ data }: { data: DashboardData }) {
+  const t = data.tat;
+  const days = useMemo(() => [...(t?.byDay ?? [])].reverse(), [t]);
+  const months = useMemo(() => [...(t?.byMonth ?? [])].reverse(), [t]);
+  if (!t) return <Empty>Turnaround times need the latest backend.</Empty>;
+  const a = t.all;
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Wait for the doctor (median)" value={fmtMin(a.waitMedian)} note={`visit started → doctor opened the note · p90 ${fmtMin(a.waitP90)}`} />
+        <Stat label="Time in the note (median)" value={fmtMin(a.consultMedian)} note={`doctor opened the note → prescription shared · p90 ${fmtMin(a.consultP90)}`} accent />
+        <Stat label="Total turnaround (median)" value={fmtMin(a.totalMedian)} note={`visit started → prescription shared · p90 ${fmtMin(a.totalP90)}`} />
+        <Stat label="Prescription shared within 1 hour" n={a.sharedWithin1h} of={a.shared} ofLabel="shared" />
+      </div>
+      <Section title="Paediatric vs adult">
+        <Table head={<TatHead first="Patients" />}>
+          {[a, t.paediatric, t.adult].map((r) => (
+            <tr key={r.name}><td className={cn(td, 'font-medium capitalize')}>{r.name === 'all' ? 'All' : r.name}</td><TatCells r={r} /></tr>
+          ))}
+        </Table>
+      </Section>
+      <Section title="By doctor" description="Consulting doctor in OpenMRS, by pseudo id">
+        <Table empty={!t.byDoctor.length} head={<TatHead first="Doctor" />}>
+          {t.byDoctor.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{doctorLabel(r.name)}</td><TatCells r={r} /></tr>)}
+        </Table>
+      </Section>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Section title="By month">
+          <Table empty={!months.length} head={<TatHead first="Month" />}>
+            {months.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{r.name}</td><TatCells r={r} /></tr>)}
+          </Table>
+        </Section>
+        <Section title="By doctor and month">
+          <Table empty={!t.byDoctorMonth.length} head={<TatHead first="Month · doctor" />}>
+            {t.byDoctorMonth.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{r.month} · {doctorLabel(r.doctor)}</td><TatCells r={r} /></tr>)}
+          </Table>
+        </Section>
+      </div>
+      <Section title="By day">
+        <Table empty={!days.length} head={<TatHead first="Date" />}>
+          {days.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap font-medium')}>{r.name}</td><TatCells r={r} /></tr>)}
+        </Table>
+      </Section>
+      <footer className="flex items-start gap-2 border-t pt-4 text-xs text-slate-500">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <p>
+          Every visit counts here, follow-ups included. Times come from OpenMRS: visit start, when the doctor opened the visit note, and when the prescription was shared.
+          Medians and the 90th percentile are shown because a few visits stay open for days. TAT with vs without AI cannot be measured, as every visit now has AI.
+        </p>
+      </footer>
     </>
   );
 }

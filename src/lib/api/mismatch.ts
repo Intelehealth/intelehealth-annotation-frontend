@@ -99,14 +99,16 @@ export interface ReviewHistoryEntry {
 
 export interface VisitDetail {
   uuid: string; visitId?: number; visitPseudoId?: string; source: MismatchSource; encounterAt?: string;
-  demographics?: { patientId?: number; patientPseudoId?: string; gender?: string; age?: number };
+  demographics?: { patientId?: number; patientPseudoId?: string; gender?: string; age?: number; visitStartedDate?: string | null };
+  /** IST wall-clock strings from OpenMRS: doctor opened the visit note / shared the prescription. */
+  doctorTimestamps?: { doctorStartedVisitNoteAt?: string | null; prescriptionSharedAt?: string | null } | null;
   providers?: { creatorPseudoId?: string | null; doctorPseudoIds?: string[] | null } | null;
   attributes?: { specialty?: string; doctorPatientInteraction?: string };
   vitals?: Record<string, number | string | null>;
   visitNote?: Record<string, string | null>;
   images: string[];
-  ddx?: { diagnoses: AiDiagnosis[]; conclusion?: string | null; furtherQuestions?: string[]; reason?: string | null } | null;
-  ttx?: { medications: AiMedication[]; planRationale?: string | null; reason?: string | null } | null;
+  ddx?: { diagnoses: AiDiagnosis[]; conclusion?: string | null; furtherQuestions?: string[]; reason?: string | null; aiSurface?: string | null; details?: unknown } | null;
+  ttx?: { medications: AiMedication[]; planRationale?: string | null; reason?: string | null; aiSurface?: string | null } | null;
   langfuse?: { model?: string; engine?: string; latency?: number; totalTokens?: number | null; success?: unknown; name?: string } | null;
   notes: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };
   analysis: VisitAnalysis;
@@ -133,6 +135,8 @@ export interface DashboardData {
   models: { model: string; visits: number; ddxVisits: number; top1: number; top5: number; ttxVisits: number; ttxUsed: number; avgLatency: number | null }[];
   doctors: DoctorStat[];
   ai: AiMetrics;
+  /** Consultation turnaround, every visit in range (follow-ups included). */
+  tat: TatMetrics;
   mrr: number;
   aiTop1Agreement: GroupStat[];
   specialties: (GroupStat & { ttxVisits: number; ttxUsed: number })[];
@@ -172,6 +176,17 @@ export interface AiMetrics {
   changeTypes: Record<ChangeType, number>;
   addedMedicines: { name: string; count: number; paediatric: number; dose: string | null; frequency: string | null; duration: string | null }[];
   orders: Record<'investigations' | 'advice' | 'referrals', { name: string; count: number }[]>;
+}
+
+/** Minutes. wait = visit start -> doctor opened the note; consult = note -> prescription shared; total = visit start -> shared. */
+export interface TatRow {
+  name: string; visits: number; shared: number;
+  waitMedian: number | null; waitP90: number | null; consultMedian: number | null; consultP90: number | null;
+  totalMedian: number | null; totalP90: number | null; sharedWithin1h: number; over24h: number;
+}
+export interface TatMetrics {
+  all: TatRow; paediatric: TatRow; adult: TatRow;
+  byDoctor: TatRow[]; byDay: TatRow[]; byMonth: TatRow[]; byDoctorMonth: (TatRow & { doctor: string; month: string })[];
 }
 
 /** Per consulting doctor (pseudo id from OpenMRS). */

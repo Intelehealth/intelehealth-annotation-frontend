@@ -1,4 +1,4 @@
-import type { AiHeadline, DashboardData } from '@/lib/api/mismatch';
+import type { AiHeadline, DashboardData, TatRow } from '@/lib/api/mismatch';
 import { doctorLabel } from '@/lib/api/mismatch';
 
 type Cell = string | number | null;
@@ -113,6 +113,22 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
     ai.byDoctor.map((r) => [doctorLabel(r.name), ...dxCells(r), r.ttxGenerated, share(r.casesUnchanged, r.ttxGenerated), share(r.casesChanged, r.ttxGenerated)]));
   block(dr, 'Mismatches and annotator verdicts by doctor', [{ header: 'Doctor' }, { header: 'Visits' }, { header: 'Mismatches' }, { header: 'Reviewed' }, { header: 'Dx: doctor right' }, { header: 'Dx: AI right' }, { header: 'TTx: doctor right' }, { header: 'TTx: AI right' }],
     (data.doctors ?? []).map((r) => [doctorLabel(r.doctor), r.visits, r.mismatches, r.annotated, r.ddxDoctorRight, r.ddxAiRight, r.ttxDoctorRight, r.ttxAiRight]));
+
+  // Turnaround time (minutes; every visit, follow-ups included)
+  if (data.tat) {
+    const tt = sheet('Turnaround time');
+    const tatCols: Col[] = [{ header: 'Visits' }, { header: 'Prescription shared' }, { header: 'Wait median (min)' }, { header: 'Wait p90 (min)' },
+      { header: 'In the note median (min)' }, { header: 'In the note p90 (min)' }, { header: 'Total median (min)' }, { header: 'Total p90 (min)' },
+      { header: 'Shared within 1 h %', pct: true }, { header: 'Over 24 h' }];
+    const tatCells = (r: TatRow): Cell[] => [r.visits, r.shared, r.waitMedian, r.waitP90, r.consultMedian, r.consultP90, r.totalMedian, r.totalP90, share(r.sharedWithin1h, r.shared), r.over24h];
+    const t = data.tat;
+    block(tt, 'Turnaround time', [{ header: 'Patients', width: 16 }, ...tatCols], [t.all, t.paediatric, t.adult].map((r) => [r.name, ...tatCells(r)]),
+      'Wait = visit started -> doctor opened the note; in the note = note opened -> prescription shared; total = visit started -> prescription shared.');
+    block(tt, 'By doctor', [{ header: 'Doctor', width: 16 }, ...tatCols], t.byDoctor.map((r) => [doctorLabel(r.name), ...tatCells(r)]));
+    block(tt, 'By month', [{ header: 'Month', width: 16 }, ...tatCols], [...t.byMonth].reverse().map((r) => [r.name, ...tatCells(r)]));
+    block(tt, 'By doctor and month', [{ header: 'Month', width: 12 }, { header: 'Doctor', width: 16 }, ...tatCols], t.byDoctorMonth.map((r) => [r.month, doctorLabel(r.doctor), ...tatCells(r)]));
+    block(tt, 'By day', [{ header: 'Date', width: 14 }, ...tatCols], [...t.byDay].reverse().map((r) => [r.name, ...tatCells(r)]));
+  }
 
   // Tests, advice & referrals
   const od = sheet('Tests, advice, referrals');

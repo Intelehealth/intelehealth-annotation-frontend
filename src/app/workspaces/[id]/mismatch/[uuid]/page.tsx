@@ -121,12 +121,14 @@ export default function MismatchVisitPage() {
           {v.providers?.creatorPseudoId ? <> · health worker #{v.providers.creatorPseudoId}</> : null}
           {v.langfuse?.model && <> · AI: {v.langfuse.model}{v.langfuse.engine ? ` (${v.langfuse.engine})` : ''}{typeof v.langfuse.latency === 'number' ? `, ${v.langfuse.latency.toFixed(1)} s` : ''}{v.langfuse.totalTokens ? `, ${v.langfuse.totalTokens.toLocaleString()} tokens` : ''}</>}
         </p>
+        <VisitTiming v={v} />
       </header>
 
       {(a.ddxRejectReason || a.ttxRejectReason) && (
         <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
           <strong>The doctor rejected the AI and said why:</strong>{' '}
-          {[a.ddxRejectReason && `diagnosis marked “${a.ddxRejectReason.replace(/_/g, ' ')}”`, a.ttxRejectReason && `treatment marked “${a.ttxRejectReason.replace(/_/g, ' ')}”`].filter(Boolean).join('; ')}.
+          {[a.ddxRejectReason && `diagnosis marked “${a.ddxRejectReason.replace(/_/g, ' ')}”${surface(v.ddx?.aiSurface)}`, a.ttxRejectReason && `treatment marked “${a.ttxRejectReason.replace(/_/g, ' ')}”${surface(v.ttx?.aiSurface)}`].filter(Boolean).join('; ')}.
+          {detailText(v.ddx?.details) && <div className="mt-1 whitespace-pre-wrap"><strong>Doctor&apos;s note:</strong> {detailText(v.ddx?.details)}</div>}
         </div>
       )}
 
@@ -311,6 +313,35 @@ export default function MismatchVisitPage() {
 }
 
 const VERDICT: Record<string, string> = Object.fromEntries([...DDX_VERDICTS, ...TTX_VERDICTS].map((x) => [x.value, x.label]));
+
+// "ttx_medication" -> " (on: ttx medication)": which part of the AI output the doctor rejected.
+const surface = (s?: string | null) => (s ? ` (on: ${s.replace(/_/g, ' ')})` : '');
+// `ddx.details` is free JSON from the app: show text as is, anything else as compact JSON.
+const detailText = (d: unknown) => (d == null || d === '' ? '' : typeof d === 'string' ? d : JSON.stringify(d));
+const istMs = (s?: string | null) => {
+  const m = String(s ?? '').match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})/);
+  return m ? Date.parse(`${m[1]}T${m[2]}+05:30`) : NaN;
+};
+const dur = (a: number, b: number) => {
+  if (isNaN(a) || isNaN(b) || b < a) return null;
+  const m = Math.round((b - a) / 60000);
+  return m < 1 ? '< 1 min' : m < 120 ? `${m} min` : m < 2880 ? `${(m / 60).toFixed(1)} h` : `${Math.round(m / 1440)} days`;
+};
+
+/** Visit start -> doctor opened the note -> prescription shared (IST wall-clock from OpenMRS). */
+function VisitTiming({ v }: { v: VisitDetail }) {
+  const start = istMs(v.demographics?.visitStartedDate);
+  const note = istMs(v.doctorTimestamps?.doctorStartedVisitNoteAt);
+  const shared = istMs(v.doctorTimestamps?.prescriptionSharedAt);
+  if (isNaN(note) && isNaN(shared)) return null;
+  const t = (x: number) => new Date(x).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
+  const parts = [
+    !isNaN(start) && `visit started ${t(start)}`,
+    !isNaN(note) && `doctor opened the note ${t(note)}${dur(start, note) ? ` (after ${dur(start, note)})` : ''}`,
+    !isNaN(shared) ? `prescription shared ${t(shared)}${dur(note, shared) ? ` (${dur(note, shared)} in the note)` : ''}` : 'prescription not shared yet',
+  ].filter(Boolean);
+  return <p className="text-xs text-muted-foreground">Timing: {parts.join(' → ')}</p>;
+}
 
 /** The AI's reasoning for one suggestion: a string, or a list of {heading: text} objects. */
 function Why({ r }: { r?: unknown }) {
