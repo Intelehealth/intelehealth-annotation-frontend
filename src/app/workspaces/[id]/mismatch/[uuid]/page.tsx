@@ -11,7 +11,7 @@ import { missingForDone, NO_REASON_VERDICTS, requiredSections, type MissingField
 import { noteSections } from '@/lib/note-sections';
 import { Card, DxList, Ladder, NoteBlock, Pill, ReasonChips, TreatmentPlan, VerdictButtons, VitalsStrip } from '@/components/mismatch/visit-layout';
 import Link from 'next/link';
-import { apiMessage } from '@/lib/api/workspaces';
+import { friendlyError } from '@/components/mismatch/shared';
 import {
   DDX_REASONS, DDX_VERDICTS, doctorLabel, EQUIV_REASON_LABEL, EQUIV_REASONS, mismatchAPI, parseView, RULE_LABEL, SOURCE_LABEL, TTX_REASONS, TTX_VERDICTS,
   type ReviewInput, type VisitDetail,
@@ -74,7 +74,7 @@ export default function MismatchVisitPage() {
           comment: r.comment, followUp: r.followUp, equivReason: r.equivReason, equivReasonText: r.equivReasonText,
         });
       })
-      .catch((e) => live && setError(apiMessage(e, 'Could not load this visit')));
+      .catch((e) => live && setError(friendlyError(e, 'Could not load this visit')));
     return () => { live = false; };
   }, [id, uuid]);
 
@@ -89,7 +89,7 @@ export default function MismatchVisitPage() {
         const p = await mismatchAPI.position(id, uuid, parseView(viewQs), here);
         router.push(p.next ? `/workspaces/${id}/mismatch/${p.next}?view=${encodeURIComponent(viewQs)}` : `/workspaces/${id}/mismatch?finished=1`);
       }
-    } catch (e) { setError(apiMessage(e, 'Could not save')); }
+    } catch (e) { setError(friendlyError(e, 'Could not save')); }
     finally { setSaving(false); }
   };
 

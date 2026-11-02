@@ -10,6 +10,13 @@ export interface NoteGroup { title: string; rows: NoteRow[] }
 // Leading bullets, trailing full stops and dangling " -" fragments go; "Na" values are shown as a dash by the page.
 const tidy = (s: string) => s.replace(/^[•●\s]+/, '').replace(/(\s*-)+\s*$/, '').replace(/[.\s]+$/, '').trim();
 
+// Exam lines like "Jaundice-no jaundice seen": the finding, then its result, with a readable separator.
+const FINDING = /^(jaundice|pallor|cyanosis|clubbing|oedema|edema|lymphadenopathy|icterus|dehydration|pinch skin\*?|nails?|tongue|throat|tonsils?|skin|rash)\s*-\s*(\S.*)$/i;
+const finding = (v: string) => {
+  const m = FINDING.exec(v);
+  return m ? `${m[1][0].toUpperCase()}${m[1].slice(1).replace(/\*$/, '')} — ${m[2]}` : v;
+};
+
 export function noteSections(text: string): NoteGroup[] {
   const groups: NoteGroup[] = [];
   let cur: NoteGroup | null = null;
@@ -35,8 +42,8 @@ export function noteSections(text: string): NoteGroup[] {
     if (pending) { push({ label: pending, value: body }); pending = null; continue; }
     const dash = body.indexOf(' - ');
     const colon = body.indexOf(': ');
-    if (dash > 0 && dash <= 60) push({ label: body.slice(0, dash).trim(), value: tidy(body.slice(dash + 3)) });
-    else if (colon > 0 && colon <= 40) push({ label: body.slice(0, colon).trim(), value: tidy(body.slice(colon + 2)) });
+    if (dash > 0 && dash <= 60) push({ label: body.slice(0, dash).trim(), value: finding(tidy(body.slice(dash + 3))) });
+    else if (colon > 0 && colon <= 40) push({ label: body.slice(0, colon).trim(), value: finding(tidy(body.slice(colon + 2))) });
     else push({ label: '', value: body });
   }
   if (pending) push({ label: pending, value: '' });

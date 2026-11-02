@@ -127,7 +127,7 @@ export function TreatmentPlan({ plan, lang, medWhy, unflagged }: {
               return (
                 <tr key={`${type}-${k}`} className="block border-b border-rule py-2 align-top sm:table-row sm:border-0 sm:py-0">
                   <td className="block pr-2 font-medium sm:table-cell sm:border-b sm:border-rule sm:py-2">
-                    {type === 'medicine' || type === 'test' ? displayName(i.name) : type === 'advice' ? 'Advice' : type === 'referral' ? 'Referral' : 'Follow-up'}
+                    {type === 'medicine' ? displayName(i.name) : type === 'test' ? 'Test' : type === 'advice' ? 'Advice' : type === 'referral' ? 'Referral' : 'Follow-up'}
                     {type === 'medicine' && medWhy(i.name)}
                   </td>
                   <td className={cn('block pr-2 sm:table-cell sm:border-b sm:border-rule sm:py-2', !i.ai && 'text-faint')}>

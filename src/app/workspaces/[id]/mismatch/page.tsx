@@ -7,7 +7,7 @@ import { ArrowLeft, CheckCheck, Inbox, Rows3, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MismatchQueue } from '@/components/mismatch/queue';
 import { Shell, SyncBar } from '@/components/mismatch/shared';
-import { apiMessage } from '@/lib/api/workspaces';
+import { friendlyError } from '@/components/mismatch/shared';
 import { mismatchAPI, type MismatchSource, type QueuePage, type QueueTab, type SyncState } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +28,7 @@ export default function MismatchWorkspacePage() {
   const [newCount, setNewCount] = useState(0);
   const wasRunning = useRef(false);
   const lastFinished = useRef<string | undefined>(undefined);
+  const [syncFailedAt, setSyncFailedAt] = useState<string | null>(null);
   // "Save & next" on the last visit of a view lands here with ?finished=1 (ticket V3).
   const finished = useSearchParams().get('finished') === '1';
 
@@ -60,9 +61,17 @@ export default function MismatchWorkspacePage() {
   useEffect(() => {
     let live = true;
     mismatchAPI.overview(id)
-      .then((o) => { if (!live) return; setWs({ ...o.workspace, source: o.source }); lastFinished.current = o.sync.lastRun?.finishedAt ?? ''; return mismatchAPI.sync(id); })
-      .then((s) => { if (live && s) onState(s); })
-      .catch((e) => live && setError(apiMessage(e, 'Could not open this workspace')));
+      .then((o) => {
+        if (!live) return;
+        setWs({ ...o.workspace, source: o.source });
+        lastFinished.current = o.sync.lastRun?.finishedAt ?? '';
+        onState(o.sync);
+        // The background sync on open goes through the same Q4 failure state as "Sync now", never the page error.
+        mismatchAPI.sync(id)
+          .then((s) => { if (live) { setSyncFailedAt(null); onState(s); } })
+          .catch((e) => live && (e?.response ? setError(friendlyError(e, 'Sync failed to start')) : setSyncFailedAt(new Date().toISOString())));
+      })
+      .catch((e) => live && setError(friendlyError(e, 'Could not open this workspace')));
     return () => { live = false; };
   }, [id, onState]);
 
@@ -76,10 +85,9 @@ export default function MismatchWorkspacePage() {
   }, [id, ws, sync, onState]);
 
   // Q4: a sync request that cannot reach the server shows in the sync bar as "Sync failed … · Retry", never as a raw "Network Error".
-  const [syncFailedAt, setSyncFailedAt] = useState<string | null>(null);
   const syncNow = () => mismatchAPI.sync(id, true)
     .then((s) => { setSyncFailedAt(null); onState(s); })
-    .catch((e) => (e?.response ? setError(apiMessage(e, 'Sync failed to start')) : setSyncFailedAt(new Date().toISOString())));
+    .catch((e) => (e?.response ? setError(friendlyError(e, 'Sync failed to start')) : setSyncFailedAt(new Date().toISOString())));
 
   if (error && !ws) {
     return (

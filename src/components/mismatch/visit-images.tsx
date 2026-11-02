@@ -137,7 +137,7 @@ function Thumb({ workspaceId, uuid, index, source, onOpen, onUrl }: { workspaceI
             <RotateCcw className="h-3 w-3" /> Retry
           </button>
           {openmrsLink(source) && (
-            <a href={openmrsLink(source)} target="_blank" rel="noopener noreferrer" className="inline-flex h-[26px] items-center rounded-md border border-control bg-surface px-2 text-xs text-foreground hover:bg-raised">Open in OpenMRS</a>
+            <a href={openmrsLink(source)} target="_blank" rel="noopener noreferrer" title="Open in OpenMRS (needs an OpenMRS login)" className="inline-flex h-[26px] items-center rounded-md border border-control bg-surface px-2 text-xs text-foreground hover:bg-raised">OpenMRS ↗</a>
           )}
         </span>
       </div>

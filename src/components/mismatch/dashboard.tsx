@@ -7,7 +7,7 @@ import {
 import { Download, Info, Loader2 } from 'lucide-react';
 import { Empty, Section } from '@/components/dashboard/kpi';
 import { pct } from '@/components/dashboard/format';
-import { apiMessage } from '@/lib/api/workspaces';
+import { friendlyError } from '@/components/mismatch/shared';
 import {
   doctorLabel, EQUIV_REASON_LABEL, mismatchAPI, RULE_LABEL, type AiHeadline, type ChangeType, type DashboardData, type DxAgg, type TatRow,
 } from '@/lib/api/mismatch';
@@ -99,7 +99,7 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
     let live = true;
     mismatchAPI.dashboard(workspaceId, from, to, population || undefined, followUps === 'include' ? 'include' : undefined)
       .then((d) => { if (live) { setData(d); setError(null); } })
-      .catch((e) => live && setError(apiMessage(e, 'Could not load the dashboard')))
+      .catch((e) => live && setError(friendlyError(e, 'Could not load the dashboard')))
       .finally(() => live && setLoadedKey(key));
     return () => { live = false; };
   }, [workspaceId, from, to, population, followUps, key]);
@@ -144,7 +144,7 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
                   followUps: data.ai.headline.includeFollowUps ? 'Follow-ups included' : 'Follow-ups excluded',
                 });
               } catch (e) {
-                setError(apiMessage(e, 'Could not export to Excel'));
+                setError(friendlyError(e, 'Could not export to Excel'));
               } finally {
                 setExporting(false);
               }

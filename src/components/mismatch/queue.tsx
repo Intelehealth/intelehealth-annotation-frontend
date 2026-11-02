@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Flag, Search, SlidersHorizontal, X } from 'l
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Empty } from '@/components/dashboard/kpi';
-import { apiMessage } from '@/lib/api/workspaces';
+import { friendlyError } from '@/components/mismatch/shared';
 import {
   DDX_VERDICTS, doctorLabel, mismatchAPI, TTX_VERDICTS, viewString,
   type Facets, type QueueItem, type QueuePage, type QueueQuery, type QueueTab,
@@ -113,7 +113,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
     let live = true;
     mismatchAPI.queue(workspaceId, { ...q, tab })
       .then((d) => { if (live) { setData(d); setError(null); onCounts(d.counts); } })
-      .catch((e) => live && setError(apiMessage(e, 'Could not load the queue')));
+      .catch((e) => live && setError(friendlyError(e, 'Could not load the queue')));
     return () => { live = false; };
   }, [workspaceId, q, tab, refreshKey, onCounts, ready]);
 

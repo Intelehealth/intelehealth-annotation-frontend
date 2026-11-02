@@ -11,7 +11,9 @@ describe('noteSections', () => {
   });
   it('pairs Marathi ● labels with the • value after them and handles "label: value"', () => {
     expect(noteSections('►त्वचा विकार::● प्रकार\n•खाज\n● जागा\n•हात')[0].rows).toEqual([{ label: 'प्रकार', value: 'खाज' }, { label: 'जागा', value: 'हात' }]);
-    expect(noteSections('• Eyes: Jaundice-no jaundice seen.')[0].rows).toEqual([{ label: 'Eyes', value: 'Jaundice-no jaundice seen' }]);
+    expect(noteSections('• Eyes: Jaundice-no jaundice seen.')[0].rows).toEqual([{ label: 'Eyes', value: 'Jaundice — no jaundice seen' }]);
+    expect(noteSections('• Nails: Non-tender')[0].rows[0].value).toBe('Non-tender');
+    expect(noteSections('• Prior treatment - None')[0].rows[0].value).toBe('None');
     expect(noteSections('Do you have a family history of any of the following? : • None.')[0].rows[0].value).toContain('None');
   });
 });

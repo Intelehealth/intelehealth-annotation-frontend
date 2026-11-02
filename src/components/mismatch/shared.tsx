@@ -8,6 +8,14 @@ import { Button } from '@/components/ui/button';
 import { timeAgo } from '@/components/dashboard/format';
 import { cn } from '@/lib/utils';
 import { MISMATCH_LABEL, type Highlight, type MismatchType, type ReviewStatus, type SyncState } from '@/lib/api/mismatch';
+import { apiMessage } from '@/lib/api/workspaces';
+
+/** Error text for the mismatch screens: a request that never reached the server reads in plain words, never "Network Error" (Q4). */
+export function friendlyError(e: unknown, fallback: string): string {
+  const ax = e as { isAxiosError?: boolean; response?: unknown };
+  if (ax?.isAxiosError && !ax.response) return `${fallback}: could not reach the server. Check the connection and try again.`;
+  return apiMessage(e, fallback);
+}
 
 export function Shell({ children, wide }: { children: ReactNode; wide?: boolean }) {
   return (

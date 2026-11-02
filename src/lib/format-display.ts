@@ -3,9 +3,10 @@
  * never change stored data or metrics, only what a person reads.
  */
 
-const EMPTY = /^(?:na|n\/a|nil|none|null|undefined|-+|—)?$/i;
+// Missing values only. "None" / "Nil" / "No" are recorded negative answers and are shown as written.
+const EMPTY = /^(?:na|n\/a|null|undefined|remark:\s*null|-+|—)?$/i;
 
-/** "Na" / "NA" / "N/A" / "-" / empty -> "—". */
+/** "Na" / "NA" / "N/A" / "null" / "-" / empty -> "—" (never "None" or "Nil"). */
 export function dash(s: unknown): string {
   const t = String(s ?? '').trim();
   return EMPTY.test(t) ? '—' : t;
@@ -14,29 +15,31 @@ export function dash(s: unknown): string {
 /** "Namco_Dermatology" -> "Namco Dermatology". */
 export const deUnderscore = (s: unknown) => String(s ?? '').replace(/_+/g, ' ').replace(/\s+/g, ' ').trim();
 
-/**
- * ALL-CAPS names ("TINEA CORPORIS", "INSECT BITE") -> sentence case
- * ("Tinea corporis"); short all-caps tokens (CBC, HB, UTI, R/M) stay as they
- * are. Anything already in mixed case is left alone.
- */
-const SHORT_WORDS = new Set(['a', 'an', 'and', 'as', 'at', 'be', 'by', 'day', 'do', 'eat', 'for', 'if', 'in', 'is', 'it', 'no', 'not', 'of', 'on', 'or', 'per', 'put', 'see', 'the', 'to', 'up', 'use', 'via', 'was', 'with', 'you', 'all', 'any', 'can', 'get', 'oil', 'hot', 'raw', 'dry', 'wet', 'new', 'old', 'one', 'two', 'six', 'ten', 'are', 'but', 'has', 'had', 'may', 'now', 'out', 'own', 'too', 'how', 'why', 'who', 'its', 'our', 'off', 'low', 'big', 'add', 'try', 'ask', 'let', 'set', 'run', 'cut']);
+/** Medical acronyms kept upper case when ALL-CAPS text is sentence-cased (explicit list, no length rule). */
+const ACRONYMS = new Map(
+  [
+    'CBC', 'HB', 'HGB', 'WBC', 'RBC', 'ESR', 'CRP', 'ECG', 'EKG', 'BP', 'ORS', 'RBS', 'FBS', 'PPBS', 'HBA1C', 'TSH', 'T3', 'T4', 'LFT', 'KFT', 'RFT',
+    'URTI', 'UTI', 'LRTI', 'TB', 'HIV', 'HBSAG', 'HCV', 'VDRL', 'OPD', 'IPD', 'IV', 'IM', 'SC', 'SOS', 'BD', 'BID', 'TDS', 'TID', 'QID', 'OD', 'HS', 'PRN',
+    'USG', 'CT', 'MRI', 'R', 'M', 'ENT', 'PHC', 'CHC', 'DH', 'SDH', 'NSAID', 'COPD', 'GERD', 'HTN', 'DM', 'T2DM', 'ANC', 'PNC', 'IFA', 'AFB', 'MP', 'RDT',
+    'NS1', 'IGM', 'IGG', 'SGOT', 'SGPT', 'PCV', 'MCV',
+  ].map((w) => [w, ({ HBA1C: 'HbA1c', HBSAG: 'HBsAg', IGM: 'IgM', IGG: 'IgG' } as Record<string, string>)[w] ?? w]),
+);
 
+/**
+ * ALL-CAPS text ("TINEA CORPORIS", "EAT PLENTY OF GREEN LEAF VEGETABLES") becomes
+ * sentence case, keeping the medical acronyms above ("CBC: HB/WBC/RBC platelet").
+ * Mixed-case text is left untouched; all-lower-case text only gets a capital first letter.
+ */
 export function niceCase(s: unknown): string {
   const t = String(s ?? '').trim();
-  // all lower case ("acute gastritis") -> sentence case, so AI and doctor names read alike
   if (/[a-z]/.test(t) && !/[A-Z]/.test(t)) return t.replace(/[a-z]/, (c) => c.toUpperCase());
-  if (!/[A-Z]/.test(t) || /[a-z]/.test(t) || t.replace(/[^A-Z]/g, '').length <= 4) return t;
-  let first = true;
-  // Tokens split on "/" too (HB/WBC/RBC); short tokens stay upper case (acronyms) unless they are common words.
-  return t.replace(/[A-Z][A-Z0-9'’.-]*/g, (w) => {
-    const keep = w.replace(/[^A-Z]/g, '').length <= 3 && !SHORT_WORDS.has(w.toLowerCase());
-    const out = keep ? w : first ? w[0] + w.slice(1).toLowerCase() : w.toLowerCase();
-    first = false;
-    return out;
-  });
+  if (/[a-z]/.test(t) || !/[A-Z]{2}/.test(t)) return t;
+  const lowered = t.toLowerCase().replace(/[a-z0-9]+/g, (w) => ACRONYMS.get(w.toUpperCase()) ?? w);
+  // capitalise the first letter only if it is lower case ("HbA1c, TSH" stays)
+  return lowered.replace(/^([^A-Za-z]*)([a-z])/, (_m, pre: string, c: string) => pre + c.toUpperCase());
 }
 
-/** One display string for a Dx / test / specialty name: underscores out, caps fixed, empties as "—". */
+/** One display string for a Dx / test / specialty name: underscores out, caps fixed, missing as "—". */
 export const displayName = (s: unknown) => dash(niceCase(deUnderscore(s)));
 
 export interface ReferralParts { specialist: string; facility: string; urgency: string; reason: string }
