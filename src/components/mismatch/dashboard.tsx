@@ -9,7 +9,7 @@ import { Empty, Section } from '@/components/dashboard/kpi';
 import { pct } from '@/components/dashboard/format';
 import { friendlyError } from '@/components/mismatch/shared';
 import {
-  doctorLabel, EQUIV_REASON_LABEL, mismatchAPI, RULE_LABEL, type ChangeType, type DashboardData, type DxAgg, type TatRow,
+  doctorLabel, EQUIV_REASON_LABEL, mismatchAPI, PLAN_TYPE_LABEL, RULE_LABEL, type ChangeType, type DashboardData, type DxAgg, type TatRow,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 import { ConsultingDoctors, DiagnosisPatterns, DoctorProgress } from './insights';
@@ -472,27 +472,66 @@ function TreatmentTab({ data }: { data: DashboardData }) {
             </select>
           </div>
         )}>
+        <div className="flex flex-wrap gap-3 px-4 pt-3 text-xs text-slate-600">
+          {[['bg-[#1d5fbf]', 'Unchanged'], ['bg-[#e9a23b]', 'Changed'], ['bg-[#c3c8cf]', 'Not used']].map(([c, l]) => <span key={l} className="inline-flex items-center gap-1.5"><i className={cn('inline-block h-2.5 w-2.5 rounded-sm', c)} />{l}</span>)}
+        </div>
         <Table empty={!meds.length} head={(
           <tr>
-            <th className={th}>Medicine</th><th className={thR}>Suggested</th><th className={thR}>Unchanged</th><th className={thR}>Changed</th>
-            <th className={th}>What changed</th><th className={thR}>Not picked</th><th className={thR}>Paediatric</th>
+            <th className={th}>Medicine</th><th className={thR}>Suggested</th><th className={th}>Unchanged · changed · not used</th>
+            <th className={th}>What changed</th><th className={thR}>Paediatric</th>
           </tr>
         )}>
           {meds.map((m) => (
             <tr key={m.name}>
               <td className={td}>{displayName(m.name)}</td>
               <td className={tdR}>{fmt(m.suggested)}</td>
-              <td className={tdR}>{pctOf(m.unchanged, m.suggested)}</td>
-              <td className={tdR}>{pctOf(m.changed, m.suggested)}</td>
+              <td className={cn(td, 'min-w-[200px]')}>
+                {/* D8: 100% bar per medicine, with the shares under it */}
+                <div className="flex h-2.5 w-full max-w-[220px] overflow-hidden rounded-sm bg-slate-100" title={`${pctOf(m.unchanged, m.suggested)} unchanged · ${pctOf(m.changed, m.suggested)} changed · ${pctOf(m.notPicked, m.suggested)} not used`}>
+                  {m.unchanged > 0 && <span className="bg-[#1d5fbf]" style={{ width: `${(100 * m.unchanged) / m.suggested}%` }} />}
+                  {m.changed > 0 && <span className="bg-[#e9a23b]" style={{ width: `${(100 * m.changed) / m.suggested}%` }} />}
+                  {m.notPicked > 0 && <span className="bg-[#c3c8cf]" style={{ width: `${(100 * m.notPicked) / m.suggested}%` }} />}
+                </div>
+                <div className="mt-1 text-[11px] tabular-nums text-slate-500">{pctOf(m.unchanged, m.suggested)} · {pctOf(m.changed, m.suggested)} · {pctOf(m.notPicked, m.suggested)}</div>
+              </td>
               <td className={cn(td, 'text-xs text-slate-500')}>
                 {(Object.keys(CHANGE_LABEL) as ChangeType[]).filter((k) => m.changes[k]).map((k) => `${CHANGE_LABEL[k]} ${m.changes[k]}`).join(' · ') || '—'}
               </td>
-              <td className={tdR}>{pctOf(m.notPicked, m.suggested)}</td>
               <td className={tdR}>{m.paediatric ? fmt(m.paediatric) : '—'}</td>
             </tr>
           ))}
         </Table>
       </Section>
+
+      {/* R2: the whole treatment plan by item type, from the generic model (non-medicine types: AI not suggesting yet). */}
+      {data.plan && (
+        <Section title="Treatment plan by type" description={`% of visits · ${aiBase(data)}`}>
+          <Table head={(
+            <tr>
+              <th className={th}>Type</th><th className={thR}>AI suggested</th><th className={thR}>Kept</th><th className={thR}>Changed</th>
+              <th className={thR}>Not used</th><th className={thR}>Doctor added</th><th className={thR}>Doctor entered</th>
+            </tr>
+          )}>
+            {data.plan.map((p) => (
+              <tr key={p.type}>
+                <td className={cn(td, 'font-medium')}>{PLAN_TYPE_LABEL[p.type]}</td>
+                {p.aiAvailable ? (
+                  <>
+                    <td className={tdR}>{pctOf(p.generated, p.visits)}</td>
+                    <td className={tdR}>{pctOf(p.casesUnchanged, p.generated)}</td>
+                    <td className={tdR}>{pctOf(p.casesChanged, p.generated)}</td>
+                    <td className={tdR}>{pctOf(p.casesNotPicked, p.generated)}</td>
+                    <td className={tdR}>{pctOf(p.casesAdded, p.generated)}</td>
+                  </>
+                ) : (
+                  <td colSpan={5} className={cn(td, 'text-center text-xs text-slate-500')}>AI not suggesting yet</td>
+                )}
+                <td className={tdR}>{fmt(p.doctorEntered)} <span className="text-xs text-slate-500">({pctOf(p.doctorEntered, p.visits)})</span></td>
+              </tr>
+            ))}
+          </Table>
+        </Section>
+      )}
 
       <Section title="Medicines the doctor added" description={`Commonest dose · frequency · duration · ${aiBase(data)}`}
         action={<TableSearch q={addedSearch.q} setQ={addedSearch.setQ} shown={addedSearch.filtered.length} total={data.ai.addedMedicines.length} placeholder="Find a medicine…" />}>
