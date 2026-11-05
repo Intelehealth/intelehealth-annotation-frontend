@@ -14,7 +14,6 @@ import { ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { displayName } from '@/lib/format-display';
 import { trendWeekly } from '@/lib/trend-grain';
-import { timeSlots } from '@/lib/period-range';
 import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { doctorLabel, type AiHeadline, type DashboardData, type DxAgg } from '@/lib/api/mismatch';
 
@@ -47,8 +46,7 @@ function Kpi({ label, n, of, prev, better, lead, value, note }: {
   );
 }
 
-// `empty` = a slot of the range with no visits (B1: drawn as a visible gap, never skipped).
-type Period = { label: string; visits: number; scored: number; top1: number; top3: number; top5: number; ttx: number; kept: number; changed: number; gap: boolean; empty: boolean };
+type Period = { label: string; visits: number; scored: number; top1: number; top3: number; top5: number; ttx: number; kept: number; changed: number; gap: boolean };
 
 const monday = (ymd: string) => {
   const d = new Date(`${ymd}T00:00:00Z`);
@@ -60,21 +58,16 @@ const weekday = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString
 
 /**
  * Daily rows, or weekly sums for a long low-volume range (D5, P7: see trendWeekly). Outage = AI list on
- * under half the visits. B1: one row per day (or week) of the WHOLE selected range, so days without
- * visits stay in place as empty slots; 'All time' spans the first to the last day with data.
+ * under half the visits. Only days (or weeks) with visits are plotted: weekends and holidays are
+ * skipped, not drawn as empty slots (user, 5 Nov); the weekday label shows the jump (Fri -> Mon).
  */
-function periods(byDay: DashboardData['ai']['byDay'], range: { from?: string; to?: string }): { rows: Period[]; weekly: boolean } {
+function periods(byDay: DashboardData['ai']['byDay']): { rows: Period[]; weekly: boolean } {
   const days = byDay.filter((d) => d.visits > 0);
   const weekly = trendWeekly(days.map((d) => d.visits));
-  const blank = (label: string): Period => ({ label, visits: 0, scored: 0, top1: 0, top3: 0, top5: 0, ttx: 0, kept: 0, changed: 0, gap: false, empty: true });
-  const names = days.map((d) => d.name).sort();
-  const from = range.from ?? names[0];
-  const to = range.to ?? names[names.length - 1];
-  const map = new Map<string, Period>(from && to ? timeSlots(from, to, weekly).map((s) => [s, blank(s)]) : []);
+  const map = new Map<string, Period>();
   for (const d of days) {
     const k = weekly ? monday(d.name) : d.name;
-    const g = map.get(k) ?? blank(k);
-    g.empty = false;
+    const g = map.get(k) ?? { label: k, visits: 0, scored: 0, top1: 0, top3: 0, top5: 0, ttx: 0, kept: 0, changed: 0, gap: false };
     g.visits += d.visits; g.scored += d.scored; g.top1 += d.top1; g.top3 += d.top3; g.top5 += d.top5;
     g.ttx += d.ttxGenerated; g.kept += d.casesUnchanged; g.changed += d.casesChanged;
     map.set(k, g);
@@ -110,7 +103,7 @@ function Trend({ rows, weekly, lines, base, gapNote }: {
   rows: Period[]; weekly: boolean; lines: { key: keyof Period; label: string; color: string; dash?: boolean }[]; base: (p: Period) => number; gapNote: (p: Period) => string;
 }) {
   const [ref, W] = useWidth<HTMLDivElement>();
-  if (rows.filter((r) => !r.empty).length < 2) return <p className="py-8 text-center text-sm text-muted-foreground">Too few points</p>;
+  if (rows.length < 2) return <p className="py-8 text-center text-sm text-muted-foreground">Too few points</p>;
   const H = 252, L = 40, R = 16, T = 12, B = 58;
   const step = (Math.max(W, 1) - L - R) / rows.length;
   const x = (i: number) => L + (i + 0.5) * step;
@@ -121,7 +114,7 @@ function Trend({ rows, weekly, lines, base, gapNote }: {
     let d = ''; let pen = false;
     rows.forEach((r, i) => {
       const b = base(r);
-      if (r.gap || r.empty || !b) { pen = false; return; }
+      if (r.gap || !b) { pen = false; return; }
       d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y((100 * (r[key] as number)) / b).toFixed(1)}`; pen = true;
     });
     return d;
@@ -141,8 +134,6 @@ function Trend({ rows, weekly, lines, base, gapNote }: {
         {lines.map((l) => <path key={l.label} d={path(l.key)} fill="none" stroke={l.color} strokeWidth={2} strokeDasharray={l.dash ? '4 3' : undefined} opacity={l.dash ? 0.75 : 1} />)}
         {rows.map((r, i) => (
           <g key={r.label}>
-            {/* B1: a day (or week) with no visits is a visible gap: shaded slot, no point, the line breaks */}
-            {r.empty && <rect x={x(i) - step / 2} y={T} width={step} height={H - T - B} fill="var(--grid)" opacity={0.45}><title>{short(r.label) + ": no visits"}</title></rect>}
             {r.gap ? (
               <>
                 <text x={x(i)} y={y(55)} textAnchor="middle" fontSize={11} fill="var(--muted-foreground)">no AI list</text>
@@ -196,13 +187,13 @@ const pv = (h: AiHeadline) => [
   ['Doctor added a medicine', pctText(pct(h.casesAdded, h.ttxGenerated))],
 ] as const;
 
-export function OverviewTab({ data, range, prev, prevLabel, base, onTab }: {
-  data: DashboardData; range: { from?: string; to?: string }; prev: DashboardData | null; prevLabel: string | null; base: string; onTab: (t: TabKey) => void;
+export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
+  data: DashboardData; prev: DashboardData | null; prevLabel: string | null; base: string; onTab: (t: TabKey) => void;
 }) {
   const h = data.ai.headline.all;
   const p = prev?.ai.headline.all ?? null;
   const P = (n: (x: AiHeadline) => number, of: (x: AiHeadline) => number) => (p ? { n: n(p), of: of(p) } : null);
-  const { rows, weekly } = useMemo(() => periods(data.ai.byDay, range), [data, range]);
+  const { rows, weekly } = useMemo(() => periods(data.ai.byDay), [data]);
   const fails = useMemo(() => [...data.ai.byDx].filter((g) => g.scored > 0 && g.scored - g.top1 > 0)
     .sort((a, b) => (b.scored - b.top1) - (a.scored - a.top1) || a.name.localeCompare(b.name)), [data]);
   const pairs = data.ai.equivalent?.pairs ?? [];

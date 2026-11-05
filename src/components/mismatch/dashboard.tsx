@@ -78,8 +78,6 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
   const [followUps, setFollowUps] = useState<'exclude' | 'include'>('exclude');
   const [tab, setTab] = useState<TabKey>('overview');
   const [data, setData] = useState<DashboardData | null>(null);
-  // B1: the range `data` was loaded for (the trend's time axis must match the data, not a range still loading).
-  const [dataRange, setDataRange] = useState<{ from?: string; to?: string }>({});
   const [loadedKey, setLoadedKey] = useState("");
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +105,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
   useEffect(() => {
     let live = true;
     mismatchAPI.dashboard(workspaceId, from, to, population || undefined, followUps === 'include' ? 'include' : undefined)
-      .then((d) => { if (live) { setData(d); setDataRange({ from, to }); setError(null); } })
+      .then((d) => { if (live) { setData(d); setError(null); } })
       .catch((e) => live && setError(friendlyError(e, 'Could not load the dashboard')))
       .finally(() => live && setLoadedKey(key));
     return () => { live = false; };
@@ -187,7 +185,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
           {tab === 'annotation' && (
             <p className="text-xs text-muted-foreground">All visits · follow-ups included</p>
           )}
-          {tab === 'overview' && <OverviewTab data={data} range={dataRange} prev={prevData} prevLabel={prevData ? prevLabel : null} base={aiBase(data)} onTab={(t) => setTab(t)} />}
+          {tab === 'overview' && <OverviewTab data={data} prev={prevData} prevLabel={prevData ? prevLabel : null} base={aiBase(data)} onTab={(t) => setTab(t)} />}
           {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} />}
           {tab === 'treatment' && <TreatmentTab data={data} />}
           {tab === 'doctors' && <DoctorsTab data={data} />}
