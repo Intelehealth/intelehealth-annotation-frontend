@@ -1,6 +1,7 @@
 import type { AiHeadline, DashboardData, TatRow } from '@/lib/api/mismatch';
 import { doctorLabel, EQUIV_REASON_LABEL, RULE_LABEL } from '@/lib/api/mismatch';
 import { doctorTable, planTable } from '@/lib/dashboard-tables';
+import { adviceEnglish } from '@/lib/format-display';
 
 type Cell = string | number | null;
 type Col = { header: string; pct?: boolean; width?: number };
@@ -162,7 +163,7 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
   ]);
   block(od, 'Investigations', [{ header: 'Test', width: 40 }, { header: 'Times' }], ai.orders.investigations.map((r) => [r.name, r.count]));
   block(od, 'Referred to', [{ header: 'Referral', width: 40 }, { header: 'Times' }], ai.orders.referrals.map((r) => [r.name, r.count]));
-  block(od, 'Advice', [{ header: 'Advice', width: 70 }, { header: 'Times' }], ai.orders.advice.map((r) => [r.name, r.count]));
+  block(od, 'Advice', [{ header: 'Advice', width: 70 }, { header: 'Times' }], ai.orders.advice.map((r) => [adviceEnglish(r.name), r.count]));
 
   // Annotation
   const s = data.summary;

@@ -7,7 +7,7 @@
  */
 import { ReactNode, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { displayName } from '@/lib/format-display';
+import { adviceEnglish, displayName } from '@/lib/format-display';
 import { bmiBand, bpBand, pulseBand, pulseRange, type VitalBand } from '@/lib/vital-bands';
 import { diffParts, likelihoodWidth, planGroups, type VerdictOption } from '@/lib/visit-v2-logic';
 import type { PlanItem, RankedDx } from '@/lib/api/mismatch';
@@ -233,17 +233,13 @@ function Line({ i }: { i: PlanItem }) {
   return <div className={cn('text-sm', T.ink2)}>{i.outcome === 'added' ? i.doctor : i.ai}</div>;
 }
 
-const adviceIn = (s: string, lang: 'en' | 'mr') => {
-  const m = /^(.*?)\s+-\s+(.*[^\x00-\x7F].*)$/.exec(s);
-  return m ? (lang === 'mr' ? m[2] : m[1]) : s;
-};
 
 function Count({ n }: { n: ReactNode }) {
   return <span className={cn('ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e6e9ee] px-1.5 text-xs font-semibold', T.ink2)}>{n}</span>;
 }
 
 /** V14: the treatment plan as a diff, grouped by outcome over every plan type, then the rest of the plan. */
-export function TreatmentDiff({ plan, lang, why }: { plan: PlanItem[]; lang: 'en' | 'mr'; why: (name: string) => ReactNode }) {
+export function TreatmentDiff({ plan, why }: { plan: PlanItem[]; why: (name: string) => ReactNode }) {
   const g = planGroups(plan);
   const groups: [string, PlanItem[], string][] = [
     ['Changed', g.changed, ''], ['Suggested by the AI, not used', g.not_used, 'bg-[#f6f8fb]'], ['Added by the doctor', g.added, 'border-l-4 border-l-[#1d5fbf]'], ['Kept as suggested', g.exact, ''],
@@ -275,7 +271,7 @@ export function TreatmentDiff({ plan, lang, why }: { plan: PlanItem[]; lang: 'en
                 <span className={cn('text-xs font-semibold', T.ink3)}>{label}</span>
                 <div className={T.ink}>
                   {t === 'test' && items.map((i) => displayName(i.name)).join(' · ') + ' · ordered'}
-                  {t === 'advice' && <ul className="list-disc space-y-0.5 pl-4">{items.map((i, k) => <li key={k}>{displayName(adviceIn(i.doctor ?? i.name, lang))}</li>)}</ul>}
+                  {t === 'advice' && <ul className="list-disc space-y-0.5 pl-4">{items.map((i, k) => <li key={k}>{displayName(adviceEnglish(i.doctor ?? i.name))}</li>)}</ul>}
                   {t === 'referral' && items.map((i, k) => {
                     const r = i.referral;
                     const urgent = !!r && /urgent|emergency/i.test(r.urgency);

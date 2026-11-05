@@ -12,6 +12,17 @@ export function dash(s: unknown): string {
   return EMPTY.test(t) ? '—' : t;
 }
 
+/**
+ * L1: the English part of the doctor's bilingual advice, "Drink water - पाणी प्या" -> "Drink water".
+ * Splits only when the text after " - " has non-ASCII (the translation), so "Rest - 2 days" stays whole.
+ * Same rule as the backend's adviceEnglish (note-text.ts).
+ */
+export function adviceEnglish(s: unknown): string {
+  const t = String(s ?? '');
+  const m = /^([\s\S]*?)\s+-\s+([\s\S]*[^\x00-\x7F][\s\S]*)$/.exec(t);
+  return m && m[1].trim() ? m[1].trim() : t;
+}
+
 /** "Namco_Dermatology" -> "Namco Dermatology". */
 export const deUnderscore = (s: unknown) => String(s ?? '').replace(/_+/g, ' ').replace(/\s+/g, ' ').trim();
 

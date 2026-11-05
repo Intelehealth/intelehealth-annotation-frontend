@@ -30,10 +30,10 @@ export default function MismatchVisitPage() {
   const [form, setForm] = useState<ReviewInput>({});
   const [saving, setSaving] = useState(false);
   const claimed = useRef(false);
-  const langKey = `mismatch-note-lang-${user?._id ?? 'anon'}`;
-  const [langPick, setLangPick] = useState<'en' | 'mr' | null>(null);
-  const lang: 'en' | 'mr' = langPick ?? (() => { try { return localStorage.getItem(langKey) === 'mr' ? 'mr' : 'en'; } catch { return 'en'; } })();
-  const setLang = (l: 'en' | 'mr') => { setLangPick(l); try { localStorage.setItem(langKey, l); } catch { /* storage unavailable */ } };
+  // L1: notes are English only. Drop the old per-user note-language choice (V4) if this browser still has it.
+  useEffect(() => {
+    try { for (const k of Object.keys(localStorage)) if (k.startsWith('mismatch-note-lang-')) localStorage.removeItem(k); } catch { /* storage unavailable */ }
+  }, []);
   // First interaction with the form claims the visit (30-min expiry on the server); a save claims it too.
   const update = (patch: Partial<ReviewInput>) => {
     if (v?.access?.canAnnotate === false) return; // ACL1: reviewers are view-only, never claim
@@ -138,9 +138,8 @@ export default function MismatchVisitPage() {
   const claimedByOther = v.review.claimedBy && v.review.claimedBy._id !== user?._id && v.review.status !== 'done' && v.review.claimedAt
     && Date.now() - new Date(v.review.claimedAt).getTime() < 30 * 60_000 ? v.review.claimedBy : null;
   const dxRationale = (name: string) => (v.ddx?.diagnoses ?? []).find((x) => String(x.diagnosis).toLowerCase() === name.toLowerCase())?.rationale;
-  // Notes come in English and Marathi; English by default, the choice is remembered per user (ticket V4).
-  const hasMr = Object.values(v.notesMr ?? {}).some(Boolean);
-  const note = lang === 'mr' && hasMr ? { ...v.notes, ...Object.fromEntries(Object.entries(v.notesMr ?? {}).filter(([, t]) => t)) } : v.notes;
+  // L1: the note is shown in English only (Marathi free-text values typed inside it stay as written).
+  const note = v.notes;
   const missing = missingForDone(a, form);
   const eq = a.equivalentNotPicked ?? null;
 
@@ -177,7 +176,7 @@ export default function MismatchVisitPage() {
     (() => { const n = plan.filter((i) => i.type === 'advice').length; return n ? `${n} advice line${n === 1 ? '' : 's'}` : ''; })(),
     (() => { const r = plan.find((i) => i.type === 'referral')?.referral; return r ? `referral to ${displayName(r.specialist).toLowerCase()}` : ''; })(),
   ].filter(Boolean);
-  const cutOf = (k: 'chiefComplaint' | 'physicalExamination' | 'patientMedicalHistory' | 'familyHistory') => !!v.notesCut?.[k]?.[lang === 'mr' && hasMr ? 'mr' : 'en'];
+  const cutOf = (k: 'chiefComplaint' | 'physicalExamination' | 'patientMedicalHistory' | 'familyHistory') => !!v.notesCut?.[k];
   const nextLine = pos?.uuid === uuid ? pos.nextSummary ?? undefined : undefined;
   const activeGroup: 'dx' | 'ttx' | null = keyGroup && offered[keyGroup] ? keyGroup : offered.dx && !form.ddxVerdict ? 'dx' : offered.ttx && !form.ttxVerdict ? 'ttx' : offered.ttx ? 'ttx' : offered.dx ? 'dx' : null;
   const blockHint = missing.includes('ddxVerdict') && missing.includes('ttxVerdict') ? 'Answer both questions'
@@ -218,16 +217,7 @@ export default function MismatchVisitPage() {
             </Card>
           )}
 
-          <Card title="Clinical note" action={hasMr ? (
-            <div className="inline-flex gap-0.5 rounded-lg bg-active p-0.5" role="group" aria-label="Note language">
-              {(['en', 'mr'] as const).map((l) => (
-                <button key={l} type="button" onClick={() => setLang(l)} aria-pressed={lang === l}
-                  className={cn('h-7 rounded-md px-2.5 text-[13px]', lang === l ? 'bg-white font-semibold text-[#111418] outline outline-1 outline-[#d9dee5]' : 'text-[#59616c]')}>
-                  {l === 'en' ? 'English' : 'मराठी'}
-                </button>
-              ))}
-            </div>
-          ) : undefined}>
+          <Card title="Clinical note">
             <NoteBlock heading="Chief complaint" text={note.chiefComplaint} cut={cutOf('chiefComplaint')} />
             <NoteBlock heading="Physical examination" text={note.physicalExamination} cut={cutOf('physicalExamination')} />
             <NoteBlock heading="Medical history" text={note.patientMedicalHistory} cut={cutOf('patientMedicalHistory')} />
@@ -303,7 +293,7 @@ export default function MismatchVisitPage() {
               {/* V14 treatment diff + its verdict */}
               <section id="plan" aria-label="Treatment plan" className="mb-8">
                 <SecH title="Treatment plan" sub="AI suggestion → what the doctor prescribed" />
-                <TreatmentDiff plan={plan} lang={lang} why={(n) => <Why r={(v.ttx?.medications ?? []).find((m) => String(m.medication).trim().toLowerCase() === n.toLowerCase())?.rationale} />} />
+                <TreatmentDiff plan={plan} why={(n) => <Why r={(v.ttx?.medications ?? []).find((m) => String(m.medication).trim().toLowerCase() === n.toLowerCase())?.rationale} />} />
                 {v.ttx?.planRationale && (
                   <details className="mt-3 text-sm">
                     <summary className="cursor-pointer text-[13px] text-[#3d4450]">AI reasoning for the whole treatment plan</summary>

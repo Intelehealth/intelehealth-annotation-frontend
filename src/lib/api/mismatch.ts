@@ -156,10 +156,10 @@ export interface VisitDetail {
   notes: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };
   /** Marathi text of the same fields (empty string when the note has none). */
   /** Note fields cut off in the stored record, per language. */
-  notesCut?: Record<string, { en: boolean; mr: boolean }>;
+  /** L1: per note field, whether its English text was cut off upstream. */
+  notesCut?: Record<string, boolean>;
   /** Treatment plan as one item model (backend treatment-plan.ts). */
   plan?: PlanItem[];
-  notesMr?: { chiefComplaint: string; physicalExamination: string; patientMedicalHistory: string; familyHistory: string };
   analysis: VisitAnalysis;
   mismatchType: MismatchType;
   review: Review;

@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { dash, deUnderscore, displayName, niceCase, referralParts, referralText } from './format-display';
+import { adviceEnglish, dash, deUnderscore, displayName, niceCase, referralParts, referralText } from './format-display';
+
+describe('adviceEnglish (L1)', () => {
+  it('shows only the English part of bilingual advice', () => {
+    expect(adviceEnglish('Drink plenty of water - भरपूर पाणी प्या')).toBe('Drink plenty of water');
+    expect(adviceEnglish('EAT GREEN VEGETABLES - हिरव्या भाज्या खा')).toBe('EAT GREEN VEGETABLES');
+  });
+  it('keeps English advice whole, including its own hyphens', () => {
+    expect(adviceEnglish('Rest - 2 days')).toBe('Rest - 2 days');
+    expect(adviceEnglish('Avoid oily food')).toBe('Avoid oily food');
+  });
+  it('keeps Marathi-only text (nothing English to show) and handles empty input', () => {
+    expect(adviceEnglish('पाणी प्या')).toBe('पाणी प्या');
+    expect(adviceEnglish(null)).toBe('');
+  });
+});
 
 describe('format-display (G2)', () => {
   it('shows empty-ish values as a dash', () => {

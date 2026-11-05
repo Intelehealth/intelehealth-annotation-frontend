@@ -11,7 +11,7 @@
  */
 import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { dash, displayName, referralParts } from '@/lib/format-display';
+import { adviceEnglish, dash, displayName, referralParts } from '@/lib/format-display';
 import { noteSections } from '@/lib/note-sections';
 import type { VitalBand } from '@/lib/vital-bands';
 import { PLAN_TYPE_LABEL, type PlanItem, type PlanType, type RankedDx } from '@/lib/api/mismatch';
@@ -104,15 +104,10 @@ const OUTCOME: Record<string, { text: string; tone: 'n' | 'warn' | 'neg' | 'pos'
   added: { text: 'Added by the doctor', tone: 'n' }, ai_not_available: { text: '', tone: 'n' },
 };
 
-// "Drink water - पाणी प्या": English part, or the Marathi part when the note language is Marathi.
-const adviceIn = (s: string, lang: 'en' | 'mr') => {
-  const m = /^(.*?)\s+-\s+(.*[^\x00-\x7F].*)$/.exec(s);
-  return m ? (lang === 'mr' ? m[2] : m[1]) : s;
-};
 
 /** Treatment plan: medicines, tests, advice, referral and follow-up in one AI | Doctor table. */
-export function TreatmentPlan({ plan, lang, medWhy, unflagged }: {
-  plan: PlanItem[]; lang: 'en' | 'mr'; medWhy: (name: string) => ReactNode; unflagged: (name: string) => string | null;
+export function TreatmentPlan({ plan, medWhy, unflagged }: {
+  plan: PlanItem[]; medWhy: (name: string) => ReactNode; unflagged: (name: string) => string | null;
 }) {
   const order: PlanType[] = ['medicine', 'test', 'advice', 'referral', 'followup'];
   return (
@@ -162,7 +157,7 @@ export function TreatmentPlan({ plan, lang, medWhy, unflagged }: {
                         {fu.remark && <div className="text-muted-foreground">{fu.remark}</div>}
                       </>
                     ) : type === 'advice' && i.doctor ? (
-                      displayName(adviceIn(i.doctor, lang))
+                      displayName(adviceEnglish(i.doctor))
                     ) : (
                       (type === 'test' && i.doctor ? 'Ordered' : i.doctor) ?? <span className="text-faint">{i.outcome === 'not_used' ? (type === 'test' ? 'Not ordered' : 'Not prescribed') : '—'}</span>
                     )}

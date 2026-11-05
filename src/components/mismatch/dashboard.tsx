@@ -16,7 +16,7 @@ import { DiagnosisPatterns, DoctorProgress } from './insights';
 import { exportDashboardExcel } from './export-excel';
 import { OverviewTab } from './overview';
 import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
-import { displayName } from '@/lib/format-display';
+import { adviceEnglish, displayName } from '@/lib/format-display';
 import { rate, TableSearch, useRowFilter } from './shared';
 
 // White / blue / navy palette.
@@ -718,11 +718,8 @@ function OrdersTab({ data }: { data: DashboardData }) {
         </Section>
       </div>
       <Section title="Most common advice" description={`As written · ${aiBase(data)}`}>
-        <RankedList items={data.ai.orders.advice} wrap render={(name) => {
-          // "drink lots of water - भरपूर पाणी प्या": English first, translation below.
-          const m = name.match(/^(.*?)\s+-\s+(.*[^\x00-\x7F].*)$/);
-          return m ? <span className="block">{m[1]}<span className="block text-xs text-slate-500">{m[2]}</span></span> : name;
-        }} />
+        {/* L1: English part only (the backend already counts advice by it). */}
+        <RankedList items={data.ai.orders.advice} wrap render={(name) => adviceEnglish(name)} />
       </Section>
     </>
   );
