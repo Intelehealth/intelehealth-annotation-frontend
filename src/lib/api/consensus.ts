@@ -99,9 +99,34 @@ export const consensusAPI = {
     return res.data;
   },
 
-  async exportCsv(datasetId: string, exportType: string = 'audit'): Promise<void> {
+  /** Verification mode: the logged-in doctor saves their own answers for a row. */
+  async saveMyAnswers(
+    datasetId: string,
+    body: { rowIndex: number; answers: Record<string, string>; complete?: boolean },
+  ): Promise<{ rowIndex: number; completed: boolean }> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/my-answers`, body, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  /** Verification mode: case-level decisions once all doctors have finished a row. */
+  async acceptCase(datasetId: string, rowIndex: number, body?: { override?: boolean; reason?: string }): Promise<any> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/case/${rowIndex}/accept`, body || {}, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  async checkCase(datasetId: string, rowIndex: number, body: { sections: string[]; note: string }): Promise<any> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/case/${rowIndex}/check`, body, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  async reopenCase(datasetId: string, rowIndex: number): Promise<any> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/case/${rowIndex}/reopen`, {}, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  async exportCsv(datasetId: string, exportType: string = 'audit', caseStatus?: 'CHECK' | 'ACCEPTED' | 'OPEN'): Promise<void> {
     const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/export`, {
-      params: { exportType },
+      params: caseStatus ? { exportType, caseStatus } : { exportType },
       headers: authHeaders(),
       responseType: 'blob',
     });
@@ -284,6 +309,8 @@ export const consensusAPI = {
 
   async getConsensusGrid(datasetId: string, params: {
     page?: number; pageSize?: number; status?: string; search?: string;
+    /** Verification mode: filter by case decision. */
+    caseStatus?: string;
     sortField?: string; sortDir?: 'asc' | 'desc';
     /** annotatorIds left out of the aggregation; omitted from the query when empty. */
     excludeAnnotatorIds?: string[];
@@ -297,6 +324,7 @@ export const consensusAPI = {
     if (params.pageSize) qs.set('pageSize', String(params.pageSize));
     if (params.status) qs.set('status', params.status);
     if (params.search) qs.set('search', params.search);
+    if (params.caseStatus) qs.set('caseStatus', params.caseStatus);
     if (params.sortField) qs.set('sortField', params.sortField);
     if (params.sortDir) qs.set('sortDir', params.sortDir);
     if (params.excludeAnnotatorIds?.length) qs.set('excludeAnnotatorIds', params.excludeAnnotatorIds.join(','));

@@ -27,6 +27,8 @@ type CollabField = {
   voteDistribution: { label: string; votes: number }[];
   sharedAnswer: string | null;
   suggestedAnswer: string | null;
+  /** Verification datasets only: the prefilled value reviewers were asked to verify. */
+  originalValue?: string | null;
 };
 type CollabRow = {
   rowIndex: number;
@@ -62,6 +64,29 @@ const isDecisionField = (f: CollabField): boolean => {
   }
   return (f.options?.length || 0) >= 2;
 };
+
+// Verification: compare answers the way the backend analytics do — order,
+// case and spacing inside a "; "-joined list don't count as a correction.
+const norm = (v: unknown): string =>
+  v === null || v === undefined
+    ? ''
+    : String(v).split(';').map((x) => x.trim().toLowerCase()).filter(Boolean).sort().join('; ');
+
+const submittedAnswers = (f: CollabField) => f.annotatorAnswers.filter((a) => a.submitted);
+
+// A field with an original to verify. Review-only fields (Verdict, comments)
+// come back with originalValue null — nothing to compare them against.
+const hasOriginal = (f: CollabField) => f.originalValue !== null && f.originalValue !== undefined;
+
+/** True when a reviewer corrected the original, or reviewers disagree with each other. */
+const needsDiscussion = (f: CollabField): boolean => {
+  const answers = submittedAnswers(f).map((a) => norm(a.value));
+  if (answers.length === 0) return false;
+  if (new Set(answers).size > 1) return true;
+  return hasOriginal(f) && answers[0] !== norm(f.originalValue);
+};
+
+const isVerificationGrid = (rows: CollabRow[]) => rows.some((r) => r.fields.some(hasOriginal));
 
 function SharedAnswerField({
   field,
@@ -133,17 +158,54 @@ function SharedAnswerField({
   );
 }
 
+const CHIP_TONE = {
+  original: 'bg-sky-50 border-sky-200 text-sky-900',
+  corrected: 'bg-amber-50 border-amber-300 text-amber-900',
+  plain: 'bg-gray-50 border-gray-200 text-gray-800',
+  missing: 'bg-gray-50 border-gray-200 text-gray-300 italic',
+} as const;
+
+function AnswerChip({ label, value, tone, selected, disabled, onPick }: {
+  label: string;
+  value: string;
+  tone: keyof typeof CHIP_TONE;
+  selected: boolean;
+  disabled: boolean;
+  onPick: (value: string) => void;
+}) {
+  return (
+    <button type="button" disabled={disabled} onClick={() => onPick(value)}
+      title={disabled ? undefined : `Use ${label}'s answer as the final answer`}
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border text-left max-w-full',
+        CHIP_TONE[tone],
+        !disabled && 'hover:ring-2 hover:ring-fuchsia-200 cursor-pointer',
+        selected && 'ring-2 ring-green-400',
+      )}>
+      {selected && <CheckCircle2 className="h-3 w-3 text-green-600 shrink-0" />}
+      <span className="opacity-70 shrink-0">{label}:</span>
+      <span className="font-medium break-words">{value !== '' ? value : '—'}</span>
+    </button>
+  );
+}
+
 function RowCard({
   row,
   primaryKeyField,
   disabled,
+  verification,
   onSave,
 }: {
   row: CollabRow;
   primaryKeyField: string | null;
   disabled: boolean;
+  verification: boolean;
   onSave: (rowIndex: number, fieldName: string, value: string) => Promise<void>;
 }) {
+  // In verification, show only the fields someone corrected or disagreed on.
+  const [showAll, setShowAll] = useState(false);
+  const discussed = verification ? row.fields.filter(needsDiscussion) : row.fields;
+  const fields = showAll || discussed.length === 0 ? row.fields : discussed;
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between bg-gray-50">
@@ -158,7 +220,7 @@ function RowCard({
         </span>
       </div>
       <div className="divide-y divide-gray-100">
-        {row.fields.map((f) => (
+        {fields.map((f) => (
           <div key={f.fieldName} className="p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h4 className="text-sm font-bold text-gray-900">{f.question || f.displayName || f.fieldName}</h4>
@@ -167,16 +229,24 @@ function RowCard({
               </span>
             </div>
 
-            {/* What each annotator originally entered */}
+            {/* The original (verification only) and what each reviewer entered.
+                Click a value to make it the final answer. */}
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mr-1">Annotators</span>
+              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mr-1">
+                {verification ? 'Accept' : 'Annotators'}
+              </span>
+              {verification && hasOriginal(f) && (
+                <AnswerChip label="Consensus" value={f.originalValue ?? ''} tone="original"
+                  selected={f.sharedAnswer != null && norm(f.sharedAnswer) === norm(f.originalValue)}
+                  disabled={disabled} onPick={(v) => onSave(row.rowIndex, f.fieldName, v)} />
+              )}
               {f.annotatorAnswers.map((a, i) => (
-                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-50 border border-gray-200">
-                  <span className="text-gray-500">{a.annotatorName}:</span>
-                  <span className={cn('font-medium', a.submitted ? 'text-gray-800' : 'text-gray-300 italic')}>
-                    {a.submitted && a.value !== '' && a.value !== null && a.value !== undefined ? String(a.value) : '—'}
-                  </span>
-                </span>
+                <AnswerChip key={i} label={a.annotatorName}
+                  value={a.submitted && a.value !== null && a.value !== undefined ? String(a.value) : ''}
+                  tone={!a.submitted ? 'missing' : verification && hasOriginal(f) && norm(a.value) !== norm(f.originalValue) ? 'corrected' : 'plain'}
+                  selected={a.submitted && f.sharedAnswer != null && norm(f.sharedAnswer) === norm(a.value)}
+                  disabled={disabled || !a.submitted || !verification}
+                  onPick={(v) => onSave(row.rowIndex, f.fieldName, v)} />
               ))}
             </div>
 
@@ -187,6 +257,12 @@ function RowCard({
             />
           </div>
         ))}
+        {verification && discussed.length > 0 && discussed.length < row.fields.length && (
+          <button type="button" onClick={() => setShowAll((s) => !s)}
+            className="w-full px-4 py-2 text-xs text-gray-500 hover:text-gray-700 text-left">
+            {showAll ? 'Show only fields to discuss' : `Show all ${row.fields.length} fields (${row.fields.length - discussed.length} kept as consensus)`}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -278,13 +354,22 @@ export function CollaborativeReviewGrid({
     }
   };
 
-  const { unresolved, agreed } = useMemo(() => {
+  const verification = useMemo(() => isVerificationGrid(grid?.rows || []), [grid]);
+
+  // Verification: a row needs discussion when any reviewer corrected the
+  // original or the reviewers disagree — even if they agree with each other.
+  const { unresolved, agreed, notReviewed } = useMemo(() => {
     const rows = grid?.rows || [];
+    const open = verification
+      ? (r: CollabRow) => r.fields.some(needsDiscussion)
+      : (r: CollabRow) => r.orderRank < 4;
+    const reviewed = (r: CollabRow) => r.fields.some((f) => submittedAnswers(f).length > 0);
     return {
-      unresolved: rows.filter((r) => r.orderRank < 4),
-      agreed: rows.filter((r) => r.orderRank >= 4),
+      unresolved: rows.filter(open),
+      agreed: rows.filter((r) => !open(r) && (!verification || reviewed(r))),
+      notReviewed: verification ? rows.filter((r) => !reviewed(r)).length : 0,
     };
-  }, [grid]);
+  }, [grid, verification]);
 
   const answeredCount = useMemo(() => {
     let n = 0;
@@ -306,7 +391,11 @@ export function CollaborativeReviewGrid({
         <span className="flex items-center gap-1 text-xs text-gray-600">
           <Users className="h-3.5 w-3.5" /> {grid.rows.length} rows · {answeredCount} final answers set
         </span>
-        <span className="text-xs text-gray-400">{unresolved.length} need consensus · {agreed.length} already agreed</span>
+        <span className="text-xs text-gray-400">
+          {verification
+            ? `${unresolved.length} to discuss · ${agreed.length} kept as consensus by everyone · ${notReviewed} not reviewed yet`
+            : `${unresolved.length} need consensus · ${agreed.length} already agreed`}
+        </span>
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => load()} className="h-7 text-xs">
             <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
@@ -335,9 +424,9 @@ export function CollaborativeReviewGrid({
       {/* Needs consensus (unresolved first) */}
       {unresolved.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Needs consensus ({unresolved.length})</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">{verification ? 'To discuss' : 'Needs consensus'} ({unresolved.length})</h3>
           {unresolved.map((row) => (
-            <RowCard key={row.rowIndex} row={row} primaryKeyField={grid.primaryKeyField} disabled={!editable} onSave={handleSave} />
+            <RowCard key={row.rowIndex} row={row} primaryKeyField={grid.primaryKeyField} disabled={!editable} verification={verification} onSave={handleSave} />
           ))}
         </div>
       )}
@@ -347,10 +436,10 @@ export function CollaborativeReviewGrid({
         <div className="space-y-3">
           <button onClick={() => setShowAgreed((s) => !s)}
             className="text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-gray-700">
-            {showAgreed ? '▾' : '▸'} Already agreed / majority ({agreed.length})
+            {showAgreed ? '▾' : '▸'} {verification ? 'Kept as consensus by everyone' : 'Already agreed / majority'} ({agreed.length})
           </button>
           {showAgreed && agreed.map((row) => (
-            <RowCard key={row.rowIndex} row={row} primaryKeyField={grid.primaryKeyField} disabled={!editable} onSave={handleSave} />
+            <RowCard key={row.rowIndex} row={row} primaryKeyField={grid.primaryKeyField} disabled={!editable} verification={verification} onSave={handleSave} />
           ))}
         </div>
       )}

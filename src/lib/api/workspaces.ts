@@ -72,6 +72,18 @@ export interface WorkspaceInput {
 
 const base = '/workspaces';
 
+export interface AnalyticsReviewer { userId: string; name: string; cloneId: string; rowsReviewed: number; rowsCorrected: number; fieldsCorrectedPct: number; pendingRemaining: number }
+export interface AnalyticsField {
+  fieldName: string; displayName: string; categorical: boolean;
+  /** false for review-only fields (e.g. Verdict): no original, so no corrections — distribution only. */
+  hasOriginal?: boolean;
+  byReviewer: Record<string, { corrected: number; pendingFilled: number }>;
+  correctedByAll: number;
+  distribution: null | { original: Record<string, number>; byReviewer: Record<string, Record<string, number>> };
+}
+export interface AnalyticsDataset { datasetId: string; name: string; totalRows: number; reviewers: AnalyticsReviewer[]; fields: AnalyticsField[] }
+export interface WorkspaceAnalytics { datasets: AnalyticsDataset[] }
+
 export const workspacesAPI = {
   list: () => jsonApi.get<WorkspaceResponse[]>(base).then((r) => r.data),
   get: (id: string) => jsonApi.get<WorkspaceResponse>(`${base}/${id}`).then((r) => r.data),
@@ -90,6 +102,7 @@ export const workspacesAPI = {
   removeReviewer: (id: string, userId: string) =>
     jsonApi.delete<WorkspaceResponse>(`${base}/${id}/reviewers/${userId}`).then((r) => r.data),
 
+  analytics: (id: string) => jsonApi.get<WorkspaceAnalytics>(`${base}/${id}/analytics`).then((r) => r.data),
   datasets: (id: string) => jsonApi.get<WorkspaceDataset[]>(`${base}/${id}/datasets`).then((r) => r.data),
   attachDataset: (id: string, datasetId: string) =>
     jsonApi.post<WorkspaceDataset[]>(`${base}/${id}/datasets`, { datasetId }).then((r) => r.data),

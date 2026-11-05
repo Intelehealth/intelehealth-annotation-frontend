@@ -12,7 +12,7 @@ import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
 import { useReliabilityMetric } from '@/lib/use-reliability-metric';
 import { cn } from '@/lib/utils';
 import { STATUS_BADGE, buildFieldTree, walkFieldTree, formatValue, getClinicalNotes, type FieldNode } from '@/components/consensus/consensus-utils';
-import { ConsensusRowReview, type FinalAnswerHandlers, type RowEdge } from '@/components/consensus/row-review';
+import { ConsensusRowReview, type FinalAnswerHandlers, type VerificationHandlers, type RowEdge } from '@/components/consensus/row-review';
 import {
   ArrowLeft,
   CheckCircle,
@@ -327,7 +327,8 @@ export default function ReviewConsensusPage() {
         consensusAPI.getConsensusGrid(datasetId, {
           page,
           pageSize,
-          status: statusFilter || undefined,
+          status: statusFilter && !statusFilter.startsWith('case:') ? statusFilter : undefined,
+          caseStatus: statusFilter.startsWith('case:') ? statusFilter.slice(5) : undefined,
           search: search || undefined,
         }),
         consensusAPI.getProgress(datasetId),
@@ -427,7 +428,7 @@ export default function ReviewConsensusPage() {
       try {
         await consensusAPI.resolveField(datasetId, row.reviewId, fieldName, value, user?._id || '');
         const field = (row.fields || []).find((f: any) => f.fieldName === fieldName);
-        updateGridField(row.rowIndex, fieldName, { finalDecision: value, status: decisionStatus(field, value) });
+        updateGridField(row.rowIndex, fieldName, { finalDecision: value, ...(value.trim() === '' ? { finalDecisionBy: user?._id || 'me', finalDecisionAt: new Date().toISOString() } : {}), status: decisionStatus(field, value) });
         return true;
       } catch (error: any) {
         showToast({ title: 'Could not save final answer', description: error?.response?.data?.message || error?.message || 'Save failed.', type: 'error' });
@@ -445,6 +446,7 @@ export default function ReviewConsensusPage() {
         return false;
       }
     },
+    onRefresh: async () => { await loadData(false); },
     onGenerate: async () => {
       try {
         const result = await consensusAPI.generate(datasetId);
@@ -455,6 +457,52 @@ export default function ReviewConsensusPage() {
       }
     },
   };
+
+  const verificationOn = dataset?.verificationMode === true && !!user?._id;
+  const verification: VerificationHandlers | undefined = verificationOn
+    ? {
+        myUserId: user!._id,
+        form: dataset?.verificationForm,
+        onAcceptCase: async (row) => {
+          try {
+            await consensusAPI.acceptCase(datasetId, row.rowIndex);
+            await loadData(false);
+            return { ok: true };
+          } catch (error: any) {
+            const data = error?.response?.data;
+            showToast({ title: 'Could not accept case', description: data?.message || error?.message || 'Accept failed.', type: 'error' });
+            const waiting = Array.isArray(data?.notCompleted) ? data.notCompleted.map((n: any) => {
+              // Backend sends annotator ids; show names from the row when we have them.
+              const id = typeof n === 'string' ? n : n?.annotatorId;
+              const known = (row.annotators || []).find((a: any) => a?.annotatorId === id);
+              return String(known?.annotatorName ?? n?.annotatorName ?? n?.name ?? id ?? '');
+            }).filter(Boolean) : undefined;
+            const fields = Array.isArray(data?.fields) ? data.fields : Array.isArray(data?.pending) ? data.pending : undefined;
+            return { ok: false, fields: fields?.map(String), waiting, problems: Array.isArray(data?.problems) ? data.problems.map(String) : undefined };
+          }
+        },
+        onCheckCase: async (row, body) => {
+          try {
+            await consensusAPI.checkCase(datasetId, row.rowIndex, body);
+            await loadData(false);
+            return true;
+          } catch (error: any) {
+            showToast({ title: 'Could not flag case for check', description: error?.response?.data?.message || error?.message || 'Request failed.', type: 'error' });
+            return false;
+          }
+        },
+        onReopenCase: async (row) => {
+          try {
+            await consensusAPI.reopenCase(datasetId, row.rowIndex);
+            await loadData(false);
+            return true;
+          } catch (error: any) {
+            showToast({ title: 'Could not reopen case', description: error?.response?.data?.message || error?.message || 'Reopen failed.', type: 'error' });
+            return false;
+          }
+        },
+      }
+    : undefined;
 
   const stats = useMemo(() => {
     const fieldCounts = progress?.fieldCounts || {};
@@ -495,10 +543,10 @@ export default function ReviewConsensusPage() {
     setSelectedRows(selectedRows.size === indexes.length ? new Set() : new Set(indexes));
   };
 
-  const handleExport = async (type: string) => {
+  const handleExport = async (type: string, caseStatus?: 'CHECK') => {
     try {
-      await consensusAPI.exportCsv(datasetId, type);
-      showToast({ title: 'Exported', description: type === 'final' ? 'Final answers downloaded.' : 'Pre-consensus report downloaded.', type: 'success' });
+      await consensusAPI.exportCsv(datasetId, type, caseStatus);
+      showToast({ title: 'Exported', description: caseStatus === 'CHECK' ? 'Check cases downloaded.' : type === 'final' ? 'Final answers downloaded.' : 'Pre-consensus report downloaded.', type: 'success' });
     } catch {
       showToast({ title: 'Export failed', description: 'The report could not be generated.', type: 'error' });
     }
@@ -609,6 +657,7 @@ export default function ReviewConsensusPage() {
               {reviewFocus && <Button variant="outline" size="sm" onClick={() => setShowSummary((v) => !v)}>{showSummary ? 'Hide summary' : 'Show summary'}</Button>}
               <Button variant="outline" size="sm" onClick={() => { loadData(); loadResolvedStatus(); }} disabled={loading}><RefreshCw className={cn('mr-1 h-4 w-4', loading && 'animate-spin')} /> Refresh</Button>
               <Button variant="outline" size="sm" disabled={!gridData?.totalRows} title="One row per case with the accepted final answer for each question. Unresolved answers show PENDING." onClick={() => handleExport('final')}><Download className="mr-1 h-4 w-4" /> Final answers CSV</Button>
+              {verificationOn && <Button variant="outline" size="sm" disabled={!gridData?.totalRows} title="Only cases flagged for a check with the source doctors." onClick={() => handleExport('final', 'CHECK')}><Download className="mr-1 h-4 w-4" /> Check cases CSV</Button>}
               {!reviewOnly && (<><Button variant="outline" onClick={handleRequestReview}>Review Again</Button><Button variant="outline" onClick={handleStartCollaborativeReview} disabled={startingSession || !gridData?.totalRows}>{startingSession ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Start Collaborative Review</Button></>)}
             </div>
           </header>
@@ -765,6 +814,7 @@ export default function ReviewConsensusPage() {
             <div className="relative min-w-[260px] flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search rows, questions, answers, annotators..." className="h-10 w-full rounded-lg border bg-white pl-9 pr-3 text-sm outline-none focus:border-indigo-500" /></div>
             <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }} className="h-10 rounded-lg border bg-white px-3 text-sm text-gray-700 outline-none focus:border-indigo-500">
               <option value="">All Statuses</option><option value="NOT_STARTED">Not Started</option><option value="PARTIAL">Partial</option><option value="AGREED">Agreed</option><option value="CONFLICT">Conflict</option><option value="TIE">Tie</option>
+              {verificationOn && <><option value="case:OPEN">Case: Open</option><option value="case:ACCEPTED">Case: Accepted</option><option value="case:CHECK">Case: Check</option></>}
             </select>
             {canPickAnnotators && <AnnotatorPicker annotators={allAnnotators} excluded={excludedAnnotators} onChange={setExcludedAnnotators} />}
             {selectedRows.size > 0 && <span className="text-xs font-semibold text-indigo-700">{selectedRows.size} selected</span>}
@@ -773,7 +823,7 @@ export default function ReviewConsensusPage() {
           <section className={reviewFocus ? 'flex min-h-0 flex-1 flex-col gap-2' : 'space-y-3'}>
             {loading ? <div className="flex h-48 items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-indigo-600" /></div> : !gridData ? <div className="p-10 text-center text-sm text-red-500">Consensus data could not be loaded.</div> : viewMode === 'review' ? (
               <ConsensusRowReview
-                rows={gridData.rows || []}
+                rows={statusFilter.startsWith('case:') ? (gridData.rows || []).filter((r: any) => (r.caseStatus || 'OPEN') === statusFilter.slice(5)) : gridData.rows || []}
                 datasetId={datasetId}
                 totalRows={gridData.totalRows || 0}
                 page={page}
@@ -784,6 +834,7 @@ export default function ReviewConsensusPage() {
                 onSelectRow={(rowIndex) => { setReviewRowIndex(rowIndex); setReviewEdge('first'); }}
                 onChangePage={(nextPage, edge) => { setReviewRowIndex(null); setReviewEdge(edge); setPage(nextPage); }}
                 finalAnswers={finalAnswers}
+                verification={verification}
                 excludedAnnotatorIds={excludedAnnotators}
               />
             ) : <>
