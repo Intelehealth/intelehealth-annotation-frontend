@@ -77,7 +77,7 @@ export default function WorkspacePage() {
       {notice && !error && <p className="text-sm text-muted-foreground">{notice}</p>}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Members ws={ws} datasets={datasets} canManage={canManage} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} onToggleReviewer={(m, on) => run(() => (on ? workspacesAPI.addReviewer(id, m._id) : workspacesAPI.removeReviewer(id, m._id)), on ? 'Reviewer added' : 'Reviewer removed')}
+        <Members ws={ws} datasets={datasets} canManage={canManage} canAssignAdmins={canOwn} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} onToggleReviewer={(m, on) => run(() => (on ? workspacesAPI.addReviewer(id, m._id) : workspacesAPI.removeReviewer(id, m._id)), on ? 'Reviewer added' : 'Reviewer removed')}
           onSetRole={mismatchSource ? (m, role) => run(async () => {
             const isA = (ws.admins ?? []).some((x) => x._id === m._id);
             const isR = (ws.reviewers ?? []).some((x) => x._id === m._id);
@@ -179,8 +179,10 @@ function Header({ ws, canManage, onSave, onDelete }: {
 
 // ── Members ────────────────────────────────────────────────────────────────
 
-function Members({ ws, datasets, canManage, onAdd, onRemove, onToggleReviewer, onSetRole }: {
+function Members({ ws, datasets, canManage, canAssignAdmins = canManage, onAdd, onRemove, onToggleReviewer, onSetRole }: {
   ws: WorkspaceResponse; datasets: WorkspaceDataset[]; canManage: boolean;
+  /** ACL1 v3: only the owner / global admin makes or removes workspace admins. */
+  canAssignAdmins?: boolean;
   onAdd: (who: { userId?: string; email?: string }) => void;
   onRemove: (m: WorkspaceMember) => void;
   onToggleReviewer: (m: WorkspaceMember, on: boolean) => void;
@@ -234,11 +236,11 @@ function Members({ ws, datasets, canManage, onAdd, onRemove, onToggleReviewer, o
               <Badge variant="secondary" title="Reviews specific datasets only">Dataset reviewer</Badge>
             )}
             <StatusDot status={m.status} online={m.isOnline} />
-            {canManage && !m.isOwner && onSetRole && (
+            {canManage && !m.isOwner && onSetRole && (!adminIds.has(m._id) || canAssignAdmins) && (
               <select aria-label={`Role of ${personName(m)}`} className="h-8 rounded-md border bg-background px-2 text-xs"
                 value={adminIds.has(m._id) ? 'admin' : reviewerIds.has(m._id) ? 'reviewer' : 'annotator'}
                 onChange={(e) => onSetRole(m, e.target.value as 'admin' | 'annotator' | 'reviewer')}>
-                <option value="admin">Admin</option>
+                {canAssignAdmins && <option value="admin">Admin</option>}
                 <option value="annotator">Annotator</option>
                 <option value="reviewer" disabled={!reviewerIds.has(m._id) && reviewersFull}>Reviewer</option>
               </select>
@@ -254,7 +256,7 @@ function Members({ ws, datasets, canManage, onAdd, onRemove, onToggleReviewer, o
                 {reviewerIds.has(m._id) ? 'Remove reviewer' : 'Make reviewer'}
               </Button>
             )}
-            {canManage && !m.isOwner && (
+            {canManage && !m.isOwner && (!adminIds.has(m._id) || canAssignAdmins) && (
               <Button size="sm" variant="ghost" aria-label={`Remove ${personName(m)}`} onClick={() => onRemove(m)}><UserMinus className="h-4 w-4" /></Button>
             )}
           </li>
