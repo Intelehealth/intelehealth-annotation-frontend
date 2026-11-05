@@ -10,10 +10,11 @@
  *   D2  "Where it fails" (doctor's diagnoses most often not at the AI's #1, rank bars) and
  *       "Right list, wrong #1" on the first screen; Paediatric vs general WITH treatment rows; by doctor.
  */
-import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { displayName } from '@/lib/format-display';
 import { trendWeekly } from '@/lib/trend-grain';
+import { timeSlots } from '@/lib/period-range';
 import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { doctorLabel, type AiHeadline, type DashboardData, type DxAgg } from '@/lib/api/mismatch';
 
@@ -46,7 +47,8 @@ function Kpi({ label, n, of, prev, better, lead, value, note }: {
   );
 }
 
-type Period = { label: string; visits: number; scored: number; top1: number; top3: number; top5: number; ttx: number; kept: number; changed: number; gap: boolean };
+// `empty` = a slot of the range with no visits (B1: drawn as a visible gap, never skipped).
+type Period = { label: string; visits: number; scored: number; top1: number; top3: number; top5: number; ttx: number; kept: number; changed: number; gap: boolean; empty: boolean };
 
 const monday = (ymd: string) => {
   const d = new Date(`${ymd}T00:00:00Z`);
@@ -54,15 +56,25 @@ const monday = (ymd: string) => {
   return d.toISOString().slice(0, 10);
 };
 const short = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const weekday = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' });
 
-/** Daily rows, or weekly sums for a long low-volume range (D5, P7: see trendWeekly). Outage = AI list on under half the visits. */
-function periods(byDay: DashboardData['ai']['byDay']): { rows: Period[]; weekly: boolean } {
+/**
+ * Daily rows, or weekly sums for a long low-volume range (D5, P7: see trendWeekly). Outage = AI list on
+ * under half the visits. B1: one row per day (or week) of the WHOLE selected range, so days without
+ * visits stay in place as empty slots; 'All time' spans the first to the last day with data.
+ */
+function periods(byDay: DashboardData['ai']['byDay'], range: { from?: string; to?: string }): { rows: Period[]; weekly: boolean } {
   const days = byDay.filter((d) => d.visits > 0);
   const weekly = trendWeekly(days.map((d) => d.visits));
-  const map = new Map<string, Period>();
+  const blank = (label: string): Period => ({ label, visits: 0, scored: 0, top1: 0, top3: 0, top5: 0, ttx: 0, kept: 0, changed: 0, gap: false, empty: true });
+  const names = days.map((d) => d.name).sort();
+  const from = range.from ?? names[0];
+  const to = range.to ?? names[names.length - 1];
+  const map = new Map<string, Period>(from && to ? timeSlots(from, to, weekly).map((s) => [s, blank(s)]) : []);
   for (const d of days) {
     const k = weekly ? monday(d.name) : d.name;
-    const g = map.get(k) ?? { label: k, visits: 0, scored: 0, top1: 0, top3: 0, top5: 0, ttx: 0, kept: 0, changed: 0, gap: false };
+    const g = map.get(k) ?? blank(k);
+    g.empty = false;
     g.visits += d.visits; g.scored += d.scored; g.top1 += d.top1; g.top3 += d.top3; g.top5 += d.top5;
     g.ttx += d.ttxGenerated; g.kept += d.casesUnchanged; g.changed += d.casesChanged;
     map.set(k, g);
@@ -72,35 +84,44 @@ function periods(byDay: DashboardData['ai']['byDay']): { rows: Period[]; weekly:
   return { rows, weekly };
 }
 
+/**
+ * B1: the element's live width. A callback ref, so the ResizeObserver re-attaches whenever the
+ * element is replaced (the old effect-based version observed only the first element: after a
+ * "Too few points" render the new chart was never measured and stayed at a stale width).
+ * Zero widths (detached / hidden) are ignored; 0 = not measured yet.
+ */
 function useWidth<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [w, setW] = useState(760);
-  useEffect(() => {
-    const el = ref.current;
+  const [w, setW] = useState(0);
+  const ro = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((el: T | null) => {
+    ro.current?.disconnect();
+    ro.current = null;
     if (!el) return;
-    const ro = new ResizeObserver(([e]) => setW(Math.max(300, Math.round(e.contentRect.width))));
-    ro.observe(el);
-    return () => ro.disconnect();
+    const measure = (width: number) => { if (width > 0) setW(Math.round(width)); };
+    measure(el.getBoundingClientRect().width);
+    ro.current = new ResizeObserver(([e]) => measure(e.contentRect.width));
+    ro.current.observe(el);
   }, []);
   return [ref, w] as const;
 }
 
 /** Straight-line trend in SVG at the container width; n under each point; gaps where the AI list collapsed. */
-function Trend({ rows, lines, base, gapNote }: {
-  rows: Period[]; lines: { key: keyof Period; label: string; color: string; dash?: boolean }[]; base: (p: Period) => number; gapNote: (p: Period) => string;
+function Trend({ rows, weekly, lines, base, gapNote }: {
+  rows: Period[]; weekly: boolean; lines: { key: keyof Period; label: string; color: string; dash?: boolean }[]; base: (p: Period) => number; gapNote: (p: Period) => string;
 }) {
   const [ref, W] = useWidth<HTMLDivElement>();
-  if (rows.length < 2) return <p className="py-8 text-center text-sm text-muted-foreground">Too few points</p>;
-  const H = 240, L = 40, R = 16, T = 12, B = 46;
-  const step = (W - L - R) / rows.length;
+  if (rows.filter((r) => !r.empty).length < 2) return <p className="py-8 text-center text-sm text-muted-foreground">Too few points</p>;
+  const H = 252, L = 40, R = 16, T = 12, B = 58;
+  const step = (Math.max(W, 1) - L - R) / rows.length;
   const x = (i: number) => L + (i + 0.5) * step;
   const y = (p: number) => T + (1 - p / 100) * (H - T - B);
-  const thin = W < 520;
+  // B1: label every slot unless labels would really collide at the measured width (~46 px per label).
+  const every = Math.max(1, Math.ceil(46 / step));
   const path = (key: keyof Period) => {
     let d = ''; let pen = false;
     rows.forEach((r, i) => {
       const b = base(r);
-      if (r.gap || !b) { pen = false; return; }
+      if (r.gap || r.empty || !b) { pen = false; return; }
       d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y((100 * (r[key] as number)) / b).toFixed(1)}`; pen = true;
     });
     return d;
@@ -110,7 +131,7 @@ function Trend({ rows, lines, base, gapNote }: {
       <div className="mb-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
         {lines.map((l) => <span key={l.label} className="inline-flex items-center gap-1.5"><i className="inline-block h-0.5 w-3.5" style={{ background: l.color, opacity: l.dash ? 0.7 : 1 }} />{l.label}</span>)}
       </div>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Trend of ${lines.map((l) => l.label).join(', ')}`} className="block">
+      {W === 0 ? <div style={{ height: H }} aria-hidden /> : <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Trend of ${lines.map((l) => l.label).join(', ')}`} className="block">
         {[0, 25, 50, 75, 100].map((g) => (
           <g key={g}>
             <line x1={L} x2={W - R} y1={y(g)} y2={y(g)} stroke="var(--grid)" strokeDasharray={g ? '3 3' : undefined} />
@@ -120,6 +141,8 @@ function Trend({ rows, lines, base, gapNote }: {
         {lines.map((l) => <path key={l.label} d={path(l.key)} fill="none" stroke={l.color} strokeWidth={2} strokeDasharray={l.dash ? '4 3' : undefined} opacity={l.dash ? 0.75 : 1} />)}
         {rows.map((r, i) => (
           <g key={r.label}>
+            {/* B1: a day (or week) with no visits is a visible gap: shaded slot, no point, the line breaks */}
+            {r.empty && <rect x={x(i) - step / 2} y={T} width={step} height={H - T - B} fill="var(--grid)" opacity={0.45}><title>{short(r.label) + ": no visits"}</title></rect>}
             {r.gap ? (
               <>
                 <text x={x(i)} y={y(55)} textAnchor="middle" fontSize={11} fill="var(--muted-foreground)">no AI list</text>
@@ -129,15 +152,16 @@ function Trend({ rows, lines, base, gapNote }: {
               const v = (100 * (r[l.key] as number)) / base(r);
               return <circle key={l.label} cx={x(i)} cy={y(v)} r={2.5} fill={l.color}><title>{`${short(r.label)}: ${l.label} ${v.toFixed(1)}% (${r[l.key]} of ${base(r)})`}</title></circle>;
             }) : null}
-            {(!thin || i % 2 === 1) && (
+            {(rows.length - 1 - i) % every === 0 && (
               <>
-                <text x={x(i)} y={H - B + 18} textAnchor="middle" fontSize={11} fill="var(--muted-foreground)">{short(r.label)}</text>
-                <text x={x(i)} y={H - B + 32} textAnchor="middle" fontSize={11} fill="var(--faint)">n {base(r)}</text>
+                <text x={x(i)} y={H - B + 16} textAnchor="middle" fontSize={11} fill="var(--muted-foreground)">{weekly ? 'wk of' : weekday(r.label)}</text>
+                <text x={x(i)} y={H - B + 30} textAnchor="middle" fontSize={11} fill="var(--muted-foreground)">{short(r.label)}</text>
+                <text x={x(i)} y={H - B + 44} textAnchor="middle" fontSize={11} fill="var(--faint)">n {base(r)}</text>
               </>
             )}
           </g>
         ))}
-      </svg>
+      </svg>}
     </div>
   );
 }
@@ -172,13 +196,13 @@ const pv = (h: AiHeadline) => [
   ['Doctor added a medicine', pctText(pct(h.casesAdded, h.ttxGenerated))],
 ] as const;
 
-export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
-  data: DashboardData; prev: DashboardData | null; prevLabel: string | null; base: string; onTab: (t: TabKey) => void;
+export function OverviewTab({ data, range, prev, prevLabel, base, onTab }: {
+  data: DashboardData; range: { from?: string; to?: string }; prev: DashboardData | null; prevLabel: string | null; base: string; onTab: (t: TabKey) => void;
 }) {
   const h = data.ai.headline.all;
   const p = prev?.ai.headline.all ?? null;
   const P = (n: (x: AiHeadline) => number, of: (x: AiHeadline) => number) => (p ? { n: n(p), of: of(p) } : null);
-  const { rows, weekly } = useMemo(() => periods(data.ai.byDay), [data]);
+  const { rows, weekly } = useMemo(() => periods(data.ai.byDay, range), [data, range]);
   const fails = useMemo(() => [...data.ai.byDx].filter((g) => g.scored > 0 && g.scored - g.top1 > 0)
     .sort((a, b) => (b.scored - b.top1) - (a.scored - a.top1) || a.name.localeCompare(b.name)), [data]);
   const pairs = data.ai.equivalent?.pairs ?? [];
@@ -224,12 +248,12 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
         </section>
 
         <Card title="Is it improving?" meta={`${weekly ? 'Weekly' : 'Daily'} · % of visits with an AI list`}>
-          <Trend rows={rows} base={(r) => r.scored} gapNote={(r) => `${r.scored} of ${r.visits}`}
+          <Trend rows={rows} weekly={weekly} base={(r) => r.scored} gapNote={(r) => `${r.scored} of ${r.visits}`}
             lines={[{ key: 'top5', label: 'In the top 5', color: 'var(--foreground)' }, { key: 'top3', label: 'In the top 3', color: '#8a9099', dash: true }, { key: 'top1', label: "AI's #1", color: 'var(--data)' }]} />
         </Card>
 
         <Card title="Treatment over time" meta={`${weekly ? 'Weekly' : 'Daily'} · % of TTx cases`}>
-          <Trend rows={rows} base={(r) => r.ttx} gapNote={(r) => `${r.ttx} TTx cases`}
+          <Trend rows={rows} weekly={weekly} base={(r) => r.ttx} gapNote={(r) => `${r.ttx} TTx cases`}
             lines={[{ key: 'kept', label: 'AI medicine kept as is', color: 'var(--data)' }, { key: 'changed', label: 'AI medicine changed', color: 'var(--foreground)' }]} />
         </Card>
 

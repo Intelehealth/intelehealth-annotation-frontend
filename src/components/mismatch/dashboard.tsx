@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { DiagnosisPatterns, DoctorProgress } from './insights';
 import { exportDashboardExcel } from './export-excel';
 import { OverviewTab } from './overview';
+import { presetRange, previousRange } from '@/lib/period-range';
 import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { adviceEnglish, displayName } from '@/lib/format-display';
 import { rate, TableSearch, useRowFilter } from './shared';
@@ -22,31 +23,13 @@ import { rate, TableSearch, useRowFilter } from './shared';
 // White / blue / navy palette.
 const C = { navy: '#1e3a8a', blue: '#2563eb', sky: '#60a5fa', light: '#bfdbfe', slate: '#94a3b8', faint: '#e2e8f0' };
 
-// ---------- period presets (IST calendar) ----------
-const IST = 5.5 * 3600_000;
+// ---------- period presets (IST calendar; B2: built by the pure presetRange) ----------
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
-const istNow = () => new Date(Date.now() + IST);
-const shift = (d: Date, days: number) => new Date(d.getTime() + days * 86400_000);
-const startOf = (unit: 'week' | 'month' | 'quarter' | 'year') => {
-  const n = istNow();
-  const y = n.getUTCFullYear();
-  const m = n.getUTCMonth();
-  if (unit === 'week') return shift(n, -((n.getUTCDay() + 6) % 7));
-  if (unit === 'month') return new Date(Date.UTC(y, m, 1));
-  if (unit === 'quarter') return new Date(Date.UTC(y, m - (m % 3), 1));
-  return new Date(Date.UTC(y, 0, 1));
-};
 const PERIODS: { key: string; label: string; range: () => [string | undefined, string | undefined] }[] = [
-  { key: 'today', label: 'Today', range: () => [ymd(istNow()), ymd(istNow())] },
-  { key: 'yesterday', label: 'Yesterday', range: () => [ymd(shift(istNow(), -1)), ymd(shift(istNow(), -1))] },
-  { key: 'week', label: 'This week', range: () => [ymd(startOf('week')), ymd(istNow())] },
-  { key: 'month', label: 'This month', range: () => [ymd(startOf('month')), ymd(istNow())] },
-  { key: 'quarter', label: 'This quarter', range: () => [ymd(startOf('quarter')), ymd(istNow())] },
-  { key: 'year', label: 'This year', range: () => [ymd(startOf('year')), ymd(istNow())] },
-  { key: '7', label: 'Last 7 days', range: () => [ymd(shift(istNow(), -6)), ymd(istNow())] },
-  { key: '30', label: 'Last 30 days', range: () => [ymd(shift(istNow(), -29)), ymd(istNow())] },
-  { key: 'all', label: 'All time', range: () => [undefined, undefined] },
-];
+  { key: 'today', label: 'Today' }, { key: 'yesterday', label: 'Yesterday' }, { key: 'week', label: 'This week' },
+  { key: 'month', label: 'This month' }, { key: 'quarter', label: 'This quarter' }, { key: 'year', label: 'This year' },
+  { key: '7', label: 'Last 7 days' }, { key: '30', label: 'Last 30 days' }, { key: 'all', label: 'All time' },
+].map((p) => ({ ...p, range: () => presetRange(p.key) }));
 
 // D1 period control: these four are pills; the other presets live in the "More periods" select.
 const QUICK = ['today', '7', '30', 'month'];
@@ -95,6 +78,8 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
   const [followUps, setFollowUps] = useState<'exclude' | 'include'>('exclude');
   const [tab, setTab] = useState<TabKey>('overview');
   const [data, setData] = useState<DashboardData | null>(null);
+  // B1: the range `data` was loaded for (the trend's time axis must match the data, not a range still loading).
+  const [dataRange, setDataRange] = useState<{ from?: string; to?: string }>({});
   const [loadedKey, setLoadedKey] = useState("");
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,15 +88,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
 
   const key = [workspaceId, from, to, population, followUps].join('|');
   // D1: the previous equal-length period, for the Overview deltas (none for 'All time').
-  const prevRange = (() => {
-    if (!from || !to) return null;
-    const day = 86_400_000;
-    const f = Date.parse(`${from}T00:00:00Z`), t = Date.parse(`${to}T00:00:00Z`);
-    const len = Math.round((t - f) / day) + 1;
-    const pTo = new Date(f - day).toISOString().slice(0, 10);
-    const pFrom = new Date(f - len * day).toISOString().slice(0, 10);
-    return { from: pFrom, to: pTo };
-  })();
+  const prevRange = previousRange(from, to);
   const prevKey = prevRange ? [workspaceId, prevRange.from, prevRange.to, population, followUps].join('|') : '';
   const [prev, setPrev] = useState<{ key: string; data: DashboardData } | null>(null);
   useEffect(() => {
@@ -130,7 +107,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
   useEffect(() => {
     let live = true;
     mismatchAPI.dashboard(workspaceId, from, to, population || undefined, followUps === 'include' ? 'include' : undefined)
-      .then((d) => { if (live) { setData(d); setError(null); } })
+      .then((d) => { if (live) { setData(d); setDataRange({ from, to }); setError(null); } })
       .catch((e) => live && setError(friendlyError(e, 'Could not load the dashboard')))
       .finally(() => live && setLoadedKey(key));
     return () => { live = false; };
@@ -210,7 +187,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
           {tab === 'annotation' && (
             <p className="text-xs text-muted-foreground">All visits · follow-ups included</p>
           )}
-          {tab === 'overview' && <OverviewTab data={data} prev={prevData} prevLabel={prevData ? prevLabel : null} base={aiBase(data)} onTab={(t) => setTab(t)} />}
+          {tab === 'overview' && <OverviewTab data={data} range={dataRange} prev={prevData} prevLabel={prevData ? prevLabel : null} base={aiBase(data)} onTab={(t) => setTab(t)} />}
           {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} />}
           {tab === 'treatment' && <TreatmentTab data={data} />}
           {tab === 'doctors' && <DoctorsTab data={data} />}
