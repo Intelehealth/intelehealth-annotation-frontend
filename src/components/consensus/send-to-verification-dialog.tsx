@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/toast';
 import { consensusAPI } from '@/lib/api/consensus';
 import { usersAPI, type UserResponse } from '@/lib/api/users';
-import { apiMessage, workspacesAPI, type WorkspaceMember, type WorkspaceResponse } from '@/lib/api/workspaces';
+import { apiMessage, MAX_DATASET_REVIEWERS, workspacesAPI, type WorkspaceMember, type WorkspaceResponse } from '@/lib/api/workspaces';
 
 type Preview = Awaited<ReturnType<typeof consensusAPI.sendToVerificationPreview>>;
 
@@ -139,13 +139,13 @@ export function SendToVerificationDialog({ open, onOpenChange, datasetId, datase
                     {members.length === 0 && shownExtra.length === 0 && <p className="text-xs text-gray-500">No members.</p>}
                     {members.map((m) => (
                       <label key={m._id} className="flex items-center gap-2">
-                        <Checkbox checked={picked.has(m._id)} onChange={() => toggle(m._id)} />
+                        <Checkbox checked={picked.has(m._id)} disabled={!picked.has(m._id) && picked.size >= MAX_DATASET_REVIEWERS} onChange={() => toggle(m._id)} />
                         <span>{personName(m)}</span><span className="text-xs text-gray-400">{m.email}</span>
                       </label>
                     ))}
                     {shownExtra.map((u) => (
                       <label key={u._id} className="flex items-center gap-2">
-                        <Checkbox checked={picked.has(u._id)} onChange={() => toggle(u._id)} />
+                        <Checkbox checked={picked.has(u._id)} disabled={!picked.has(u._id) && picked.size >= MAX_DATASET_REVIEWERS} onChange={() => toggle(u._id)} />
                         <span>{personName(u)}</span><span className="text-xs text-gray-400">{u.email}</span>
                         <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">will be added to workspace</span>
                       </label>
@@ -165,7 +165,7 @@ export function SendToVerificationDialog({ open, onOpenChange, datasetId, datase
                   )}
                 </>
               )}
-              <p className="text-xs text-gray-500">You can change doctors later from the workspace page (members and dataset reviewers).</p>
+              <p className="text-xs text-gray-500">Up to {MAX_DATASET_REVIEWERS} doctors per dataset. You can change them later from the workspace page (members and dataset reviewers).</p>
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
