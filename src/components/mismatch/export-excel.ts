@@ -1,5 +1,6 @@
 import type { AiHeadline, DashboardData, TatRow } from '@/lib/api/mismatch';
 import { doctorLabel, EQUIV_REASON_LABEL, RULE_LABEL } from '@/lib/api/mismatch';
+import { doctorTable, planTable } from '@/lib/dashboard-tables';
 
 type Cell = string | number | null;
 type Col = { header: string; pct?: boolean; width?: number };
@@ -103,6 +104,8 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
     Object.entries(ai.changeTypes).map(([k, n]) => [k.replace(/_/g, ' '), n]));
   block(tx, 'Report by AI medicine', [{ header: 'Medicine', width: 50 }, { header: 'Suggested' }, { header: 'Unchanged %', pct: true }, { header: 'Changed %', pct: true }, { header: 'Not picked %', pct: true }, { header: 'Dose' }, { header: 'Frequency' }, { header: 'Duration' }, { header: 'Instructions' }, { header: 'Paediatric' }],
     ai.medicines.map((m) => [m.name, m.suggested, share(m.unchanged, m.suggested), share(m.changed, m.suggested), share(m.notPicked, m.suggested), m.changes.dose, m.changes.frequency, m.changes.duration, m.changes.instructions, m.paediatric]));
+  const plan = planTable(data);
+  if (plan.rows.length) block(tx, 'Treatment plan by type', plan.cols, plan.rows, '% of visits; kept / changed / not used / doctor added are % of visits where the AI suggested that type.');
   block(tx, 'Medicines the doctor added', [{ header: 'Medicine', width: 50 }, { header: 'Times added' }, { header: 'Paediatric' }, { header: 'Commonest dose', width: 24 }, { header: 'Commonest frequency', width: 24 }, { header: 'Commonest duration', width: 20 }],
     ai.addedMedicines.map((m) => [m.name, m.count, m.paediatric, m.dose, m.frequency, m.duration]));
   block(tx, 'Medicines added, by diagnosis', [{ header: 'Diagnosis → medicine', width: 70 }, { header: 'Times' }], data.addedForDiagnosis.map((r) => [r.name, r.count]));
@@ -125,9 +128,9 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
 
   // Doctors
   const dr = sheet('Doctors');
-  block(dr, 'AI use by doctor', [{ header: 'Doctor' }, ...dxCols, { header: 'TTx cases' }, { header: 'Picked unchanged %', pct: true }, { header: 'Picked with changes %', pct: true }],
-    ai.byDoctor.map((r) => [doctorLabel(r.name), ...dxCells(r), r.ttxGenerated, share(r.casesUnchanged, r.ttxGenerated), share(r.casesChanged, r.ttxGenerated)]));
-  block(dr, 'Mismatches and annotator verdicts by doctor', [{ header: 'Doctor' }, { header: 'Visits' }, { header: 'Mismatches' }, { header: 'Reviewed' }, { header: 'Dx: doctor right' }, { header: 'Dx: AI right' }, { header: 'TTx: doctor right' }, { header: 'TTx: AI right' }],
+  const doc = doctorTable(data);
+  block(dr, 'By doctor', doc.cols, doc.rows, 'Pseudo id only. Blank = fewer than 5 visits. In the note = doctor opened the note -> prescription shared.');
+  block(dr, 'Annotator verdicts by doctor', [{ header: 'Doctor' }, { header: 'Visits' }, { header: 'Mismatches' }, { header: 'Reviewed' }, { header: 'Dx: doctor right' }, { header: 'Dx: AI right' }, { header: 'TTx: doctor right' }, { header: 'TTx: AI right' }],
     (data.doctors ?? []).map((r) => [doctorLabel(r.doctor), r.visits, r.mismatches, r.annotated, r.ddxDoctorRight, r.ddxAiRight, r.ttxDoctorRight, r.ttxAiRight]));
 
   // Turnaround time (minutes; every visit, follow-ups included)
