@@ -50,6 +50,8 @@ const PERIODS: { key: string; label: string; range: () => [string | undefined, s
 
 // D1 period control: these four are pills; the other presets live in the "More periods" select.
 const QUICK = ['today', '7', '30', 'month'];
+/** P7: the dashboard opens on Last 7 days. */
+const DEFAULT_PERIOD = '7';
 const fmtDay = (ymdStr: string) => new Date(`${ymdStr}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 const POPULATIONS = [
@@ -85,7 +87,7 @@ const pctOf = (n: number, d: number) => (d ? pct(rate(n, d), 1) : '—');
  * population and section. Lives only at /ai-dashboard.
  */
 export function MismatchDashboard({ workspaceId, programme = '', canExport = false }: { workspaceId: string; programme?: string; /** ACL1: admins and reviewers only. */ canExport?: boolean }) {
-  const [period, setPeriod] = useState('30');
+  const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
   const [population, setPopulation] = useState('');
   const [grain, setGrain] = useState<Grain>('day');

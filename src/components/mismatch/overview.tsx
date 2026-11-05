@@ -13,6 +13,7 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { displayName } from '@/lib/format-display';
+import { trendWeekly } from '@/lib/trend-grain';
 import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { doctorLabel, type AiHeadline, type DashboardData, type DxAgg } from '@/lib/api/mismatch';
 
@@ -54,12 +55,10 @@ const monday = (ymd: string) => {
 };
 const short = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-/** Daily rows, or weekly sums when the median day has fewer than 20 visits (D5). Outage = AI list on under half the visits. */
+/** Daily rows, or weekly sums for a long low-volume range (D5, P7: see trendWeekly). Outage = AI list on under half the visits. */
 function periods(byDay: DashboardData['ai']['byDay']): { rows: Period[]; weekly: boolean } {
   const days = byDay.filter((d) => d.visits > 0);
-  const sorted = [...days].map((d) => d.visits).sort((a, b) => a - b);
-  const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
-  const weekly = median < 20;
+  const weekly = trendWeekly(days.map((d) => d.visits));
   const map = new Map<string, Period>();
   for (const d of days) {
     const k = weekly ? monday(d.name) : d.name;
