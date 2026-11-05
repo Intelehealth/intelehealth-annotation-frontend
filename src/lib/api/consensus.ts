@@ -146,7 +146,7 @@ export const consensusAPI = {
   async sendToVerification(
     datasetId: string,
     body: { workspaceId: string; reviewerIds: string[]; name?: string },
-  ): Promise<{ datasetId: string; name: string; rows: number }> {
+  ): Promise<{ datasetId: string; name: string; rows: number; addedToWorkspace?: string[] }> {
     const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/send-to-verification`, body, { headers: jsonHeaders() });
     return res.data;
   },
