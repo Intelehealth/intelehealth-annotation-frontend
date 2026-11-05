@@ -13,6 +13,7 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { displayName } from '@/lib/format-display';
+import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { doctorLabel, type AiHeadline, type DashboardData, type DxAgg } from '@/lib/api/mismatch';
 
 type TabKey = 'diagnosis' | 'doctors' | 'treatment';
@@ -290,7 +291,7 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
 
         <Card title="By doctor" meta="Pseudo id · share of scored visits at the AI's #1">
           <ul className="divide-y divide-rule text-sm">
-            {docs.map((d) => <li key={d.name} className="flex justify-between gap-3 py-2"><span>{doctorLabel(d.name)}</span><span className="tabular-nums text-muted-foreground">{fmt(d.scored)} scored · <span className="text-foreground">{d.scored >= 5 ? pctText(pct(d.top1, d.scored)) : '—'}</span> at #1</span></li>)}
+            {docs.map((d) => <li key={d.name} className="flex justify-between gap-3 py-2"><span>{doctorLabel(d.name)}</span><span className="tabular-nums text-muted-foreground">{fmt(d.scored)} scored · <span className="text-foreground">{d.scored >= MIN_DOCTOR_N ? pctText(pct(d.top1, d.scored)) : '—'}</span> at #1</span></li>)}
           </ul>
           <button type="button" className="mt-3 inline-flex h-8 items-center rounded-md border border-control px-3 text-sm hover:bg-raised" onClick={() => onTab('doctors')}>Doctors tab</button>
         </Card>

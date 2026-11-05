@@ -8,7 +8,9 @@ import { doctorLabel, PLAN_TYPE_LABEL } from '@/lib/api/mismatch';
 export type XCell = string | number | null;
 export type XCol = { header: string; pct?: boolean; width?: number };
 
-const MIN_N = 5; // the Doctors tab shows a dash for rates on fewer than 5 visits
+/** One rule for per-doctor rates (Doctors tab, Overview "By doctor", Excel): below this many visits, show a dash. */
+export const MIN_DOCTOR_N = 5;
+const MIN_N = MIN_DOCTOR_N;
 const rate = (n: number, d: number): number | null => (d >= MIN_N ? n / d : null);
 const frac = (n: number, d: number): number | null => (d ? n / d : null);
 

@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { DiagnosisPatterns, DoctorProgress } from './insights';
 import { exportDashboardExcel } from './export-excel';
 import { OverviewTab } from './overview';
+import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { displayName } from '@/lib/format-display';
 import { rate, TableSearch, useRowFilter } from './shared';
 
@@ -564,8 +565,8 @@ function DoctorsTab({ data }: { data: DashboardData }) {
   const medBy = new Map((data.plan?.find((x) => x.type === 'medicine')?.byDoctor ?? []).map((d) => [d.doctor, d]));
   const misBy = new Map((data.doctors ?? []).map((d) => [d.doctor, d]));
   const tatBy = (doc: string, kind: 'new' | 'follow_up') => data.tat?.byDoctorKind?.find((r) => r.doctor === doc && r.kind === kind);
-  const rate = (n: number, d: number) => (d >= 5 ? pctOf(n, d) : '—');
-  const tatCell = (r?: TatRow) => (r && r.consultMedian !== null && r.visits >= 5 ? <>{fmtMin(r.consultMedian)}<span className="ml-1 text-[11px] text-slate-500">p90 {fmtMin(r.consultP90)}</span></> : '—');
+  const rate = (n: number, d: number) => (d >= MIN_DOCTOR_N ? pctOf(n, d) : '—');
+  const tatCell = (r?: TatRow) => (r && r.consultMedian !== null && r.visits >= MIN_DOCTOR_N ? <>{fmtMin(r.consultMedian)}<span className="ml-1 text-[11px] text-slate-500">p90 {fmtMin(r.consultP90)}</span></> : '—');
   return (
     <Section title="By doctor" description={`Pseudo id · ${aiBase(data)} · TAT and reviews: all visits`}>
       <Table empty={!rows.length} head={(
