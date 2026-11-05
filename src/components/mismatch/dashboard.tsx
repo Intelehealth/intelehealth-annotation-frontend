@@ -2,18 +2,19 @@
 
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import {
-  Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { Download, Info, Loader2 } from 'lucide-react';
 import { Empty, Section } from '@/components/dashboard/kpi';
 import { pct } from '@/components/dashboard/format';
 import { friendlyError } from '@/components/mismatch/shared';
 import {
-  doctorLabel, EQUIV_REASON_LABEL, mismatchAPI, RULE_LABEL, type AiHeadline, type ChangeType, type DashboardData, type DxAgg, type TatRow,
+  doctorLabel, EQUIV_REASON_LABEL, mismatchAPI, RULE_LABEL, type ChangeType, type DashboardData, type DxAgg, type TatRow,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 import { ConsultingDoctors, DiagnosisPatterns, DoctorProgress } from './insights';
 import { exportDashboardExcel } from './export-excel';
+import { OverviewTab } from './overview';
 import { displayName } from '@/lib/format-display';
 import { rate, TableSearch, useRowFilter } from './shared';
 
@@ -45,6 +46,10 @@ const PERIODS: { key: string; label: string; range: () => [string | undefined, s
   { key: '30', label: 'Last 30 days', range: () => [ymd(shift(istNow(), -29)), ymd(istNow())] },
   { key: 'all', label: 'All time', range: () => [undefined, undefined] },
 ];
+
+// D1 period control: these four are pills; the other presets live in the "More periods" select.
+const QUICK = ['today', '7', '30', 'month'];
+const fmtDay = (ymdStr: string) => new Date(`${ymdStr}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 const POPULATIONS = [
   { key: '', label: 'All patients' },
@@ -94,6 +99,30 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
   const [from, to] = period === 'custom' ? [custom.from, custom.to] : (PERIODS.find((p) => p.key === period)?.range() ?? [undefined, undefined]);
 
   const key = [workspaceId, from, to, population, followUps].join('|');
+  // D1: the previous equal-length period, for the Overview deltas (none for 'All time').
+  const prevRange = (() => {
+    if (!from || !to) return null;
+    const day = 86_400_000;
+    const f = Date.parse(`${from}T00:00:00Z`), t = Date.parse(`${to}T00:00:00Z`);
+    const len = Math.round((t - f) / day) + 1;
+    const pTo = new Date(f - day).toISOString().slice(0, 10);
+    const pFrom = new Date(f - len * day).toISOString().slice(0, 10);
+    return { from: pFrom, to: pTo };
+  })();
+  const prevKey = prevRange ? [workspaceId, prevRange.from, prevRange.to, population, followUps].join('|') : '';
+  const [prev, setPrev] = useState<{ key: string; data: DashboardData } | null>(null);
+  useEffect(() => {
+    if (!prevRange) return;
+    let live = true;
+    mismatchAPI.dashboard(workspaceId, prevRange.from, prevRange.to, population || undefined, followUps === 'include' ? 'include' : undefined)
+      .then((d) => { if (live) setPrev({ key: prevKey, data: d }); })
+      .catch(() => undefined);
+    return () => { live = false; };
+    // prevKey captures every input of the range
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prevKey]);
+  const prevData = prevRange && prev?.key === prevKey ? prev.data : null;
+  const prevLabel = prevRange ? `${fmtDay(prevRange.from)} – ${fmtDay(prevRange.to)}` : null;
   const loading = loadedKey !== key;
   useEffect(() => {
     let live = true;
@@ -108,11 +137,17 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
     <div className="space-y-5">
       <div className="rounded-xl border bg-white shadow-sm">
         <div className="flex flex-wrap items-center gap-1.5 border-b px-4 py-3">
-          <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Period</span>
-          {PERIODS.map((p) => (
+          <span className="mr-1 text-xs font-semibold text-slate-500">Period</span>
+          {/* 4 quick pills + "More periods" (all 10 presets kept). */}
+          {PERIODS.filter((p) => QUICK.includes(p.key)).map((p) => (
             <Pill key={p.key} active={period === p.key} onClick={() => setPeriod(p.key)}>{p.label}</Pill>
           ))}
-          <Pill active={period === 'custom'} onClick={() => setPeriod('custom')}>Custom</Pill>
+          <select aria-label="More periods" value={QUICK.includes(period) ? '' : period} onChange={(e) => e.target.value && setPeriod(e.target.value)}
+            className={cn('h-8 rounded-md border px-2 text-xs', !QUICK.includes(period) && 'border-blue-900 font-medium text-blue-900')}>
+            <option value="">More periods</option>
+            {PERIODS.filter((p) => !QUICK.includes(p.key)).map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+            <option value="custom">Custom range</option>
+          </select>
           {period === 'custom' && (
             <span className="ml-1 inline-flex items-center gap-1.5 text-xs">
               <input type="date" className="h-8 rounded-md border px-2" value={custom.from ?? ''} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value || undefined }))} />
@@ -172,7 +207,7 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
           {tab === 'annotation' && (
             <p className="text-xs text-muted-foreground">All visits · follow-ups included</p>
           )}
-          {tab === 'overview' && <Overview data={data} grain={grain} population={population} />}
+          {tab === 'overview' && <OverviewTab data={data} prev={prevData} prevLabel={prevData ? prevLabel : null} base={aiBase(data)} onTab={(t) => setTab(t)} />}
           {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} />}
           {tab === 'treatment' && <TreatmentTab data={data} />}
           {tab === 'doctors' && <DoctorsTab data={data} />}
@@ -239,15 +274,6 @@ function Stat({ label, n, of, ofLabel, value, note, accent }: {
   );
 }
 
-function Group({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
-  return (
-    <div>
-      <h3 className="text-sm font-semibold text-blue-950">{title}</h3>
-      {description && <p className="mb-2.5 mt-0.5 max-w-4xl text-xs text-slate-500">{description}</p>}
-      {children}
-    </div>
-  );
-}
 
 const th = 'px-3 py-2 font-medium';
 const thR = 'px-3 py-2 text-right font-medium';
@@ -302,114 +328,6 @@ function bucket<T extends { name: string }>(rows: T[], grain: Grain): T[] {
   return [...out.values()];
 }
 
-// ---------- Overview ----------
-function Overview({ data, grain, population }: { data: DashboardData; grain: Grain; population: string }) {
-  const h = data.ai.headline.all;
-  const scoredLabel = 'visits with an AI list';
-  const trend = useMemo(() => bucket(data.ai.byDay, grain).map((d) => ({
-    date: grain === 'month' ? d.name : d.name.slice(5),
-    visits: d.visits,
-    top1: d.scored ? +rate(d.top1, d.scored).toFixed(1) : null,
-    top3: d.scored ? +rate(d.top3, d.scored).toFixed(1) : null,
-    top5: d.scored ? +rate(d.top5, d.scored).toFixed(1) : null,
-    unchanged: d.ttxGenerated ? +rate(d.casesUnchanged, d.ttxGenerated).toFixed(1) : null,
-    changed: d.ttxGenerated ? +rate(d.casesChanged, d.ttxGenerated).toFixed(1) : null,
-  })), [data, grain]);
-
-  return (
-    <>
-      <Group title="Diagnosis (DDx)"
-        description={`% of visits with an AI list · ${aiBase(data)}`}>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <Stat label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} ofLabel={aiBase(data)} accent />
-          <Stat label="Final Dx was AI top 1" n={h.top1} of={h.dxScored} ofLabel={scoredLabel} />
-          <Stat label="…in AI top 3" n={h.top3} of={h.dxScored} ofLabel={scoredLabel} />
-          <Stat label="…in AI top 5" n={h.top5} of={h.dxScored} ofLabel={scoredLabel} />
-          <Stat label="Doctor added a non-AI Dx" n={h.dxAddedNonAi} of={h.dxScored} ofLabel={scoredLabel} />
-          <Stat label="Equivalent suggested, not picked" n={h.dxEquivalentNotPicked} of={h.dxScored} ofLabel={`${scoredLabel} · separate from top 1/3/5`} />
-        </div>
-      </Group>
-
-      <Group title="Treatment (TTx)" description={`% of TTx cases · ${aiBase(data)}`}>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <Stat label="AI generated a TTx list" n={h.ttxGenerated} of={h.visits} ofLabel={aiBase(data)} accent />
-          <Stat label="AI medicines per case" value={h.ttxGenerated ? (h.aiMedicines / h.ttxGenerated).toFixed(1) : '—'} note={`${fmt(h.aiMedicines)} medicines suggested`} />
-          <Stat label="Picked a medicine unchanged" n={h.casesUnchanged} of={h.ttxGenerated} ofLabel="TTx cases" />
-          <Stat label="Picked a medicine with changes" n={h.casesChanged} of={h.ttxGenerated} ofLabel="TTx cases" />
-          <Stat label="Did not pick an AI medicine" n={h.casesNotPicked} of={h.ttxGenerated} ofLabel="TTx cases" />
-          <Stat label="Added a new medicine" n={h.casesAdded} of={h.ttxGenerated} ofLabel="TTx cases" />
-        </div>
-      </Group>
-
-      <div className="grid gap-5 xl:grid-cols-2">
-        <Section title="Diagnosis: top 1 / 3 / 5 over time" description={`% of visits with an AI list · by ${grain}`}>
-          <TrendChart rows={trend} lines={[['top1', 'Top 1', C.navy], ['top3', 'Top 3', C.blue], ['top5', 'Top 5', C.sky]]} />
-        </Section>
-        <Section title="Treatment: medicines picked over time" description={`% of TTx cases · by ${grain}`}>
-          <TrendChart rows={trend} lines={[['unchanged', 'Picked unchanged', C.navy], ['changed', 'Picked with changes', C.sky]]} />
-        </Section>
-      </div>
-
-      {!population && <PopulationTable data={data} />}
-    </>
-  );
-}
-
-function TrendChart({ rows, lines }: { rows: Record<string, string | number | null>[]; lines: [string, string, string][] }) {
-  if (rows.length < 2) return <Empty>Pick a longer period to see a trend.</Empty>;
-  return (
-    <div className="h-64 px-2 py-3">
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={rows} margin={{ top: 5, right: 12, left: -10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={C.faint} />
-          <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={16} />
-          <YAxis yAxisId="pct" domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
-          <YAxis yAxisId="n" orientation="right" tick={{ fontSize: 11 }} />
-          <Tooltip />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Bar yAxisId="n" dataKey="visits" name="Visits" fill={C.faint} />
-          {lines.map(([k, name, color]) => (
-            <Line key={k} yAxisId="pct" type="monotone" dataKey={k} name={name} stroke={color} strokeWidth={2} dot={false} connectNulls />
-          ))}
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function PopulationTable({ data }: { data: DashboardData }) {
-  const { all, paediatric: p, adult: a, paediatricMaxAge } = data.ai.headline;
-  const rows: [string, (h: AiHeadline) => string][] = [
-    ['Visits', (h) => fmt(h.visits)],
-    ['AI generated a Dx list', (h) => pctOf(h.dxGenerated, h.visits)],
-    ['Top 1', (h) => pctOf(h.top1, h.dxScored)],
-    ['Top 3', (h) => pctOf(h.top3, h.dxScored)],
-    ['Top 5', (h) => pctOf(h.top5, h.dxScored)],
-    ['Doctor added a non-AI Dx', (h) => pctOf(h.dxAddedNonAi, h.dxScored)],
-    ['AI generated a TTx list', (h) => pctOf(h.ttxGenerated, h.visits)],
-    ['AI medicines per case', (h) => (h.ttxGenerated ? (h.aiMedicines / h.ttxGenerated).toFixed(1) : '—')],
-    ['Picked a medicine unchanged', (h) => pctOf(h.casesUnchanged, h.ttxGenerated)],
-    ['Picked a medicine with changes', (h) => pctOf(h.casesChanged, h.ttxGenerated)],
-    ['Did not pick an AI medicine', (h) => pctOf(h.casesNotPicked, h.ttxGenerated)],
-    ['Added a new medicine', (h) => pctOf(h.casesAdded, h.ttxGenerated)],
-  ];
-  return (
-    <Section title="Paediatric vs adult" description={`Paediatric ≤ ${paediatricMaxAge} y · ${aiBase(data)}`}>
-      <Table head={<tr><th className={th}>Metric</th><th className={thR}>All</th><th className={thR}>Paediatric</th><th className={thR}>Adult</th></tr>}>
-        {rows.map(([label, f]) => (
-          <tr key={label}>
-            <td className={td}>{label}</td>
-            <td className={cn(tdR, 'font-medium')}>{f(all)}</td>
-            <td className={tdR}>{f(p)}</td>
-            <td className={tdR}>{f(a)}</td>
-          </tr>
-        ))}
-      </Table>
-    </Section>
-  );
-}
-
-// ---------- Diagnosis ----------
 const DxHead = ({ first }: { first: string }) => (
   <tr>
     <th className={th}>{first}</th><th className={thR}>Visits</th><th className={thR}>Scored</th><th className={thR}>Picked AI Dx</th>
