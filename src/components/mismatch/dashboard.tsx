@@ -243,7 +243,7 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
 function Segmented({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { key: string; label: string }[] }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+      <span className="text-xs font-semibold text-slate-500">{label}</span>
       <div className="inline-flex rounded-lg border bg-slate-50 p-0.5">
         {options.map((o) => (
           <button key={o.key} onClick={() => onChange(o.key)}

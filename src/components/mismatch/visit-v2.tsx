@@ -36,7 +36,7 @@ const out = (b?: VitalBand) => !!b && (b.tone === 'out' || b.tone === 'critical'
 const word = (b?: VitalBand) => (b?.tone === 'none' ? (b.word.startsWith('child') ? 'No paediatric reference' : 'No reference') : b?.word ?? '');
 
 /** A segmented scale (BMI, BP); `active` = indexes of the segments that hold the reading. */
-function Segments({ n, active, hi, labels }: { n: number; active: number[]; hi: boolean; labels: ReactNode[] }) {
+function Segments({ n, active, hi, labels, caption }: { n: number; active: number[]; hi: boolean; labels: ReactNode[]; caption?: ReactNode }) {
   return (
     <div>
       <div className="flex h-3 gap-0.5">
@@ -44,7 +44,8 @@ function Segments({ n, active, hi, labels }: { n: number; active: number[]; hi: 
           <i key={i} className={cn('h-3 flex-1 first:rounded-l-full last:rounded-r-full', active.includes(i) ? (hi ? 'bg-[#c26a00]' : 'bg-[#111418]') : 'bg-[#e6e9ee]')} />
         ))}
       </div>
-      <div className={cn('mt-1 grid text-[11px]', T.ink3)} style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>{labels.map((l, i) => <span key={i} className="truncate">{l}</span>)}</div>
+      {caption ? <div className={cn('mt-1 text-[11px]', T.ink3)}>{caption}</div>
+        : <div className={cn('mt-1 grid text-[11px]', T.ink3)} style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>{labels.map((l, i) => <span key={i} className="truncate">{l}</span>)}</div>}
     </div>
   );
 }
@@ -94,7 +95,8 @@ export function VitalsCard({ vit, age }: { vit: Record<string, number | string |
     const b = bpBand(sbp, dbp, age);
     const act = bpSegments(b);
     rows.push({ key: 'BP', band: b, label: 'BP', value: <>{sbp}/{dbp}<small className={cn('ml-1 text-xs font-normal', T.ink3)}>mmHg</small></>,
-      bar: b.tone === 'none' ? null : <Segments n={6} active={act} hi={out(b)} labels={BP_SEG.map((l, i) => (i === 0 || i === 5 || act.includes(i) ? <span key={l} className={act.includes(i) ? 'font-semibold text-[#111418]' : ''}>{l}</span> : ''))} /> });
+      bar: b.tone === 'none' ? null : <Segments n={6} active={act} hi={out(b)} labels={[]}
+        caption={<>{[0, ...act.filter((i) => i !== 0 && i !== 5), 5].map((i, k) => <span key={i}>{k ? ' · ' : ''}<span className={act.includes(i) ? 'font-semibold text-[#111418]' : ''}>{BP_SEG[i]}</span></span>)}</>} /> });
   }
   if (Number.isFinite(pulse)) {
     const b = pulseBand(pulse, age);

@@ -238,6 +238,7 @@ export default function MismatchVisitPage() {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#d9dee5] px-6 py-2.5 text-xs text-[#59616c]">
               <Link href={`/workspaces/${id}/mismatch`} className="text-[13px] hover:text-[#111418]">← {SOURCE_LABEL[v.source] ?? v.source} mismatches</Link>
               <TypeBadge type={v.mismatchType} />
+              {ownDx.length > 0 && !a.ddxMismatch && <Pill>doctor added {ownDx.length} Dx</Pill>}
               {a.followUpOnly && <Pill>Follow-up visit</Pill>}
               <StatusBadge status={v.review.status} />
               {v.review.annotatedBy && <span>by {v.review.annotatedBy.name}</span>}
