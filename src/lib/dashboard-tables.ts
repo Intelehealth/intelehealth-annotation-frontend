@@ -21,7 +21,7 @@ export function doctorTable(data: DashboardData): { cols: XCol[]; rows: XCell[][
   const tatBy = (doc: string, kind: 'new' | 'follow_up') => data.tat?.byDoctorKind?.find((r) => r.doctor === doc && r.kind === kind);
   const tat = (r?: TatRow): XCell[] => (r && r.consultMedian !== null && r.visits >= MIN_N ? [r.consultMedian, r.consultP90] : [null, null]);
   const cols: XCol[] = [
-    { header: 'Doctor', width: 16 }, { header: 'Scored' }, { header: 'Top 1 %', pct: true }, { header: 'Top 3 %', pct: true }, { header: 'Top 5 %', pct: true },
+    { header: 'Doctor', width: 16 }, { header: 'Scored' }, { header: 'Top 5 %', pct: true }, { header: 'Top 3 %', pct: true }, { header: 'Top 1 %', pct: true },
     { header: 'TTx cases' }, { header: 'Unchanged %', pct: true }, { header: 'Changed %', pct: true }, { header: 'Not used %', pct: true }, { header: 'Added meds %', pct: true },
     { header: 'Mismatches' }, { header: 'Reviewed' },
     { header: 'In note · new, median (min)' }, { header: 'In note · new, p90 (min)' },
@@ -31,7 +31,7 @@ export function doctorTable(data: DashboardData): { cols: XCol[]; rows: XCell[][
     const m = medBy.get(r.name);
     const x = misBy.get(r.name);
     return [
-      doctorLabel(r.name), r.scored, rate(r.top1, r.scored), rate(r.top3, r.scored), rate(r.top5, r.scored),
+      doctorLabel(r.name), r.scored, rate(r.top5, r.scored), rate(r.top3, r.scored), rate(r.top1, r.scored),
       r.ttxGenerated, rate(r.casesUnchanged, r.ttxGenerated), rate(r.casesChanged, r.ttxGenerated),
       m ? rate(m.casesNotPicked, m.generated) : null, m ? rate(m.casesAdded, m.generated) : null,
       x ? x.mismatches : null, x ? x.annotated : null,

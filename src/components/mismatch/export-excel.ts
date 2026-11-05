@@ -61,9 +61,9 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
     ['Visits', h.visits, null],
     ['AI generated a Dx list', h.dxGenerated, share(h.dxGenerated, h.visits)],
     ['Doctor picked an AI Dx', h.dxPicked, share(h.dxPicked, h.dxScored)],
-    ['Final Dx was AI top 1', h.top1, share(h.top1, h.dxScored)],
+    ['Final Dx in AI top 5', h.top5, share(h.top5, h.dxScored)],
     ['…in AI top 3', h.top3, share(h.top3, h.dxScored)],
-    ['…in AI top 5', h.top5, share(h.top5, h.dxScored)],
+    ['…was the AI top 1', h.top1, share(h.top1, h.dxScored)],
     ['Doctor added a non-AI Dx', h.dxAddedNonAi, share(h.dxAddedNonAi, h.dxScored)],
     ['Doctor opened a rationale', 'Not logged by the app yet', null],
     ['AI generated a TTx list', h.ttxGenerated, share(h.ttxGenerated, h.visits)],
@@ -82,21 +82,21 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
     pa.map((r, i) => [r[0], r[1], r[2], ad[i][1], ad[i][2]]));
 
   // Diagnosis
-  const dxCols: Col[] = [{ header: 'Visits' }, { header: 'Scored' }, { header: 'Picked AI Dx %', pct: true }, { header: 'Top 1 %', pct: true }, { header: 'Top 3 %', pct: true }, { header: 'Top 5 %', pct: true }, { header: 'Added non-AI Dx' }, { header: 'Equivalent, not picked (separate)' }];
+  const dxCols: Col[] = [{ header: 'Visits' }, { header: 'Scored' }, { header: 'Picked AI Dx %', pct: true }, { header: 'Top 5 %', pct: true }, { header: 'Top 3 %', pct: true }, { header: 'Top 1 %', pct: true }, { header: 'Added non-AI Dx' }, { header: 'Equivalent, not picked (separate)' }];
   const dxCells = (r: { visits: number; scored: number; picked: number; top1: number; top3: number; top5: number; addedNonAi: number; equivalent?: number }): Cell[] =>
-    [r.visits, r.scored, share(r.picked, r.scored), share(r.top1, r.scored), share(r.top3, r.scored), share(r.top5, r.scored), r.addedNonAi, r.equivalent ?? 0];
+    [r.visits, r.scored, share(r.picked, r.scored), share(r.top5, r.scored), share(r.top3, r.scored), share(r.top1, r.scored), r.addedNonAi, r.equivalent ?? 0];
   const dx = sheet('Diagnosis');
-  block(dx, 'Top 1 / 3 / 5 by day', [{ header: 'Date' }, ...dxCols], ai.byDay.map((r) => [r.name, ...dxCells(r)]));
+  block(dx, 'Top 5 / 3 / 1 by day', [{ header: 'Date' }, ...dxCols], ai.byDay.map((r) => [r.name, ...dxCells(r)]));
   block(dx, 'By doctor and day', [{ header: 'Date' }, { header: 'Doctor' }, ...dxCols], ai.byDoctorDay.map((r) => [r.date, doctorLabel(r.doctor), ...dxCells(r)]));
   block(dx, "Report by doctor's final diagnosis", [{ header: 'Diagnosis', width: 40 }, ...dxCols], ai.byDx.map((r) => [r.name, ...dxCells(r)]));
   block(dx, 'AI confidence label calibration', [{ header: 'Label' }, { header: 'Suggestions' }, { header: 'Doctor picked it %', pct: true }, { header: 'Avg rank' }, { header: 'As AI #1' }, { header: '#1 picked %', pct: true }],
     data.confidence.map((r) => [r.name, r.suggestions, share(r.picked, r.suggestions), r.avgRank != null ? Number(r.avgRank.toFixed(2)) : null, r.asTop1, share(r.top1Picked, r.asTop1)]));
-  block(dx, 'Agreement per AI #1 diagnosis', [{ header: "AI's #1 diagnosis", width: 40 }, { header: 'Visits' }, { header: 'Doctor picked #1 %', pct: true }, { header: 'In top 5 %', pct: true }, { header: 'MRR' }],
-    data.aiTop1Agreement.map((r) => [r.name, r.visits, share(r.top1, r.visits), share(r.top5, r.visits), Number(r.mrr.toFixed(3))]));
+  block(dx, 'Agreement per AI #1 diagnosis', [{ header: "AI's #1 diagnosis", width: 40 }, { header: 'Visits' }, { header: 'In top 5 %', pct: true }, { header: 'Doctor picked #1 %', pct: true }, { header: 'MRR' }],
+    data.aiTop1Agreement.map((r) => [r.name, r.visits, share(r.top5, r.visits), share(r.top1, r.visits), Number(r.mrr.toFixed(3))]));
   block(dx, 'Most common misses (AI #1 → doctor)', [{ header: 'Pair', width: 60 }, { header: 'Visits' }], data.mismatchPairs.missed.map((r) => [r.name, r.count]));
   block(dx, 'Right list, wrong order (AI #1 → doctor)', [{ header: 'Pair', width: 60 }, { header: 'Visits' }], data.mismatchPairs.rankedLower.map((r) => [r.name, r.count]));
-  block(dx, 'By specialty', [{ header: 'Specialty' }, { header: 'Visits' }, { header: 'Top 1 %', pct: true }, { header: 'Top 5 %', pct: true }, { header: 'MRR' }],
-    data.specialties.map((r) => [r.name, r.visits, share(r.top1, r.visits), share(r.top5, r.visits), Number(r.mrr.toFixed(3))]));
+  block(dx, 'By specialty', [{ header: 'Specialty' }, { header: 'Visits' }, { header: 'Top 5 %', pct: true }, { header: 'Top 1 %', pct: true }, { header: 'MRR' }],
+    data.specialties.map((r) => [r.name, r.visits, share(r.top5, r.visits), share(r.top1, r.visits), Number(r.mrr.toFixed(3))]));
 
   // Treatment
   const tx = sheet('Treatment');
@@ -114,8 +114,8 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
   if (ai.equivalent) {
     const eqs = sheet('Equivalent not picked');
     block(eqs, 'Equivalent suggested, not picked', [{ header: 'Metric', width: 40 }, { header: 'Visits' }, { header: '% of visits with an AI list', pct: true }], [
-      ['Strict: final Dx in AI top 1', all.top1, share(all.top1, all.dxScored)],
       ['Strict: final Dx in AI top 5', all.top5, share(all.top5, all.dxScored)],
+      ['Strict: final Dx in AI top 1', all.top1, share(all.top1, all.dxScored)],
       ['Equivalent suggested, not picked', all.dxEquivalentNotPicked, share(all.dxEquivalentNotPicked, all.dxScored)],
     ], 'Separate metric: an AI suggestion matching the doctor\'s own Dx by a named rule that the doctor did not pick. Strict numbers are unchanged.');
     block(eqs, 'Pairs', [{ header: 'AI suggestion', width: 40 }, { header: "Doctor's diagnosis", width: 40 }, { header: 'Rule', width: 26 }, { header: 'Avg AI rank' }, { header: 'Visits' }, { header: 'Reviewed' }, { header: 'Overruled' }],

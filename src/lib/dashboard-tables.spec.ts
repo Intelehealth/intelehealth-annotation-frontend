@@ -24,7 +24,8 @@ describe('doctorTable', () => {
     const { cols, rows } = doctorTable(data);
     expect(cols).toHaveLength(16);
     expect(rows.every((r) => r.length === cols.length)).toBe(true);
-    expect(rows[0]).toEqual(['Dr #111', 20, 0.5, 0.7, 0.8, 10, 0.4, 0.3, 0.2, 0.5, 6, 4, 3, 7, null, null]);
+    // P7: top 5 -> 3 -> 1
+    expect(rows[0]).toEqual(['Dr #111', 20, 0.8, 0.7, 0.5, 10, 0.4, 0.3, 0.2, 0.5, 6, 4, 3, 7, null, null]);
   });
   it('blanks rates under 5 visits and missing joins; never shows names', () => {
     const r = doctorTable(data).rows[1];

@@ -162,9 +162,9 @@ function RankBar({ g }: { g: DxAgg }) {
 
 const pv = (h: AiHeadline) => [
   ['Visits', fmt(h.visits)],
-  ["AI's #1", pctText(pct(h.top1, h.dxScored))],
-  ['In the top 3', pctText(pct(h.top3, h.dxScored))],
   ['In the top 5', pctText(pct(h.top5, h.dxScored))],
+  ['In the top 3', pctText(pct(h.top3, h.dxScored))],
+  ["AI's #1", pctText(pct(h.top1, h.dxScored))],
   ['TTx generated', pctText(pct(h.ttxGenerated, h.visits))],
   ['Kept unchanged', pctText(pct(h.casesUnchanged, h.ttxGenerated))],
   ['Changed', pctText(pct(h.casesChanged, h.ttxGenerated))],
@@ -196,9 +196,10 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
         <section className="overflow-hidden rounded-lg border border-border bg-surface" aria-label="Diagnosis KPIs">
           <div className="px-5 pt-3 text-xs text-muted-foreground">Diagnosis · base: {fmt(h.dxScored)} {base} with an AI list{prevLabel ? ` · deltas vs ${prevLabel}` : ''}</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
-            <Kpi lead label="Doctor's Dx was the AI's #1" n={h.top1} of={h.dxScored} prev={P((x) => x.top1, (x) => x.dxScored)} better="up" />
+            {/* P7: widest net first, 5 -> 3 -> 1 */}
+            <Kpi lead label="In the AI top 5" n={h.top5} of={h.dxScored} prev={P((x) => x.top5, (x) => x.dxScored)} better="up" />
             <Kpi label="In the AI top 3" n={h.top3} of={h.dxScored} prev={P((x) => x.top3, (x) => x.dxScored)} better="up" />
-            <Kpi label="In the AI top 5" n={h.top5} of={h.dxScored} prev={P((x) => x.top5, (x) => x.dxScored)} better="up" />
+            <Kpi label="Doctor's Dx was the AI's #1" n={h.top1} of={h.dxScored} prev={P((x) => x.top1, (x) => x.dxScored)} better="up" />
             <Kpi label="Doctor added own Dx" n={h.dxAddedNonAi} of={h.dxScored} prev={P((x) => x.dxAddedNonAi, (x) => x.dxScored)} better="down" />
             <Kpi label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} prev={P((x) => x.dxGenerated, (x) => x.visits)} better="up" />
           </div>
@@ -224,7 +225,7 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
 
         <Card title="Is it improving?" meta={`${weekly ? 'Weekly' : 'Daily'} · % of visits with an AI list`}>
           <Trend rows={rows} base={(r) => r.scored} gapNote={(r) => `${r.scored} of ${r.visits}`}
-            lines={[{ key: 'top1', label: "AI's #1", color: 'var(--data)' }, { key: 'top3', label: 'In the top 3', color: '#8a9099', dash: true }, { key: 'top5', label: 'In the top 5', color: 'var(--foreground)' }]} />
+            lines={[{ key: 'top5', label: 'In the top 5', color: 'var(--foreground)' }, { key: 'top3', label: 'In the top 3', color: '#8a9099', dash: true }, { key: 'top1', label: "AI's #1", color: 'var(--data)' }]} />
         </Card>
 
         <Card title="Treatment over time" meta={`${weekly ? 'Weekly' : 'Daily'} · % of TTx cases`}>

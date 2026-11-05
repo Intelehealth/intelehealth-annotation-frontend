@@ -145,15 +145,15 @@ function GroupTable({ rows, first }: { rows: GroupStat[]; first: string }) {
       <div className="max-h-[480px] overflow-auto">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-slate-50 text-left text-xs text-muted-foreground">
-            <tr><th className={th}>{first}</th><th className={thR}>Visits</th><th className={thR}>Doctor picked #1</th><th className={thR}>In top 5</th><th className={thR}>MRR</th></tr>
+            <tr><th className={th}>{first}</th><th className={thR}>Visits</th><th className={thR}>In top 5</th><th className={thR}>Doctor picked #1</th><th className={thR}>MRR</th></tr>
           </thead>
           <tbody className="divide-y">
             {filtered.map((r) => (
               <tr key={r.name}>
                 <td className={cn(td, 'capitalize')}>{r.name}</td>
                 <td className={tdR}>{r.visits.toLocaleString()}</td>
-                <td className={cn(tdR, rate(r.top1, r.visits) < 40 && 'text-rose-700')}>{pct(rate(r.top1, r.visits))}</td>
                 <td className={tdR}>{pct(rate(r.top5, r.visits))}</td>
+                <td className={cn(tdR, rate(r.top1, r.visits) < 40 && 'text-rose-700')}>{pct(rate(r.top1, r.visits))}</td>
                 <td className={tdR}>{r.mrr.toFixed(2)}</td>
               </tr>
             ))}
@@ -253,15 +253,15 @@ export function DiagnosisPatterns({ data }: { data: DashboardData }) {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-left text-xs text-muted-foreground">
-                  <tr><th className={th}>Specialty</th><th className={thR}>Visits</th><th className={thR}>#1</th><th className={thR}>Top 5</th><th className={thR}>MRR</th><th className={thR}>AI meds used</th></tr>
+                  <tr><th className={th}>Specialty</th><th className={thR}>Visits</th><th className={thR}>Top 5</th><th className={thR}>#1</th><th className={thR}>MRR</th><th className={thR}>AI meds used</th></tr>
                 </thead>
                 <tbody className="divide-y">
                   {data.specialties.map((r) => (
                     <tr key={r.name}>
                       <td className={td}>{displayName(r.name)}</td>
                       <td className={tdR}>{r.visits.toLocaleString()}</td>
-                      <td className={tdR}>{pct(rate(r.top1, r.visits))}</td>
                       <td className={tdR}>{pct(rate(r.top5, r.visits))}</td>
+                      <td className={tdR}>{pct(rate(r.top1, r.visits))}</td>
                       <td className={tdR}>{r.mrr.toFixed(2)}</td>
                       <td className={tdR}>{r.ttxVisits ? pct(rate(r.ttxUsed, r.ttxVisits)) : '—'}</td>
                     </tr>

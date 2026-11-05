@@ -334,7 +334,7 @@ function bucket<T extends { name: string }>(rows: T[], grain: Grain): T[] {
 const DxHead = ({ first }: { first: string }) => (
   <tr>
     <th className={th}>{first}</th><th className={thR}>Visits</th><th className={thR}>Scored</th><th className={thR}>Picked AI Dx</th>
-    <th className={thR}>Top 1</th><th className={thR}>Top 3</th><th className={thR}>Top 5</th><th className={thR}>Added non-AI Dx</th>
+    <th className={thR}>Top 5</th><th className={thR}>Top 3</th><th className={thR}>Top 1</th><th className={thR}>Added non-AI Dx</th>
     <th className={thR} title="Separate metric, not part of the strict picks">Equivalent, not picked</th>
   </tr>
 );
@@ -343,9 +343,9 @@ const DxCells = ({ r }: { r: DxAgg }) => (
     <td className={tdR}>{fmt(r.visits)}</td>
     <td className={tdR}>{fmt(r.scored)}</td>
     <td className={tdR}>{pctOf(r.picked, r.scored)}</td>
-    <td className={tdR}>{pctOf(r.top1, r.scored)}</td>
-    <td className={tdR}>{pctOf(r.top3, r.scored)}</td>
     <td className={tdR}>{pctOf(r.top5, r.scored)}</td>
+    <td className={tdR}>{pctOf(r.top3, r.scored)}</td>
+    <td className={tdR}>{pctOf(r.top1, r.scored)}</td>
     <td className={tdR}>{r.addedNonAi ? `${fmt(r.addedNonAi)} (${pctOf(r.addedNonAi, r.scored)})` : '—'}</td>
     <td className={tdR}>{r.equivalent ? `${fmt(r.equivalent)} (${pctOf(r.equivalent, r.scored)})` : '—'}</td>
   </>
@@ -363,12 +363,12 @@ function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
     <>
       <EquivalentPanel data={data} />
       <div className="grid gap-5 xl:grid-cols-2">
-        <Section title={`Top 1 / 3 / 5 by ${grain}`} description={`% of scored · ${aiBase(data)}`}>
+        <Section title={`Top 5 / 3 / 1 by ${grain}`} description={`% of scored · ${aiBase(data)}`}>
           <Table empty={!days.length} head={<DxHead first={grain === 'day' ? 'Date' : grain === 'week' ? 'Week of' : 'Month'} />}>
             {days.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap')}>{r.name}</td><DxCells r={r} /></tr>)}
           </Table>
         </Section>
-        <Section title="Top 1 / 3 / 5 by doctor and day" description={`% of scored · ${aiBase(data)}`}
+        <Section title="Top 5 / 3 / 1 by doctor and day" description={`% of scored · ${aiBase(data)}`}
           action={(
             <select className="h-8 rounded-md border bg-white px-2 text-xs" value={doctor} onChange={(e) => setDoctor(e.target.value)}>
               <option value="">All doctors</option>
@@ -408,11 +408,11 @@ function EquivalentPanel({ data }: { data: DashboardData }) {
   if (!eqv) return null;
   return (
     <Section title="Equivalent suggested, not picked"
-      description={`Separate from top 1 / 3 / 5 · ${fmt(h.dxScored)} scored`}
+      description={`Separate from top 5 / 3 / 1 · ${fmt(h.dxScored)} scored`}
       action={<TableSearch q={pairs.q} setQ={pairs.setQ} shown={pairs.filtered.length} total={eqv.pairs.length} placeholder="Find a pair…" />}>
       <div className="grid grid-cols-2 gap-3 px-4 pt-4 md:grid-cols-4">
-        <Stat label="Strict: final Dx in AI top 1" n={h.top1} of={h.dxScored} ofLabel="visits with an AI list" />
         <Stat label="Strict: final Dx in AI top 5" n={h.top5} of={h.dxScored} ofLabel="visits with an AI list" />
+        <Stat label="Strict: final Dx in AI top 1" n={h.top1} of={h.dxScored} ofLabel="visits with an AI list" />
         <Stat label="Equivalent suggested, not picked" n={h.dxEquivalentNotPicked} of={h.dxScored} ofLabel="visits with an AI list" accent />
         <Stat label="Matches overruled by annotators" value={fmt(eqv.byRule.reduce((s, r) => s + r.overruled, 0))}
           note={eqv.byRule.map((r) => `${RULE_LABEL[r.rule]}: ${r.overruled} of ${r.reviewed} reviewed`).join(' · ') || 'None reviewed yet'} />
@@ -573,7 +573,7 @@ function DoctorsTab({ data }: { data: DashboardData }) {
     <Section title="By doctor" description={`Pseudo id · ${aiBase(data)} · TAT and reviews: all visits`}>
       <Table empty={!rows.length} head={(
         <tr>
-          <th className={th}>Doctor</th><th className={thR}>Scored</th><th className={thR}>Top 1</th><th className={thR}>Top 3</th><th className={thR}>Top 5</th>
+          <th className={th}>Doctor</th><th className={thR}>Scored</th><th className={thR}>Top 5</th><th className={thR}>Top 3</th><th className={thR}>Top 1</th>
           <th className={thR}>TTx cases</th><th className={thR}>Unchanged</th><th className={thR}>Changed</th><th className={thR}>Not used</th><th className={thR}>Added meds</th>
           <th className={thR}>Mismatches</th><th className={thR}>Reviewed</th><th className={thR}>In note · new</th><th className={thR}>In note · follow-up</th>
         </tr>
@@ -585,9 +585,9 @@ function DoctorsTab({ data }: { data: DashboardData }) {
             <tr key={r.name}>
               <td className={cn(td, 'whitespace-nowrap font-medium')}>{doctorLabel(r.name)}</td>
               <td className={tdR}>{fmt(r.scored)}</td>
-              <td className={tdR}>{rate(r.top1, r.scored)}</td>
-              <td className={tdR}>{rate(r.top3, r.scored)}</td>
               <td className={tdR}>{rate(r.top5, r.scored)}</td>
+              <td className={tdR}>{rate(r.top3, r.scored)}</td>
+              <td className={tdR}>{rate(r.top1, r.scored)}</td>
               <td className={tdR}>{fmt(r.ttxGenerated)}</td>
               <td className={tdR}>{rate(r.casesUnchanged, r.ttxGenerated)}</td>
               <td className={tdR}>{rate(r.casesChanged, r.ttxGenerated)}</td>
@@ -760,14 +760,14 @@ function AnnotationTab({ data }: { data: DashboardData }) {
       {(data.models ?? []).some((m) => m.model !== 'Not logged') && (
         <Section title="By AI model / engine" description="AI call log · all visits">
           <Table head={(
-            <tr><th className={th}>Model · engine</th><th className={thR}>Visits</th><th className={thR}>Top 1</th><th className={thR}>Top 5</th><th className={thR}>AI meds used</th><th className={thR}>Avg latency</th></tr>
+            <tr><th className={th}>Model · engine</th><th className={thR}>Visits</th><th className={thR}>Top 5</th><th className={thR}>Top 1</th><th className={thR}>AI meds used</th><th className={thR}>Avg latency</th></tr>
           )}>
             {data.models.map((m) => (
               <tr key={m.model}>
                 <td className={cn(td, 'font-medium')}>{m.model}</td>
                 <td className={tdR}>{fmt(m.visits)}</td>
-                <td className={tdR}>{pctOf(m.top1, m.ddxVisits)}</td>
                 <td className={tdR}>{pctOf(m.top5, m.ddxVisits)}</td>
+                <td className={tdR}>{pctOf(m.top1, m.ddxVisits)}</td>
                 <td className={tdR}>{pctOf(m.ttxUsed, m.ttxVisits)}</td>
                 <td className={tdR}>{m.avgLatency != null ? `${m.avgLatency.toFixed(1)} s` : '—'}</td>
               </tr>
