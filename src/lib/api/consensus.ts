@@ -142,6 +142,24 @@ export const consensusAPI = {
     window.URL.revokeObjectURL(url);
   },
 
+  /** Copy the current final answers into a new verification dataset. */
+  async sendToVerification(
+    datasetId: string,
+    body: { workspaceId: string; reviewerIds: string[]; name?: string },
+  ): Promise<{ datasetId: string; name: string; rows: number }> {
+    const res = await axios.post(`${API_BASE_URL}/consensus/${datasetId}/send-to-verification`, body, { headers: jsonHeaders() });
+    return res.data;
+  },
+
+  async sendToVerificationPreview(datasetId: string): Promise<{
+    pendingRows: number;
+    questionsWithoutFinal: number;
+    existing: { datasetId: string; name: string; at: string; rows: number; accepted: number }[];
+  }> {
+    const res = await axios.get(`${API_BASE_URL}/consensus/${datasetId}/send-to-verification/preview`, { headers: authHeaders() });
+    return res.data;
+  },
+
   // ─── Round-based review (Phase 2 Items 6-9) ──────────────────────────────────
 
   async requestReview(datasetId: string, body?: {
