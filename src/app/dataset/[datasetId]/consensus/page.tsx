@@ -12,6 +12,8 @@ import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
 import { useReliabilityMetric } from '@/lib/use-reliability-metric';
 import { cn } from '@/lib/utils';
 import { STATUS_BADGE, buildFieldTree, walkFieldTree, formatValue, getClinicalNotes, type FieldNode } from '@/components/consensus/consensus-utils';
+import { SendToVerificationDialog } from '@/components/consensus/send-to-verification-dialog';
+import Link from 'next/link';
 import { ConsensusRowReview, type FinalAnswerHandlers, type VerificationHandlers, type RowEdge } from '@/components/consensus/row-review';
 import {
   ArrowLeft,
@@ -246,6 +248,7 @@ export default function ReviewConsensusPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, isReviewOnly, user } = useAuth();
   const { showToast } = useToast();
+  const [sendOpen, setSendOpen] = useState(false);
   const datasetId = params.datasetId as string;
 
   // Reviewers see the consensus and export it; opening review rounds and
@@ -637,6 +640,13 @@ export default function ReviewConsensusPage() {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-100"><Scale className="h-5 w-5 text-indigo-600" /></div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Review Consensus</h1>
+                {dataset?.verificationMode && dataset.verificationSource && (
+                  <p className="text-xs text-gray-500">
+                    From{' '}
+                    <Link href={`/dataset/${dataset.verificationSource.datasetId}/consensus`} className="underline hover:text-gray-700">{dataset.verificationSource.name}</Link>
+                    {' · '}{new Date(dataset.verificationSource.at).toLocaleDateString()}
+                  </p>
+                )}
                 {!reviewFocus && <p className="text-xs text-gray-500">Live aggregation from assigned clone annotations</p>}
               </div>
             </div>
@@ -657,6 +667,7 @@ export default function ReviewConsensusPage() {
               {reviewFocus && <Button variant="outline" size="sm" onClick={() => setShowSummary((v) => !v)}>{showSummary ? 'Hide summary' : 'Show summary'}</Button>}
               <Button variant="outline" size="sm" onClick={() => { loadData(); loadResolvedStatus(); }} disabled={loading}><RefreshCw className={cn('mr-1 h-4 w-4', loading && 'animate-spin')} /> Refresh</Button>
               <Button variant="outline" size="sm" disabled={!gridData?.totalRows} title="One row per case with the accepted final answer for each question. Unresolved answers show PENDING." onClick={() => handleExport('final')}><Download className="mr-1 h-4 w-4" /> Final answers CSV</Button>
+              {user?.canManage && dataset && !dataset.verificationMode && <Button variant="outline" size="sm" onClick={() => setSendOpen(true)}><Users className="mr-1 h-4 w-4" /> Send to verification</Button>}
               {verificationOn && <Button variant="outline" size="sm" disabled={!gridData?.totalRows} title="Only cases flagged for a check with the source doctors." onClick={() => handleExport('final', 'CHECK')}><Download className="mr-1 h-4 w-4" /> Check cases CSV</Button>}
               {!reviewOnly && (<><Button variant="outline" onClick={handleRequestReview}>Review Again</Button><Button variant="outline" onClick={handleStartCollaborativeReview} disabled={startingSession || !gridData?.totalRows}>{startingSession ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Start Collaborative Review</Button></>)}
             </div>
@@ -877,6 +888,7 @@ export default function ReviewConsensusPage() {
           {!reviewFocus && <footer className="flex items-center justify-between text-xs text-gray-500"><span>Page {gridData?.currentPage || page} of {gridData?.totalPages || 1} · {gridData?.totalRows || 0} rows</span><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}><ChevronLeft className="h-4 w-4" /></Button><Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(gridData?.totalPages || current + 1, current + 1))} disabled={page >= (gridData?.totalPages || 1)}><ChevronRight className="h-4 w-4" /></Button></div></footer>}
 
         </div>
+        {dataset && sendOpen && <SendToVerificationDialog open={sendOpen} onOpenChange={setSendOpen} datasetId={datasetId} datasetName={dataset.name} />}
       </main>
     </div>
   );

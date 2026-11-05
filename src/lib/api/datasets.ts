@@ -33,6 +33,8 @@ export interface DatasetResponse {
   /** Set by GET /datasets/:id: this viewer may oversee every annotator's work. */
   viewerCanOversee?: boolean;
   verificationMode?: boolean;
+  /** Set on a verification dataset: the dataset it was created from. */
+  verificationSource?: { datasetId: string; name: string; at: string; by?: string };
   /** The source annotation form's fields; verification edits use these inputs. */
   verificationForm?: Array<{
     fieldName: string;
