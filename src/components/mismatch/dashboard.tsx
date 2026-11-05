@@ -12,7 +12,7 @@ import {
   doctorLabel, EQUIV_REASON_LABEL, mismatchAPI, PLAN_TYPE_LABEL, RULE_LABEL, type ChangeType, type DashboardData, type DxAgg, type TatRow,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
-import { ConsultingDoctors, DiagnosisPatterns, DoctorProgress } from './insights';
+import { DiagnosisPatterns, DoctorProgress } from './insights';
 import { exportDashboardExcel } from './export-excel';
 import { OverviewTab } from './overview';
 import { displayName } from '@/lib/format-display';
@@ -559,37 +559,46 @@ function TreatmentTab({ data }: { data: DashboardData }) {
 
 // ---------- Doctors ----------
 function DoctorsTab({ data }: { data: DashboardData }) {
+  // D6: one table per consulting doctor (pseudo id only). Rates on fewer than 5 visits show as a dash.
   const rows = data.ai.byDoctor;
+  const medBy = new Map((data.plan?.find((x) => x.type === 'medicine')?.byDoctor ?? []).map((d) => [d.doctor, d]));
+  const misBy = new Map((data.doctors ?? []).map((d) => [d.doctor, d]));
+  const tatBy = (doc: string, kind: 'new' | 'follow_up') => data.tat?.byDoctorKind?.find((r) => r.doctor === doc && r.kind === kind);
+  const rate = (n: number, d: number) => (d >= 5 ? pctOf(n, d) : '—');
+  const tatCell = (r?: TatRow) => (r && r.consultMedian !== null && r.visits >= 5 ? <>{fmtMin(r.consultMedian)}<span className="ml-1 text-[11px] text-slate-500">p90 {fmtMin(r.consultP90)}</span></> : '—');
   return (
-    <>
-      <Section title="AI use by doctor" description={`Pseudo id · ${aiBase(data)}`}>
-        <Table empty={!rows.length} head={(
-          <tr>
-            <th className={th}>Doctor</th><th className={thR}>Visits</th><th className={thR}>Picked AI Dx</th><th className={thR}>Top 1</th>
-            <th className={thR}>Top 3</th><th className={thR}>Top 5</th><th className={thR}>Added non-AI Dx</th>
-            <th className={thR} title="Separate metric, not part of the strict picks">Equivalent, not picked</th>
-            <th className={thR}>TTx cases</th><th className={thR}>Picked unchanged</th><th className={thR}>Picked with changes</th>
-          </tr>
-        )}>
-          {rows.map((r) => (
+    <Section title="By doctor" description={`Pseudo id · ${aiBase(data)} · TAT and reviews: all visits`}>
+      <Table empty={!rows.length} head={(
+        <tr>
+          <th className={th}>Doctor</th><th className={thR}>Scored</th><th className={thR}>Top 1</th><th className={thR}>Top 3</th><th className={thR}>Top 5</th>
+          <th className={thR}>TTx cases</th><th className={thR}>Unchanged</th><th className={thR}>Changed</th><th className={thR}>Not used</th><th className={thR}>Added meds</th>
+          <th className={thR}>Mismatches</th><th className={thR}>Reviewed</th><th className={thR}>In note · new</th><th className={thR}>In note · follow-up</th>
+        </tr>
+      )}>
+        {rows.map((r) => {
+          const m = medBy.get(r.name);
+          const x = misBy.get(r.name);
+          return (
             <tr key={r.name}>
               <td className={cn(td, 'whitespace-nowrap font-medium')}>{doctorLabel(r.name)}</td>
-              <td className={tdR}>{fmt(r.visits)}</td>
-              <td className={tdR}>{pctOf(r.picked, r.scored)}</td>
-              <td className={tdR}>{pctOf(r.top1, r.scored)}</td>
-              <td className={tdR}>{pctOf(r.top3, r.scored)}</td>
-              <td className={tdR}>{pctOf(r.top5, r.scored)}</td>
-              <td className={tdR}>{pctOf(r.addedNonAi, r.scored)}</td>
-              <td className={tdR}>{pctOf(r.equivalent, r.scored)}</td>
+              <td className={tdR}>{fmt(r.scored)}</td>
+              <td className={tdR}>{rate(r.top1, r.scored)}</td>
+              <td className={tdR}>{rate(r.top3, r.scored)}</td>
+              <td className={tdR}>{rate(r.top5, r.scored)}</td>
               <td className={tdR}>{fmt(r.ttxGenerated)}</td>
-              <td className={tdR}>{pctOf(r.casesUnchanged, r.ttxGenerated)}</td>
-              <td className={tdR}>{pctOf(r.casesChanged, r.ttxGenerated)}</td>
+              <td className={tdR}>{rate(r.casesUnchanged, r.ttxGenerated)}</td>
+              <td className={tdR}>{rate(r.casesChanged, r.ttxGenerated)}</td>
+              <td className={tdR}>{m ? rate(m.casesNotPicked, m.generated) : '—'}</td>
+              <td className={tdR}>{m ? rate(m.casesAdded, m.generated) : '—'}</td>
+              <td className={tdR}>{x ? fmt(x.mismatches) : '—'}</td>
+              <td className={tdR}>{x ? fmt(x.annotated) : '—'}</td>
+              <td className={tdR}>{tatCell(tatBy(r.name, 'new'))}</td>
+              <td className={tdR}>{tatCell(tatBy(r.name, 'follow_up'))}</td>
             </tr>
-          ))}
-        </Table>
-      </Section>
-      <ConsultingDoctors rows={data.doctors ?? []} />
-    </>
+          );
+        })}
+      </Table>
+    </Section>
   );
 }
 
