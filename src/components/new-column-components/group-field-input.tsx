@@ -292,7 +292,7 @@ function RepeatedEntries({
   );
 }
 
-function ChildInput({
+export function ChildInput({
   child,
   value,
   onChange,

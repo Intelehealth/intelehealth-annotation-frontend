@@ -17,6 +17,7 @@ import {
   apiMessage, MAX_DATASET_REVIEWERS, MAX_WORKSPACE_REVIEWERS, SHARING_MODES, workspacesAPI,
   type WorkspaceDataset, type WorkspaceMember, type WorkspaceResponse, type WorkspaceSharingMode,
 } from '@/lib/api/workspaces';
+import { WorkspaceAnalytics } from '@/components/workspaces/workspace-analytics';
 import { Empty, Section } from '@/components/dashboard/kpi';
 import { personName, timeAgo } from '@/components/dashboard/format';
 
@@ -68,6 +69,8 @@ export default function WorkspacePage() {
         <Members ws={ws} datasets={datasets} canManage={canManage} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} onToggleReviewer={(m, on) => run(() => (on ? workspacesAPI.addReviewer(id, m._id) : workspacesAPI.removeReviewer(id, m._id)), on ? 'Reviewer added' : 'Reviewer removed')} />
         <Datasets items={datasets} ws={ws} canManage={canManage} onChanged={load} onAttach={(d) => run(() => workspacesAPI.attachDataset(id, d), 'Dataset attached')} onDetach={(d) => run(() => workspacesAPI.detachDataset(id, d), 'Dataset removed from workspace')} />
       </div>
+
+      {canManage && <WorkspaceAnalytics workspaceId={id} />}
     </Shell>
   );
 }

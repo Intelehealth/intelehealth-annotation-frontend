@@ -32,6 +32,17 @@ export interface DatasetResponse {
   reviewers?: string[];
   /** Set by GET /datasets/:id: this viewer may oversee every annotator's work. */
   viewerCanOversee?: boolean;
+  verificationMode?: boolean;
+  /** The source annotation form's fields; verification edits use these inputs. */
+  verificationForm?: Array<{
+    fieldName: string;
+    columnType: string;
+    options?: string[];
+    groupChildren?: Array<Record<string, any>>;
+    groupRepeatable?: boolean;
+    groupMaxEntries?: number;
+    groupEntryLabel?: string;
+  }>;
   availableColumns?: Array<{
     name: string;
     source: "CSV" | "MANUAL" | "DOCUMENT";
