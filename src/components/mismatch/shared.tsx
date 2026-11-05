@@ -85,7 +85,7 @@ export function syncProblem(err?: string | null): string {
   return 'OpenMRS returned an error';
 }
 
-export function SyncBar({ state, onSync, newCount, clientError }: { state: SyncState | null; onSync: () => void; newCount: number; /** ISO time of a sync request that never reached the server (network down). */ clientError?: string | null }) {
+export function SyncBar({ state, onSync, newCount, clientError }: { state: SyncState | null; /** Admins only (ACL1); without it the bar is read-only status. */ onSync?: () => void; newCount: number; /** ISO time of a sync request that never reached the server (network down). */ clientError?: string | null }) {
   if (!state) return null;
   const run = state.lastRun;
   if (!state.configured) {
@@ -125,9 +125,11 @@ export function SyncBar({ state, onSync, newCount, clientError }: { state: SyncS
           </span>
         </>
       )}
-      <Button variant="ghost" size="sm" className="ml-auto h-7" disabled={state.running} onClick={onSync}>
-        <RefreshCw className="mr-1 h-3.5 w-3.5" /> {state.status === 'error' || clientError ? 'Retry' : 'Sync now'}
-      </Button>
+      {onSync && (
+        <Button variant="ghost" size="sm" className="ml-auto h-7" disabled={state.running} onClick={onSync}>
+          <RefreshCw className="mr-1 h-3.5 w-3.5" /> {state.status === 'error' || clientError ? 'Retry' : 'Sync now'}
+        </Button>
+      )}
     </div>
   );
 }

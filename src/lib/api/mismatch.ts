@@ -25,9 +25,12 @@ export interface SyncState {
   };
 }
 
+/** ACL1: what this user may do in a mismatch workspace (the server enforces it; the UI only hides controls). */
+export interface MismatchAccess { role: 'admin' | 'reviewer' | 'annotator'; canExport: boolean; canSync: boolean; canManage: boolean }
+
 export interface MismatchWorkspace {
   _id: string; name: string; description?: string; icon?: string; source: MismatchSource;
-  members: number; total: number; mismatches: number; pending: number; sync: SyncState;
+  members: number; total: number; mismatches: number; pending: number; sync: SyncState; access?: MismatchAccess;
 }
 
 export interface Highlight {
@@ -278,7 +281,7 @@ const clean = (q: object) => Object.fromEntries(Object.entries(q).filter(([, v])
 export const mismatchAPI = {
   list: () => jsonApi.get<MismatchWorkspace[]>(base).then((r) => r.data),
   overview: (id: string) =>
-    jsonApi.get<{ workspace: { _id: string; name: string; description?: string; icon?: string }; source: MismatchSource; sync: SyncState }>(`${base}/${id}`).then((r) => r.data),
+    jsonApi.get<{ workspace: { _id: string; name: string; description?: string; icon?: string }; source: MismatchSource; sync: SyncState; access?: MismatchAccess }>(`${base}/${id}`).then((r) => r.data),
   sync: (id: string, force = false) => jsonApi.post<SyncState>(`${base}/${id}/sync${force ? '?force=1' : ''}`).then((r) => r.data),
   syncState: (id: string) => jsonApi.get<SyncState>(`${base}/${id}/sync`).then((r) => r.data),
   queue: (id: string, q: QueueQuery) => jsonApi.get<QueuePage>(`${base}/${id}/queue`, { params: clean(q) }).then((r) => r.data),
@@ -324,3 +327,15 @@ export const TTX_REASONS = [
   'AI medicine unnecessary', 'AI medicine unsafe or contraindicated', 'AI missed a needed medicine',
   'Doctor preference (equivalent drug)', 'Doctor referred instead', 'Follow-up or advice covers it', 'Other',
 ];
+
+// ACL1: whether this user can open any mismatch workspace (sidebar "AI Dashboard" link).
+// One lookup per signed-in user per page load; the sidebar renders on every page.
+const accessCache = new Map<string, Promise<boolean>>();
+export const mismatchAccessFor = (userId: string): Promise<boolean> => {
+  let p = accessCache.get(userId);
+  if (!p) {
+    p = mismatchAPI.list().then((w) => w.length > 0).catch(() => { accessCache.delete(userId); return false; });
+    accessCache.set(userId, p);
+  }
+  return p;
+};

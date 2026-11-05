@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/popover';
 import { notificationsAPI, NotificationResponse } from '@/lib/api/notifications';
 import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
+import { mismatchAccessFor } from '@/lib/api/mismatch';
 import {
   Settings,
   ChevronLeft,
@@ -54,6 +55,8 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
   const pathname = usePathname();
 
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  // ACL1: the AI Dashboard link shows only to people who can open at least one mismatch workspace.
+  const [aiDash, setAiDash] = useState<{ user: string; ok: boolean } | null>(null);
   const [datasetName, setDatasetName] = useState<string>('');
   const [activeDataset, setActiveDataset] = useState<DatasetResponse | null>(null);
 
@@ -87,6 +90,15 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
       console.error('Failed to load notifications', err);
     }
   };
+
+  useEffect(() => {
+    const uid = user?._id;
+    if (!uid) return;
+    let live = true;
+    mismatchAccessFor(uid).then((ok) => { if (live) setAiDash({ user: uid, ok }); });
+    return () => { live = false; };
+  }, [user?._id]);
+  const showAiDashboard = !!user && aiDash?.user === user._id && aiDash.ok;
 
   useEffect(() => {
     if (user) {
@@ -245,7 +257,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
         </Link>
 
         {/* AI USE DASHBOARD */}
-        <Link
+        {showAiDashboard && <Link
           href="/ai-dashboard"
           className={cn(
             'w-full flex items-center space-x-3 px-4 py-2.5 rounded-md transition-colors duration-150 text-left group',
@@ -257,7 +269,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
         >
           <BarChart3 className={cn('h-5 w-5 flex-shrink-0', pathname.startsWith('/ai-dashboard') ? 'text-foreground' : 'text-faint group-hover:text-foreground')} />
           {!effectiveCollapsed && <span className="font-medium text-sm">AI Dashboard</span>}
-        </Link>
+        </Link>}
 
         {/* ADMIN SIDEBAR SECTIONS */}
         {canManage ? (

@@ -64,7 +64,7 @@ function AiDashboardPage() {
       )}
 
       {!workspaces && !error && <div className="h-96 animate-pulse rounded-xl bg-slate-100" />}
-      {current && <MismatchDashboard key={current._id} workspaceId={current._id} programme={SOURCE_LABEL[current.source]} />}
+      {current && <MismatchDashboard key={current._id} workspaceId={current._id} programme={SOURCE_LABEL[current.source]} canExport={!!current.access?.canExport} />}
     </Shell>
   );
 }

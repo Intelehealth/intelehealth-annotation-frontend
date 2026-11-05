@@ -84,7 +84,7 @@ const pctOf = (n: number, d: number) => (d ? pct(rate(n, d), 1) : '—');
  * AI Use dashboard: the metric set agreed with the Chief of AI, by period,
  * population and section. Lives only at /ai-dashboard.
  */
-export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId: string; programme?: string }) {
+export function MismatchDashboard({ workspaceId, programme = '', canExport = false }: { workspaceId: string; programme?: string; /** ACL1: admins and reviewers only. */ canExport?: boolean }) {
   const [period, setPeriod] = useState('30');
   const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
   const [population, setPopulation] = useState('');
@@ -167,7 +167,7 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
             {data && ` · ${fmt(data.summary.visits)} visits · ${fmt(data.ai.headline.all.dxScored)} scored by AI · ${fmt(data.ai.followUpVisits ?? data.ai.followUpVisitsExcluded)} follow-ups ${data.ai.headline.includeFollowUps ? 'included' : 'excluded'}`}
             {loading && data && ' · updating…'}
           </span>
-          <button
+          {canExport && <button
             disabled={!data || loading || exporting}
             onClick={async () => {
               if (!data) return;
@@ -187,7 +187,7 @@ export function MismatchDashboard({ workspaceId, programme = '' }: { workspaceId
             }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-blue-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-800 disabled:opacity-50">
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Export to Excel
-          </button>
+          </button>}
         </div>
       </div>
 

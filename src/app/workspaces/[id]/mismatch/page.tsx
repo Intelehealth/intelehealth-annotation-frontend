@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { MismatchQueue } from '@/components/mismatch/queue';
 import { Shell, SyncBar } from '@/components/mismatch/shared';
 import { friendlyError } from '@/components/mismatch/shared';
-import { mismatchAPI, type MismatchSource, type QueuePage, type QueueTab, type SyncState } from '@/lib/api/mismatch';
+import { mismatchAPI, type MismatchAccess, type MismatchSource, type QueuePage, type QueueTab, type SyncState } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 
 // The dashboard lives only at /ai-dashboard (sidebar); a workspace is for annotating.
@@ -20,6 +20,7 @@ export default function MismatchWorkspacePage() {
   const router = useRouter();
   const [ws, setWs] = useState<{ name: string; description?: string; icon?: string; source: MismatchSource } | null>(null);
   const [sync, setSync] = useState<SyncState | null>(null);
+  const [acl, setAcl] = useState<MismatchAccess | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('todo');
   const [counts, setCounts] = useState<QueuePage['counts'] | null>(null);
@@ -64,8 +65,11 @@ export default function MismatchWorkspacePage() {
       .then((o) => {
         if (!live) return;
         setWs({ ...o.workspace, source: o.source });
+        setAcl(o.access ?? null);
         lastFinished.current = o.sync.lastRun?.finishedAt ?? '';
         onState(o.sync);
+        // ACL1: only admins start a sync; everyone else gets the scheduled one and sees read-only status.
+        if (!o.access?.canSync) return;
         // The background sync on open goes through the same Q4 failure state as "Sync now", never the page error.
         mismatchAPI.sync(id)
           .then((s) => { if (live) { setSyncFailedAt(null); onState(s); } })
@@ -103,9 +107,11 @@ export default function MismatchWorkspacePage() {
     <Shell wide>
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" className="-ml-2" onClick={() => router.push('/workspaces')}><ArrowLeft className="mr-1 h-4 w-4" /> Workspaces</Button>
-        <Link href={`/workspaces/${id}?manage=1`} className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground">
-          <Settings className="mr-1 h-3.5 w-3.5" /> Members &amp; settings
-        </Link>
+        {acl?.canManage && (
+          <Link href={`/workspaces/${id}?manage=1`} className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground">
+            <Settings className="mr-1 h-3.5 w-3.5" /> Members &amp; settings
+          </Link>
+        )}
       </div>
 
       <header className="flex items-start gap-3">
@@ -116,7 +122,7 @@ export default function MismatchWorkspacePage() {
         </div>
       </header>
 
-      <SyncBar state={sync} onSync={syncNow} newCount={newCount} clientError={syncFailedAt} />
+      <SyncBar state={sync} onSync={acl?.canSync ? syncNow : undefined} newCount={newCount} clientError={syncFailedAt} />
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <nav className="flex flex-wrap gap-1 border-b">
