@@ -47,7 +47,10 @@ export default function WorkspacePage() {
   }, [mismatchSource, id, router]);
 
   const isAdmin = String(user?.role ?? '').toUpperCase() === 'ADMIN';
-  const canManage = isAdmin || (!!ws && ws.ownerId?._id === user?._id);
+  // ACL1: owner / global admin own the workspace (delete, datasets, analytics); a workspace admin
+  // (ws.admins) also manages its people and settings. With no workspace admins the two are the same.
+  const canOwn = isAdmin || (!!ws && ws.ownerId?._id === user?._id);
+  const canManage = canOwn || (!!ws && (ws.admins ?? []).some((a) => a._id === user?._id));
 
   const run = async (fn: () => Promise<unknown>, ok?: string) => {
     try { await fn(); setNotice(ok ?? null); setError(null); await load(); }
@@ -68,17 +71,25 @@ export default function WorkspacePage() {
     <Shell>
       <Button variant="ghost" size="sm" className="-ml-2" onClick={() => router.push('/workspaces')}><ArrowLeft className="mr-1 h-4 w-4" /> Workspaces</Button>
 
-      <Header ws={ws} canManage={canManage} onSave={(patch) => run(() => workspacesAPI.update(id, patch), 'Saved')} onDelete={() => run(async () => { await workspacesAPI.remove(id); router.push('/workspaces'); })} />
+      <Header ws={ws} canManage={canManage} onSave={(patch) => run(() => workspacesAPI.update(id, patch), 'Saved')} onDelete={canOwn ? () => run(async () => { await workspacesAPI.remove(id); router.push('/workspaces'); }) : undefined} />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {notice && !error && <p className="text-sm text-muted-foreground">{notice}</p>}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Members ws={ws} datasets={datasets} canManage={canManage} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} onToggleReviewer={(m, on) => run(() => (on ? workspacesAPI.addReviewer(id, m._id) : workspacesAPI.removeReviewer(id, m._id)), on ? 'Reviewer added' : 'Reviewer removed')} />
-        <Datasets items={datasets} ws={ws} canManage={canManage} onChanged={load} onAttach={(d) => run(() => workspacesAPI.attachDataset(id, d), 'Dataset attached')} onDetach={(d) => run(() => workspacesAPI.detachDataset(id, d), 'Dataset removed from workspace')} />
+        <Members ws={ws} datasets={datasets} canManage={canManage} onAdd={(who) => run(() => workspacesAPI.addMember(id, who), 'Member added')} onRemove={(m) => run(() => workspacesAPI.removeMember(id, m._id), 'Member removed')} onToggleReviewer={(m, on) => run(() => (on ? workspacesAPI.addReviewer(id, m._id) : workspacesAPI.removeReviewer(id, m._id)), on ? 'Reviewer added' : 'Reviewer removed')}
+          onSetRole={mismatchSource ? (m, role) => run(async () => {
+            const isA = (ws.admins ?? []).some((x) => x._id === m._id);
+            const isR = (ws.reviewers ?? []).some((x) => x._id === m._id);
+            if (role !== 'admin' && isA) await workspacesAPI.removeAdmin(id, m._id);
+            if (role !== 'reviewer' && isR) await workspacesAPI.removeReviewer(id, m._id);
+            if (role === 'admin' && !isA) await workspacesAPI.addAdmin(id, m._id);
+            if (role === 'reviewer' && !isR) await workspacesAPI.addReviewer(id, m._id);
+          }, 'Role updated') : undefined} />
+        <Datasets items={datasets} ws={ws} canManage={canOwn} onChanged={load} onAttach={(d) => run(() => workspacesAPI.attachDataset(id, d), 'Dataset attached')} onDetach={(d) => run(() => workspacesAPI.detachDataset(id, d), 'Dataset removed from workspace')} />
       </div>
 
-      {canManage && <WorkspaceAnalytics workspaceId={id} />}
+      {canOwn && <WorkspaceAnalytics workspaceId={id} />}
     </Shell>
   );
 }
@@ -100,7 +111,8 @@ function Shell({ children }: { children: React.ReactNode }) {
 function Header({ ws, canManage, onSave, onDelete }: {
   ws: WorkspaceResponse; canManage: boolean;
   onSave: (patch: { name?: string; description?: string; sharingMode?: WorkspaceSharingMode }) => void;
-  onDelete: () => void;
+  /** Owner / global admin only; a workspace admin gets no delete. */
+  onDelete?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(ws.name);
@@ -156,7 +168,7 @@ function Header({ ws, canManage, onSave, onDelete }: {
           ) : (
             <>
               <Button size="sm" variant="outline" onClick={() => setEditing(true)}>Edit</Button>
-              <Button size="sm" variant="ghost" aria-label="Delete workspace" onClick={() => setConfirmDelete(true)}><Trash2 className="h-4 w-4" /></Button>
+              {onDelete && <Button size="sm" variant="ghost" aria-label="Delete workspace" onClick={() => setConfirmDelete(true)}><Trash2 className="h-4 w-4" /></Button>}
             </>
           )}
         </div>
@@ -167,11 +179,13 @@ function Header({ ws, canManage, onSave, onDelete }: {
 
 // ── Members ────────────────────────────────────────────────────────────────
 
-function Members({ ws, datasets, canManage, onAdd, onRemove, onToggleReviewer }: {
+function Members({ ws, datasets, canManage, onAdd, onRemove, onToggleReviewer, onSetRole }: {
   ws: WorkspaceResponse; datasets: WorkspaceDataset[]; canManage: boolean;
   onAdd: (who: { userId?: string; email?: string }) => void;
   onRemove: (m: WorkspaceMember) => void;
   onToggleReviewer: (m: WorkspaceMember, on: boolean) => void;
+  /** ACL1 (mismatch workspaces): one role per person instead of the reviewer toggle. */
+  onSetRole?: (m: WorkspaceMember, role: 'admin' | 'annotator' | 'reviewer') => void;
 }) {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [query, setQuery] = useState('');
@@ -194,6 +208,7 @@ function Members({ ws, datasets, canManage, onAdd, onRemove, onToggleReviewer }:
   // Reviewers watch everyone's work on this workspace's datasets, read-only.
   const reviewerIds = new Set((ws.reviewers ?? []).map((r) => r._id));
   const reviewersFull = reviewerIds.size >= MAX_WORKSPACE_REVIEWERS;
+  const adminIds = new Set((ws.admins ?? []).map((a) => a._id));
   // People who review only specific datasets (not the whole workspace).
   const datasetReviewerIds = new Set(datasets.flatMap((d) => (d.reviewers ?? []).map((r) => r._id)));
 
@@ -213,12 +228,22 @@ function Members({ ws, datasets, canManage, onAdd, onRemove, onToggleReviewer }:
               <div className="truncate text-xs text-muted-foreground">{m.email}</div>
             </div>
             {m.isOwner ? <Badge>Owner</Badge> : <Badge variant="outline">{m.role === 'ADMIN' ? 'Admin' : 'Annotator'}</Badge>}
+            {adminIds.has(m._id) && <Badge variant="secondary">Workspace admin</Badge>}
             {reviewerIds.has(m._id) && <Badge variant="secondary">Reviewer</Badge>}
             {!reviewerIds.has(m._id) && datasetReviewerIds.has(m._id) && (
               <Badge variant="secondary" title="Reviews specific datasets only">Dataset reviewer</Badge>
             )}
             <StatusDot status={m.status} online={m.isOnline} />
-            {canManage && !m.isOwner && (
+            {canManage && !m.isOwner && onSetRole && (
+              <select aria-label={`Role of ${personName(m)}`} className="h-8 rounded-md border bg-background px-2 text-xs"
+                value={adminIds.has(m._id) ? 'admin' : reviewerIds.has(m._id) ? 'reviewer' : 'annotator'}
+                onChange={(e) => onSetRole(m, e.target.value as 'admin' | 'annotator' | 'reviewer')}>
+                <option value="admin">Admin</option>
+                <option value="annotator">Annotator</option>
+                <option value="reviewer" disabled={!reviewerIds.has(m._id) && reviewersFull}>Reviewer</option>
+              </select>
+            )}
+            {canManage && !m.isOwner && !onSetRole && (
               <Button
                 size="sm"
                 variant="outline"

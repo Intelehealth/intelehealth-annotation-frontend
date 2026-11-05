@@ -36,6 +36,7 @@ export default function MismatchVisitPage() {
   const setLang = (l: 'en' | 'mr') => { setLangPick(l); try { localStorage.setItem(langKey, l); } catch { /* storage unavailable */ } };
   // First interaction with the form claims the visit (30-min expiry on the server); a save claims it too.
   const update = (patch: Partial<ReviewInput>) => {
+    if (v?.access?.canAnnotate === false) return; // ACL1: reviewers are view-only, never claim
     if (!claimed.current) {
       claimed.current = true;
       mismatchAPI.claim(id, uuid).catch(() => { claimed.current = false; });
@@ -82,6 +83,7 @@ export default function MismatchVisitPage() {
   }, [id, uuid]);
 
   const save = async (next: boolean) => {
+    if (v?.access?.canAnnotate === false) return;
     setSaving(true);
     try {
       await mismatchAPI.saveReview(id, uuid, { ...form, final: next });
@@ -128,6 +130,7 @@ export default function MismatchVisitPage() {
   if (error && !v) return <Shell wide><p className="text-sm text-destructive">{error}</p></Shell>;
   if (!v) return <Shell wide><div className="h-96 animate-pulse rounded-lg bg-muted" /></Shell>;
 
+  const readOnly = v.access?.canAnnotate === false;
   const a = v.analysis;
   const top5 = a.ddxRanked ?? [];
   const inTop5 = new Set(top5.map((d) => d.diagnosis.toLowerCase()));
@@ -281,14 +284,14 @@ export default function MismatchVisitPage() {
                     {(v.ddx?.furtherQuestions?.length ?? 0) > 0 && <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[#111418]">{v.ddx!.furtherQuestions!.map((q, i) => <li key={i}>{q}</li>)}</ul>}
                   </details>
                 )}
-                {eq && (
+                {eq && !readOnly && (
                   <div className="mt-4 rounded-lg bg-[#f6f8fb] px-3 py-3">
                     <p className="text-base font-[650] text-[#111418]">The AI&apos;s #{eq.aiRank} says the same thing in other words. Why didn&apos;t the doctor pick it?</p>
                     <Chips options={EQUIV_REASONS} value={form.equivReason} onChange={(x) => update({ equivReason: x })} />
                     {form.equivReason === 'other' && <div className="mt-2"><TextInput label="Other reason" value={form.equivReasonText} onChange={(x) => update({ equivReasonText: x })} /></div>}
                   </div>
                 )}
-                {offered.dx && (
+                {offered.dx && !readOnly && (
                   <div className="mt-4">
                     <VerdictGroup question={dxQ.question} options={dxQ.options} extra={INSUFFICIENT} value={form.ddxVerdict} onChange={(x) => update({ ddxVerdict: x })}
                       active={activeGroup === 'dx'} showKeys={offered.ttx} onActivate={() => setKeyGroup('dx')} />
@@ -307,7 +310,7 @@ export default function MismatchVisitPage() {
                     <p className="mt-2 whitespace-pre-wrap text-[#111418]">{v.ttx.planRationale}</p>
                   </details>
                 )}
-                {offered.ttx && (
+                {offered.ttx && !readOnly && (
                   <div className="mt-4">
                     <VerdictGroup question={txQ.question} options={txQ.options} value={form.ttxVerdict} onChange={(x) => update({ ttxVerdict: x })}
                       active={activeGroup === 'ttx'} showKeys={offered.dx} onActivate={() => setKeyGroup('ttx')} optional={offered.ttxOptional} />
@@ -318,7 +321,9 @@ export default function MismatchVisitPage() {
 
               {/* Annotation */}
               <section aria-label="Annotation" className="space-y-3">
-                <SecH title="Annotation" sub="Optional" />
+                <SecH title="Annotation" sub={readOnly ? 'View only' : 'Optional'} />
+                {readOnly && <ReadOnlyReview v={v} />}
+                {!readOnly && <>
                 {offered.dx && <TextInput label="Correct diagnosis, if different" value={form.correctDiagnosis} onChange={(x) => update({ correctDiagnosis: x })} />}
                 {offered.ttx && <TextInput label="Correct treatment, if different" value={form.correctTreatment} onChange={(x) => update({ correctTreatment: x })} />}
                 <label className="block text-sm">
@@ -329,6 +334,7 @@ export default function MismatchVisitPage() {
                   <input type="checkbox" checked={!!form.followUp} onChange={(e) => update({ followUp: e.target.checked })} />
                   Flag for the clinical team
                 </label>
+                </>}
                 {error && <p className="text-sm font-semibold text-[#b42318]">{error}</p>}
                 {!!v.review.history?.length && (
                   <details className="text-sm">
@@ -362,11 +368,13 @@ export default function MismatchVisitPage() {
                 )}
               </div>
               <span className="hidden lg:inline"><KeysHelp /></span>
+              {!readOnly && <>
               {blockHint && <span className="text-xs font-semibold text-[#b42318]">{blockHint}</span>}
               <button type="button" disabled={saving} onClick={() => save(false)} title="Keeps a draft"
                 className="h-10 rounded-lg border-[1.5px] border-[#c3cad4] bg-white px-4 text-sm font-medium text-[#111418] hover:bg-[#eef2f8] disabled:opacity-45">Save draft</button>
               <button type="submit" disabled={saving || missing.length > 0}
                 className="h-10 rounded-lg bg-[#111418] px-4 text-sm font-[650] text-white hover:bg-[#2a2f36] disabled:opacity-45">Save &amp; next ↵</button>
+              </>}
             </div>
           </form>
         </section>
@@ -378,6 +386,25 @@ export default function MismatchVisitPage() {
 
 
 const VERDICT: Record<string, string> = Object.fromEntries([...DDX_VERDICTS, ...TTX_VERDICTS].map((x) => [x.value, x.label]));
+
+// ACL1: what a reviewer (view-only) sees in place of the annotation form.
+function ReadOnlyReview({ v }: { v: VisitDetail }) {
+  const r = v.review;
+  const rows: [string, string | undefined][] = [
+    ['Diagnosis', VERDICT[r.ddxVerdict ?? '']], ['Main reason', r.ddxReason],
+    ['Equivalent, not picked', r.equivReason ? (r.equivReason === 'other' ? r.equivReasonText || 'Other' : EQUIV_REASON_LABEL[r.equivReason] ?? r.equivReason) : undefined],
+    ['Treatment plan', VERDICT[r.ttxVerdict ?? '']], ['Main reason', r.ttxReason],
+    ['Correct diagnosis', r.correctDiagnosis], ['Correct treatment', r.correctTreatment], ['Comment', r.comment],
+    ['Flagged for the clinical team', r.followUp ? 'Yes' : undefined],
+  ];
+  const shown = rows.filter(([, val]) => val);
+  if (!shown.length) return <p className="text-sm text-[#59616c]">Not annotated yet</p>;
+  return (
+    <dl className="grid grid-cols-[minmax(96px,38%)_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm md:grid-cols-[170px_minmax(0,1fr)]">
+      {shown.map(([label, val], i) => <div key={i} className="contents"><dt className="text-[#59616c]">{label}</dt><dd className="text-[#111418]">{val}</dd></div>)}
+    </dl>
+  );
+}
 
 // "ttx_medication" -> " (on: ttx medication)": which part of the AI output the doctor rejected.
 const surface = (s?: string | null) => (s ? ` (on: ${s.replace(/_/g, ' ')})` : '');

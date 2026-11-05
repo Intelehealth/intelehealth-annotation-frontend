@@ -26,7 +26,7 @@ export interface SyncState {
 }
 
 /** ACL1: what this user may do in a mismatch workspace (the server enforces it; the UI only hides controls). */
-export interface MismatchAccess { role: 'admin' | 'reviewer' | 'annotator'; canExport: boolean; canSync: boolean; canManage: boolean }
+export interface MismatchAccess { role: 'admin' | 'ws_admin' | 'reviewer' | 'annotator'; canAnnotate: boolean; canExport: boolean; canSync: boolean; canManage: boolean }
 
 export interface MismatchWorkspace {
   _id: string; name: string; description?: string; icon?: string; source: MismatchSource;
@@ -163,6 +163,8 @@ export interface VisitDetail {
   analysis: VisitAnalysis;
   mismatchType: MismatchType;
   review: Review;
+  /** ACL1: this user's rights here (a reviewer gets canAnnotate false: view-only). */
+  access?: MismatchAccess;
 }
 
 export type ReviewInput = Pick<Review, 'ddxVerdict' | 'ddxReason' | 'correctDiagnosis' | 'ttxVerdict' | 'ttxReason' | 'correctTreatment' | 'comment' | 'followUp' | 'equivReason' | 'equivReasonText'>;
