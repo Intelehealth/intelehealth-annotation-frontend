@@ -149,7 +149,7 @@ export default function MismatchWorkspacePage() {
         </div>
       )}
 
-      <MismatchQueue workspaceId={id} tab={tab} refreshKey={refreshKey} onCounts={onCounts} />
+      <MismatchQueue workspaceId={id} tab={tab} refreshKey={refreshKey} onCounts={onCounts} canAnnotate={!!acl?.canAnnotate} />
     </Shell>
   );
 }

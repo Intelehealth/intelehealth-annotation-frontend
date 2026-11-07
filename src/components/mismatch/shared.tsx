@@ -137,6 +137,10 @@ export function SyncBar({ state, onSync, newCount, clientError }: { state: SyncS
 export const fmtDate = (iso?: string) =>
   iso ? new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—';
 
+/** Date only, IST (e.g. "08 Nov"). */
+export const fmtDay = (iso?: string) =>
+  iso ? new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' }) : '—';
+
 export const rate = (n: number, d: number) => (d ? (100 * n) / d : 0);
 
 /** Case-insensitive text filter for long dashboard tables. */

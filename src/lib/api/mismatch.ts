@@ -49,6 +49,7 @@ export interface QueueItem {
   review: {
     status: ReviewStatus; claimedBy: string | null; annotatedBy: string | null; annotatedAt?: string;
     ddxVerdict?: string; ttxVerdict?: string; followUp: boolean;
+    discussed?: { at: string; by: string } | null;
   };
 }
 
@@ -114,12 +115,14 @@ export interface Review {
   comment?: string; followUp?: boolean;
   equivReason?: string; equivReasonText?: string;
   annotatedBy?: { _id: string; name: string } | null; annotatedAt?: string;
+  /** "Discussed with clinical team" (bulk, from the Annotated tab). */
+  discussed?: { at: string; by: { _id: string; name: string } | null } | null;
   history?: ReviewHistoryEntry[];
 }
 
 /** One save of a review; newest first. */
 export interface ReviewHistoryEntry {
-  by: { _id: string; name: string } | null; at: string; action: 'annotated' | 'edited' | 'draft';
+  by: { _id: string; name: string } | null; at: string; action: 'annotated' | 'edited' | 'draft' | 'discussed' | 'undiscussed';
   ddxVerdict?: string; ddxReason?: string; correctDiagnosis?: string;
   ttxVerdict?: string; ttxReason?: string; correctTreatment?: string; comment?: string; followUp?: boolean;
   equivReason?: string; equivReasonText?: string;
@@ -301,7 +304,12 @@ export const mismatchAPI = {
   /** final = "Save & next" (mark done; the API rejects it without the required verdicts); otherwise a draft. */
   saveReview: (id: string, uuid: string, body: ReviewInput & { final?: boolean }) =>
     jsonApi.put<{ ok: boolean; status: ReviewStatus; missing: string[] }>(`${base}/${id}/visits/${uuid}/review`, body).then((r) => r.data),
+  /** Bulk "Discussed with clinical team" on annotated visits (max DISCUSSED_MAX per call); unqualified visits are skipped. */
+  markDiscussed: (id: string, uuids: string[], discussed: boolean) =>
+    jsonApi.post<{ updated: number; skipped: number }>(`${base}/${id}/reviews/discussed`, { uuids, discussed }).then((r) => r.data),
 };
+
+export const DISCUSSED_MAX = 100;
 
 export const MISMATCH_LABEL: Record<MismatchType, string> = {
   none: 'Match', ddx: 'Diagnosis', ttx: 'Treatment', both: 'Diagnosis + treatment',

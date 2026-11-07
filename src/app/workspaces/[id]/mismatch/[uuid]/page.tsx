@@ -312,6 +312,9 @@ export default function MismatchVisitPage() {
               {/* Annotation */}
               <section aria-label="Annotation" className="space-y-3">
                 <SecH title="Annotation" sub={readOnly ? 'View only' : 'Optional'} />
+                {v.review.discussed && (
+                  <p className="text-sm text-[#247b50]">Discussed with clinical team · {fmtDate(v.review.discussed.at)} · {v.review.discussed.by?.name ?? 'Unknown'}</p>
+                )}
                 {readOnly && <ReadOnlyReview v={v} />}
                 {!readOnly && <>
                 {offered.dx && <TextInput label="Correct diagnosis, if different" value={form.correctDiagnosis} onChange={(x) => update({ correctDiagnosis: x })} />}
@@ -333,12 +336,12 @@ export default function MismatchVisitPage() {
                       {v.review.history.map((h, i) => (
                         <li key={i} className="py-2">
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
-                            <span className="font-semibold">{h.by?.name ?? 'Unknown'} <span className="font-normal text-[#59616c]">{h.action === 'edited' ? 'edited' : h.action === 'draft' ? 'saved a draft' : 'annotated'}</span></span>
+                            <span className="font-semibold">{h.by?.name ?? 'Unknown'} <span className="font-normal text-[#59616c]">{HISTORY_ACTION[h.action] ?? h.action}</span></span>
                             <span className="text-xs text-[#59616c]">{fmtDate(h.at)}</span>
                           </div>
-                          <div className="mt-0.5 text-xs text-[#59616c]">
+                          {h.action !== 'discussed' && h.action !== 'undiscussed' && <div className="mt-0.5 text-xs text-[#59616c]">
                             {[VERDICT[h.ddxVerdict ?? ''] && `Diagnosis: ${VERDICT[h.ddxVerdict ?? '']}`, VERDICT[h.ttxVerdict ?? ''] && `Treatment plan: ${VERDICT[h.ttxVerdict ?? '']}`, h.correctDiagnosis && `Correct Dx: ${h.correctDiagnosis}`, h.comment && `“${h.comment}”`, h.followUp && 'Flagged', h.equivReason && `Equivalent: ${EQUIV_REASON_LABEL[h.equivReason] ?? h.equivReason}`].filter(Boolean).join(' · ') || '—'}
-                          </div>
+                          </div>}
                         </li>
                       ))}
                     </ol>
@@ -376,6 +379,10 @@ export default function MismatchVisitPage() {
 
 
 const VERDICT: Record<string, string> = Object.fromEntries([...DDX_VERDICTS, ...TTX_VERDICTS].map((x) => [x.value, x.label]));
+const HISTORY_ACTION: Record<string, string> = {
+  annotated: 'annotated', edited: 'edited', draft: 'saved a draft',
+  discussed: 'marked discussed with clinical team', undiscussed: 'cleared discussed with clinical team',
+};
 
 // ACL1: what a reviewer (view-only) sees in place of the annotation form.
 function ReadOnlyReview({ v }: { v: VisitDetail }) {

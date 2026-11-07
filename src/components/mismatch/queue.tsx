@@ -9,13 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Empty } from '@/components/dashboard/kpi';
 import { friendlyError } from '@/components/mismatch/shared';
 import {
-  DDX_VERDICTS, doctorLabel, mismatchAPI, TTX_VERDICTS, viewString,
+  DDX_VERDICTS, DISCUSSED_MAX, doctorLabel, mismatchAPI, TTX_VERDICTS, viewString,
   type Facets, type QueueItem, type QueuePage, type QueueQuery, type QueueTab,
 } from '@/lib/api/mismatch';
 import { dash, displayName } from '@/lib/format-display';
 import { Ladder, Pill } from './visit-layout';
 import { cn } from '@/lib/utils';
-import { fmtDate, HighlightChip, StatusBadge, TypeBadge } from './shared';
+import { fmtDate, fmtDay, HighlightChip, StatusBadge, TypeBadge } from './shared';
 
 type Opt = { value: string; label: string };
 
@@ -75,8 +75,10 @@ const DEFAULT: QueueQuery = { sort: 'missed', page: 1, limit: 25 };
 const FILTER_KEYS: (keyof QueueQuery)[] = ['mismatch', 'ddx', 'ttx', 'flag', 'model', 'doctor', 'status', 'from', 'to', 'specialty', 'gender', 'age', 'dx', 'med', 'reviewer', 'verdict', 'followUp', 'images', 'q'];
 const reasonLabel = (r: string) => r.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
-export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
+export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnotate = false }: {
   workspaceId: string; tab: QueueTab; refreshKey: number; onCounts: (c: QueuePage['counts']) => void;
+  /** Annotators, workspace admins and the owner may bulk-mark annotated visits as discussed. */
+  canAnnotate?: boolean;
 }) {
   const storeKey = `mismatch-filters-${workspaceId}`;
   const [q, setQ] = useState<QueueQuery>(DEFAULT);
@@ -88,6 +90,12 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
   const [facets, setFacets] = useState<Facets | null>(null);
   const [data, setData] = useState<QueuePage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Annotated tab: rows ticked for "Discussed with clinical team" (current page only).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  const selectable = tab === 'done' && canAnnotate;
 
   useEffect(() => { mismatchAPI.facets(workspaceId).then(setFacets).catch(() => undefined); }, [workspaceId, refreshKey]);
   // Filters survive navigating to a visit and back (per browser tab).
@@ -111,10 +119,35 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
     if (!ready) return;
     let live = true;
     mismatchAPI.queue(workspaceId, { ...q, tab })
-      .then((d) => { if (live) { setData(d); setError(null); onCounts(d.counts); } })
+      .then((d) => {
+        if (!live) return;
+        setData(d); setError(null); onCounts(d.counts);
+        // Keep only ticks that are still on this page.
+        setSelected((s) => new Set(d.items.filter((i) => s.has(i.uuid)).map((i) => i.uuid)));
+      })
       .catch((e) => live && setError(friendlyError(e, 'Could not load the queue')));
     return () => { live = false; };
-  }, [workspaceId, q, tab, refreshKey, onCounts, ready]);
+  }, [workspaceId, q, tab, refreshKey, onCounts, ready, reload]);
+
+  const toggle = (uuid: string) => { setBulkMsg(null); setSelected((s) => { const n = new Set(s); if (n.has(uuid)) n.delete(uuid); else n.add(uuid); return n; }); };
+  const pageIds = data?.items.map((i) => i.uuid) ?? [];
+  const allTicked = pageIds.length > 0 && pageIds.every((u) => selected.has(u));
+  const toggleAll = () => { setBulkMsg(null); setSelected(allTicked ? new Set() : new Set(pageIds)); };
+  const markDiscussed = async (discussed: boolean) => {
+    const uuids = [...selected].slice(0, DISCUSSED_MAX);
+    if (!uuids.length) return;
+    setBulkBusy(true);
+    try {
+      const r = await mismatchAPI.markDiscussed(workspaceId, uuids, discussed);
+      setBulkMsg(`${discussed ? 'Marked discussed' : 'Cleared'}: ${r.updated}${r.skipped ? ` · unchanged: ${r.skipped}` : ''}`);
+      setSelected(new Set());
+      setReload((n) => n + 1);
+    } catch (e) {
+      setBulkMsg(friendlyError(e, 'Could not save'));
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   // Carried on visit links so "Save & next" stays in this exact view (ticket V3).
   const view = useMemo(() => viewString({ ...q, tab }), [q, tab]);
@@ -285,6 +318,11 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
             <table className="block w-full text-sm sm:table">
               <thead className="hidden bg-muted/40 text-left text-xs text-muted-foreground sm:table-header-group">
                 <tr>
+                  {selectable && (
+                    <th className="w-8 py-2 pl-4">
+                      <input type="checkbox" aria-label="Select all on this page" checked={allTicked} onChange={toggleAll} />
+                    </th>
+                  )}
                   <th className="px-4 py-2 font-medium">Visit</th>
                   <th className="px-4 py-2 font-medium">Complaint</th>
                   <th className="px-4 py-2 font-medium">Where the doctor&apos;s Dx sat in the AI list</th>
@@ -293,7 +331,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
                   <th className="px-4 py-2 font-medium">{tab === 'todo' ? 'Status' : 'Review'}</th>
                 </tr>
               </thead>
-              <tbody className="block divide-y sm:table-row-group">{data.items.map((v) => <Row key={v.uuid} v={v} workspaceId={workspaceId} view={view} />)}</tbody>
+              <tbody className="block divide-y sm:table-row-group">{data.items.map((v) => <Row key={v.uuid} v={v} workspaceId={workspaceId} view={view} select={selectable ? { checked: selected.has(v.uuid), onToggle: () => toggle(v.uuid) } : undefined} />)}</tbody>
             </table>
           </div>
         )}
@@ -303,16 +341,35 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts }: {
           <Button variant="ghost" size="sm" disabled={(q.page ?? 1) >= pages} onClick={() => setQ((p) => ({ ...p, page: (p.page ?? 1) + 1 }))}><ChevronRight className="h-4 w-4" /></Button>
         </div>
       </div>
+      {selectable && (selected.size > 0 || bulkMsg) && (
+        <div role="region" aria-label="Selected visits" className="sticky bottom-0 z-20 flex flex-wrap items-center gap-2 rounded-lg border bg-card px-4 py-3 shadow-md">
+          <span className="text-sm tabular-nums">{selected.size > 0 ? `${selected.size} selected` : null}</span>
+          {bulkMsg && <span role="status" className="text-xs text-muted-foreground">{bulkMsg}</span>}
+          <div className="ml-auto flex flex-wrap gap-2">
+            {selected.size > 0 && <>
+              <Button size="sm" variant="ghost" disabled={bulkBusy} onClick={() => setSelected(new Set())}>Deselect</Button>
+              <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => markDiscussed(false)}>Clear discussed</Button>
+              <Button size="sm" disabled={bulkBusy} onClick={() => markDiscussed(true)}>Mark discussed with clinical team ({selected.size})</Button>
+            </>}
+            {selected.size === 0 && <Button size="sm" variant="ghost" onClick={() => setBulkMsg(null)} aria-label="Dismiss"><X className="h-4 w-4" /></Button>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 const VERDICT_LABEL = Object.fromEntries([...DDX_VERDICTS, ...TTX_VERDICTS].map((v) => [v.value, v.label]));
 
-function Row({ v, workspaceId, view }: { v: QueueItem; workspaceId: string; view: string }) {
+function Row({ v, workspaceId, view, select }: { v: QueueItem; workspaceId: string; view: string; select?: { checked: boolean; onToggle: () => void } }) {
   return (
     // Phone: each row becomes a stacked card (date + status, complaints, rank ladder + AI vs doctor, pills).
-    <tr className="block border-b border-rule px-4 py-3 align-top hover:bg-raised sm:table-row sm:border-0 sm:p-0">
+    <tr className={cn('block border-b border-rule px-4 py-3 align-top hover:bg-raised sm:table-row sm:border-0 sm:p-0', select?.checked && 'bg-raised')}>
+      {select && (
+        <td className="block pb-1 sm:table-cell sm:w-8 sm:py-3 sm:pl-4">
+          <input type="checkbox" aria-label={`Select visit ${fmtDate(v.encounterAt)}`} checked={select.checked} onChange={select.onToggle} />
+        </td>
+      )}
       <td className="block whitespace-nowrap sm:table-cell sm:px-4 sm:py-3">
         <Link href={`/workspaces/${workspaceId}/mismatch/${v.uuid}?view=${encodeURIComponent(view)}`} className="font-medium text-blue-700 hover:underline">{fmtDate(v.encounterAt)}</Link>
         <div className="text-xs text-muted-foreground">{[v.gender, v.age != null ? `${v.age}y` : null, v.specialty ? displayName(v.specialty) : null].filter(Boolean).join(' · ')}</div>
@@ -343,6 +400,7 @@ function Row({ v, workspaceId, view }: { v: QueueItem; workspaceId: string; view
           <StatusBadge status={v.review.status} />
           {v.review.followUp && <Flag className="h-3.5 w-3.5 text-rose-600" aria-label="Flagged for follow-up" />}
         </div>
+        {v.review.discussed && <div className="mt-1"><Pill tone="pos" title={`Discussed with clinical team · ${fmtDate(v.review.discussed.at)} · ${v.review.discussed.by}`}>Discussed · {fmtDay(v.review.discussed.at)}</Pill></div>}
         {(v.review.annotatedBy || v.review.claimedBy) && <div className="mt-1 text-xs text-muted-foreground">{v.review.annotatedBy ?? v.review.claimedBy}</div>}
         {v.review.status === 'done' && (v.review.ddxVerdict || v.review.ttxVerdict) && (
           <div className="mt-0.5 max-w-[180px] text-xs text-muted-foreground">{VERDICT_LABEL[v.review.ddxVerdict ?? v.review.ttxVerdict ?? '']}</div>
