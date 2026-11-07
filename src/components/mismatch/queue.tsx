@@ -56,6 +56,7 @@ const VERDICTS: Opt[] = [
   ...DDX_VERDICTS.map((v) => ({ value: v.value, label: v.label })),
   ...TTX_VERDICTS.filter((t) => !DDX_VERDICTS.some((d) => d.value === t.value)).map((v) => ({ value: v.value, label: v.label })),
 ];
+const DISCUSSED: Opt[] = [{ value: '', label: 'Any' }, { value: '1', label: 'Yes' }, { value: '0', label: 'No' }];
 const SORTS: Opt[] = [{ value: 'missed', label: 'AI missed first' }, { value: 'newest', label: 'Newest first' }, { value: 'oldest', label: 'Oldest first' }];
 const SORT_LABEL: Record<string, string> = { missed: 'AI missed first, then newest', newest: 'Newest first', oldest: 'Oldest first' };
 const POPS: { value: '' | 'paediatric' | 'general'; label: string; key: 'all' | 'paediatric' | 'general' }[] = [
@@ -72,7 +73,7 @@ const DATE_PRESETS = [
 const field = 'h-9 w-full rounded-md border bg-background px-2 text-sm';
 const DEFAULT: QueueQuery = { sort: 'missed', page: 1, limit: 25 };
 // Keys that count as user filters (shown as chips, cleared by "Clear all").
-const FILTER_KEYS: (keyof QueueQuery)[] = ['mismatch', 'ddx', 'ttx', 'flag', 'model', 'doctor', 'status', 'from', 'to', 'specialty', 'gender', 'age', 'dx', 'med', 'reviewer', 'verdict', 'followUp', 'images', 'q'];
+const FILTER_KEYS: (keyof QueueQuery)[] = ['mismatch', 'ddx', 'ttx', 'flag', 'model', 'doctor', 'status', 'from', 'to', 'specialty', 'gender', 'age', 'dx', 'med', 'reviewer', 'verdict', 'followUp', 'discussed', 'images', 'q'];
 const reasonLabel = (r: string) => r.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnotate = false }: {
@@ -183,6 +184,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
         : k === 'reviewer' ? `Reviewer: ${facets?.reviewers.find((r) => r._id === v)?.name ?? '…'}`
         : k === 'verdict' ? `Verdict: ${label(VERDICTS, String(v))}`
         : k === 'followUp' ? 'Flagged for follow-up'
+        : k === 'discussed' ? `Discussed with clinical team: ${label(DISCUSSED, String(v))}`
         : k === 'images' ? 'Has images'
         : k === 'flag' ? (v === 'any' ? 'Doctor rejected AI' : `Doctor rejected AI: ${reasonLabel(String(v))}`)
         : k === 'model' ? `AI model: ${v}`
@@ -279,6 +281,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
               </Labeled>
             )}
             {tab !== 'todo' && <Labeled label="Reviewer verdict"><Select opts={VERDICTS} value={q.verdict} onChange={(v) => set({ verdict: v })} /></Labeled>}
+            {tab !== 'todo' && <Labeled label="Discussed with clinical team"><Select opts={DISCUSSED} value={q.discussed} onChange={(v) => set({ discussed: v })} /></Labeled>}
             <Labeled label="Sort"><Select opts={SORTS} value={q.sort} onChange={(v) => set({ sort: v || 'missed' })} /></Labeled>
             <div className="flex items-end gap-4 pb-2 text-sm">
               <label className="flex items-center gap-2"><input type="checkbox" checked={q.followUp === '1'} onChange={(e) => set({ followUp: e.target.checked ? '1' : undefined })} /> Flagged for follow-up</label>

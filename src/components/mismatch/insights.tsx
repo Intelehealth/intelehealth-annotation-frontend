@@ -90,6 +90,7 @@ export function DoctorProgress({ p }: { p: DashboardData['progress'] }) {
                   <th className={thR}>Treatment</th>
                   <th className={th}>Verdicts</th>
                   <th className={thR}>Flagged</th>
+                  <th className={thR}>Discussed</th>
                   <th className={th}>Last active</th>
                 </tr>
               </thead>
@@ -107,6 +108,7 @@ export function DoctorProgress({ p }: { p: DashboardData['progress'] }) {
                       {verdictKeys.filter((k) => r.verdicts[k]).map((k) => `${VERDICT_SHORT[k] ?? k} ${r.verdicts[k]}`).join(' · ') || '—'}
                     </td>
                     <td className={tdR}>{r.followUp || '—'}</td>
+                    <td className={tdR}>{r.discussed || '—'}</td>
                     <td className={cn(td, 'whitespace-nowrap text-xs text-muted-foreground')}>{r.lastActive ? timeAgo(r.lastActive) : '—'}</td>
                   </tr>
                 ))}

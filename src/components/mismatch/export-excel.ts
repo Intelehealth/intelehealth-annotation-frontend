@@ -167,15 +167,17 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
 
   // Annotation
   const s = data.summary;
-  const mismatched = s.mismatch.ddx + s.mismatch.ttx + s.mismatch.both;
+  // Review status is over the mismatches in the workspace queue (follow-up-only visits are not in it).
+  const queued = s.review.done + s.review.in_progress + s.review.pending;
   const an = sheet('Annotation');
-  block(an, 'Review status', [{ header: 'Status', width: 24 }, { header: 'Mismatches' }, { header: '%', pct: true }], [
-    ['Annotated', s.review.done, share(s.review.done, mismatched)],
-    ['In review', s.review.in_progress, share(s.review.in_progress, mismatched)],
-    ['To review', s.review.pending, share(s.review.pending, mismatched)],
+  block(an, 'Review status', [{ header: 'Status', width: 28 }, { header: 'Mismatches' }, { header: '%', pct: true }], [
+    ['Annotated', s.review.done, share(s.review.done, queued)],
+    ['In review', s.review.in_progress, share(s.review.in_progress, queued)],
+    ['To review', s.review.pending, share(s.review.pending, queued)],
+    ['Discussed with clinical team', s.review.discussed ?? 0, share(s.review.discussed ?? 0, queued)],
   ]);
-  block(an, 'Annotator progress (by annotation date)', [{ header: 'Annotator', width: 28 }, { header: 'Annotated' }, { header: 'Diagnosis' }, { header: 'Treatment' }, { header: 'Flagged' }, { header: 'Last active', width: 22 }],
-    data.progress.reviewers.map((r) => [r.name, r.annotated, r.ddx, r.ttx, r.followUp, r.lastActive]));
+  block(an, 'Annotator progress (by annotation date)', [{ header: 'Annotator', width: 28 }, { header: 'Annotated' }, { header: 'Diagnosis' }, { header: 'Treatment' }, { header: 'Flagged' }, { header: 'Discussed with clinical team', width: 28 }, { header: 'Last active', width: 22 }],
+    data.progress.reviewers.map((r) => [r.name, r.annotated, r.ddx, r.ttx, r.followUp, r.discussed ?? 0, r.lastActive]));
   block(an, 'Mismatch type', [{ header: 'Type', width: 28 }, { header: 'Visits' }], [
     ['Diagnosis only', s.mismatch.ddx], ['Treatment only', s.mismatch.ttx], ['Diagnosis and treatment', s.mismatch.both], ['No mismatch', s.mismatch.none],
   ]);

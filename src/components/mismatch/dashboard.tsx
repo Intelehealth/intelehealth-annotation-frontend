@@ -704,13 +704,16 @@ function OrdersTab({ data }: { data: DashboardData }) {
 function AnnotationTab({ data }: { data: DashboardData }) {
   const s = data.summary;
   const mismatched = s.mismatch.ddx + s.mismatch.ttx + s.mismatch.both;
+  // Review status is over the mismatches in the workspace queue (follow-up-only visits are not in it).
+  const queued = s.review.done + s.review.in_progress + s.review.pending;
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Stat label="Mismatches in this period" n={mismatched} of={s.visits} ofLabel="visits in the period (follow-ups included)" accent />
-        <Stat label="Annotated" n={s.review.done} of={mismatched} ofLabel="mismatches" />
-        <Stat label="In review" n={s.review.in_progress} of={mismatched} ofLabel="mismatches" />
-        <Stat label="To review" n={s.review.pending} of={mismatched} ofLabel="mismatches" />
+        <Stat label="Annotated" n={s.review.done} of={queued} ofLabel="mismatches in the queue" />
+        <Stat label="In review" n={s.review.in_progress} of={queued} ofLabel="mismatches in the queue" />
+        <Stat label="To review" n={s.review.pending} of={queued} ofLabel="mismatches in the queue" />
+        <Stat label="Discussed with clinical team" n={s.review.discussed ?? 0} of={s.review.done} ofLabel="annotated" />
       </div>
       <DoctorProgress p={data.progress} />
       <div className="grid gap-5 lg:grid-cols-2">

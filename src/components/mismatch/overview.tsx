@@ -204,6 +204,11 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
   const worst = [...top1Counts.entries()].sort((a, b) => b[1] - a[1])[0];
   const docs = [...data.ai.byDoctor].filter((d) => d.scored > 0).sort((a, b) => b.scored - a.scored).slice(0, 5);
   const { paediatric: ph, adult: ah } = data.ai.headline;
+  // Annotation progress over the mismatches in the workspace queue (follow-up-only visits are not in it).
+  const rv = data.summary.review;
+  const queued = rv.done + rv.in_progress + rv.pending;
+  const pr = prev?.summary.review ?? null;
+  const prevQueued = pr ? pr.done + pr.in_progress + pr.pending : 0;
 
   return (
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_384px]">
@@ -235,6 +240,15 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
             <Kpi label="AI medicine changed" n={h.casesChanged} of={h.ttxGenerated} prev={P((x) => x.casesChanged, (x) => x.ttxGenerated)} better="down" />
             <Kpi label="AI medicine not used" n={h.casesNotPicked} of={h.ttxGenerated} prev={P((x) => x.casesNotPicked, (x) => x.ttxGenerated)} better="down" />
             <Kpi label="Doctor added a medicine" n={h.casesAdded} of={h.ttxGenerated} prev={P((x) => x.casesAdded, (x) => x.ttxGenerated)} better="down" />
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-lg border border-border bg-surface" aria-label="Annotation KPIs">
+          <div className="px-5 pt-3 text-xs text-muted-foreground">Annotation · base: {fmt(queued)} mismatches in the queue{prevLabel ? ` · deltas vs ${prevLabel}` : ''}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-3">
+            <Kpi label="Annotated" n={rv.done} of={queued} prev={pr ? { n: pr.done, of: prevQueued } : null} better="up" />
+            <Kpi label="Not annotated" n={rv.pending + rv.in_progress} of={queued} prev={pr ? { n: pr.pending + pr.in_progress, of: prevQueued } : null} better="down" />
+            <Kpi label="Discussed with clinical team" n={rv.discussed ?? 0} of={rv.done} prev={pr ? { n: pr.discussed ?? 0, of: pr.done } : null} better="up" note={`${fmt(rv.discussed ?? 0)} of ${fmt(rv.done)} annotated`} />
           </div>
         </section>
 

@@ -58,7 +58,7 @@ export type QueueTab = 'todo' | 'done' | 'all';
 export interface QueueQuery {
   tab?: QueueTab; mismatch?: string; ddx?: string; ttx?: string; status?: string;
   from?: string; to?: string; specialty?: string; gender?: string; age?: string;
-  dx?: string; med?: string; reviewer?: string; verdict?: string; followUp?: string; images?: string;
+  dx?: string; med?: string; reviewer?: string; verdict?: string; followUp?: string; discussed?: string; images?: string;
   /** Q1: paediatric (age <= 17) | general. */
   population?: string;
   flag?: string; model?: string; doctor?: string;
@@ -180,7 +180,8 @@ export interface DashboardData {
     ttxVisits: number; ttxUsed: number; ttxFullyAccepted: number; ttxMismatch: number;
     meds: { exact: number; modified: number; ignored: number; added: number };
     mismatch: Record<MismatchType, number>;
-    review: Record<ReviewStatus, number>;
+    /** Mismatches in the workspace queue (follow-up-only visits are not in it); discussed = annotated + discussed with clinical team. */
+    review: Record<ReviewStatus, number> & { discussed?: number };
     rankHist: number[];
   };
   trend: { date: string; visits: number; ddxVisits: number; top1: number; top5: number; ttxVisits: number; ttxUsed: number; mismatches: number }[];
@@ -204,7 +205,7 @@ export interface DashboardData {
   progress: {
     total: number;
     openInRange: number;
-    reviewers: { name: string; annotated: number; ddx: number; ttx: number; followUp: number; verdicts: Record<string, number>; lastActive: string | null }[];
+    reviewers: { name: string; annotated: number; ddx: number; ttx: number; followUp: number; discussed?: number; verdicts: Record<string, number>; lastActive: string | null }[];
     daily: ({ date: string } & Record<string, number | string>)[];
   };
 }
