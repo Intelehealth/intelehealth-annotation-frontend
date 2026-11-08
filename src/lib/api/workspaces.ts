@@ -37,6 +37,8 @@ export interface WorkspaceResponse {
   ownerId: WorkspaceMember;
   members: WorkspaceMember[];
   reviewers?: WorkspaceMember[];
+  /** ACL1: members who manage this workspace's people and settings (not global admins). */
+  admins?: WorkspaceMember[];
   domain: WorkspaceDomain;
   sharingMode: WorkspaceSharingMode;
   icon?: string;
@@ -101,6 +103,11 @@ export const workspacesAPI = {
     jsonApi.post<WorkspaceResponse>(`${base}/${id}/reviewers/${userId}`).then((r) => r.data),
   removeReviewer: (id: string, userId: string) =>
     jsonApi.delete<WorkspaceResponse>(`${base}/${id}/reviewers/${userId}`).then((r) => r.data),
+
+  addAdmin: (id: string, userId: string) =>
+    jsonApi.post<WorkspaceResponse>(`${base}/${id}/admins/${userId}`).then((r) => r.data),
+  removeAdmin: (id: string, userId: string) =>
+    jsonApi.delete<WorkspaceResponse>(`${base}/${id}/admins/${userId}`).then((r) => r.data),
 
   analytics: (id: string) => jsonApi.get<WorkspaceAnalytics>(`${base}/${id}/analytics`).then((r) => r.data),
   datasets: (id: string) => jsonApi.get<WorkspaceDataset[]>(`${base}/${id}/datasets`).then((r) => r.data),

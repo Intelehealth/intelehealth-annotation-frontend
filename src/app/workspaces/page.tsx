@@ -66,7 +66,9 @@ export default function WorkspacesPage() {
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                          <Badge variant="secondary">{w.sharingMode === 'SHARED' ? 'Shared dataset' : 'Copy per person'}</Badge>
+                          {(w as { settings?: { mismatchSource?: string } }).settings?.mismatchSource
+                            ? <Badge className="bg-indigo-600">Mismatch review · auto-sync</Badge>
+                            : <Badge variant="secondary">{w.sharingMode === 'SHARED' ? 'Shared dataset' : 'Copy per person'}</Badge>}
                         </div>
                       </div>
                       {w.description && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{w.description}</p>}

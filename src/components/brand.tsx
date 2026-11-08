@@ -18,7 +18,8 @@ export function Brand({ size = 'sm' }: BrandProps) {
       <div>
         <p
           className={cn(
-            'font-mono uppercase tracking-[0.2em] text-gray-500',
+            // G1: sentence case, no tracked capitals.
+            'text-muted-foreground',
             size === 'sm' ? 'text-xs' : 'text-sm',
           )}
         >

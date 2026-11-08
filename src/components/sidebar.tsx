@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/popover';
 import { notificationsAPI, NotificationResponse } from '@/lib/api/notifications';
 import { datasetsAPI, type DatasetResponse } from '@/lib/api/datasets';
+import { mismatchAccessFor } from '@/lib/api/mismatch';
 import {
   Settings,
   ChevronLeft,
@@ -25,6 +26,7 @@ import {
   FileText,
   Scale,
   LayoutTemplate,
+  BarChart3,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -53,6 +55,8 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
   const pathname = usePathname();
 
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  // ACL1: the AI Dashboard link shows only to people who can open at least one mismatch workspace.
+  const [aiDash, setAiDash] = useState<{ user: string; ok: boolean } | null>(null);
   const [datasetName, setDatasetName] = useState<string>('');
   const [activeDataset, setActiveDataset] = useState<DatasetResponse | null>(null);
 
@@ -86,6 +90,15 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
       console.error('Failed to load notifications', err);
     }
   };
+
+  useEffect(() => {
+    const uid = user?._id;
+    if (!uid) return;
+    let live = true;
+    mismatchAccessFor(uid).then((ok) => { if (live) setAiDash({ user: uid, ok }); });
+    return () => { live = false; };
+  }, [user?._id]);
+  const showAiDashboard = !!user && aiDash?.user === user._id && aiDash.ok;
 
   useEffect(() => {
     if (user) {
@@ -147,7 +160,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'bg-white/90 backdrop-blur-md border-r border-gray-200/70 flex flex-col h-screen transition-all duration-300 shadow-sm flex-shrink-0',
+        'bg-ground border-r border-border flex flex-col h-screen transition-all duration-300 flex-shrink-0',
         effectiveCollapsed ? 'w-20' : 'w-72',
         className,
       )}
@@ -179,11 +192,11 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
       <div className="p-4 border-b border-gray-100">
         <div
           className={cn(
-            'flex items-center space-x-3 p-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100/50',
+            'flex items-center space-x-3 p-3 rounded-lg bg-surface border border-border',
             effectiveCollapsed && 'justify-center',
           )}
         >
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
             <User className="h-5 w-5 text-white" />
           </div>
           {!effectiveCollapsed && (
@@ -195,7 +208,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                 {user?.role && (
                   <span
                     className={cn(
-                      'px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider',
+                      'px-1.5 py-0.5 text-[11px] font-medium rounded',
                       isAdmin
                         ? 'bg-purple-100 text-purple-700 border border-purple-200'
                         : 'bg-blue-100 text-blue-700 border border-blue-200',
@@ -217,14 +230,14 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
         <Link
           href="/dashboard"
           className={cn(
-            'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
+            'w-full flex items-center space-x-3 px-4 py-2.5 rounded-md transition-colors duration-150 text-left group',
             pathname === '/dashboard'
-              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
-              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+              ? 'bg-active text-foreground font-medium'
+              : 'text-muted-foreground hover:bg-active/60 hover:text-foreground',
             effectiveCollapsed && 'justify-center px-2',
           )}
         >
-          <LayoutDashboard className={cn('h-5 w-5 flex-shrink-0', pathname === '/dashboard' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
+          <LayoutDashboard className={cn('h-5 w-5 flex-shrink-0', pathname === '/dashboard' ? 'text-foreground' : 'text-faint group-hover:text-foreground')} />
           {!effectiveCollapsed && <span className="font-medium text-sm">Dashboard</span>}
         </Link>
 
@@ -232,16 +245,31 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
         <Link
           href="/workspaces"
           className={cn(
-            'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
+            'w-full flex items-center space-x-3 px-4 py-2.5 rounded-md transition-colors duration-150 text-left group',
             pathname.startsWith('/workspaces')
-              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
-              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+              ? 'bg-active text-foreground font-medium'
+              : 'text-muted-foreground hover:bg-active/60 hover:text-foreground',
             effectiveCollapsed && 'justify-center px-2',
           )}
         >
-          <LayoutTemplate className={cn('h-5 w-5 flex-shrink-0', pathname.startsWith('/workspaces') ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
+          <LayoutTemplate className={cn('h-5 w-5 flex-shrink-0', pathname.startsWith('/workspaces') ? 'text-foreground' : 'text-faint group-hover:text-foreground')} />
           {!effectiveCollapsed && <span className="font-medium text-sm">Workspaces</span>}
         </Link>
+
+        {/* AI USE DASHBOARD */}
+        {showAiDashboard && <Link
+          href="/ai-dashboard"
+          className={cn(
+            'w-full flex items-center space-x-3 px-4 py-2.5 rounded-md transition-colors duration-150 text-left group',
+            pathname.startsWith('/ai-dashboard')
+              ? 'bg-active text-foreground font-medium'
+              : 'text-muted-foreground hover:bg-active/60 hover:text-foreground',
+            effectiveCollapsed && 'justify-center px-2',
+          )}
+        >
+          <BarChart3 className={cn('h-5 w-5 flex-shrink-0', pathname.startsWith('/ai-dashboard') ? 'text-foreground' : 'text-faint group-hover:text-foreground')} />
+          {!effectiveCollapsed && <span className="font-medium text-sm">AI Dashboard</span>}
+        </Link>}
 
         {/* ADMIN SIDEBAR SECTIONS */}
         {canManage ? (
@@ -251,14 +279,14 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
               <Link
                 href="/dataset"
                 className={cn(
-                  'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
+                  'w-full flex items-center space-x-3 px-4 py-2.5 rounded-md transition-colors duration-150 text-left group',
                   pathname === '/dataset' && !datasetId
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                    ? 'bg-active text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-active/60 hover:text-foreground',
                   effectiveCollapsed && 'justify-center px-2',
                 )}
               >
-                <Database className={cn('h-5 w-5 flex-shrink-0', pathname === '/dataset' && !datasetId ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
+                <Database className={cn('h-5 w-5 flex-shrink-0', pathname === '/dataset' && !datasetId ? 'text-foreground' : 'text-faint group-hover:text-foreground')} />
                 {!effectiveCollapsed && <span className="font-medium text-sm">Datasets</span>}
               </Link>
 
@@ -276,7 +304,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                       'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
                       pathname === `/dataset/${datasetId}` && (!pathname.includes('tab') || pathname.includes('tab=overview'))
                         ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                        : 'text-muted-foreground hover:bg-active/60 hover:text-foreground'
                     )}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
@@ -290,7 +318,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                       'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
                       pathname === `/dataset/${datasetId}` && pathname.includes('tab=upload')
                         ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                        : 'text-muted-foreground hover:bg-active/60 hover:text-foreground'
                     )}
                   >
                     <Upload className="h-3.5 w-3.5 text-gray-400" />
@@ -304,7 +332,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                       'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
                       pathname === `/dataset/${datasetId}` && pathname.includes('tab=field-configuration')
                         ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                        : 'text-muted-foreground hover:bg-active/60 hover:text-foreground'
                     )}
                   >
                     <FileText className="h-3.5 w-3.5 text-gray-400" />
@@ -318,7 +346,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                       'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
                       pathname === `/dataset/${datasetId}` && pathname.includes('tab=settings')
                         ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                        : 'text-muted-foreground hover:bg-active/60 hover:text-foreground'
                     )}
                   >
                     <Settings className="h-3.5 w-3.5 text-gray-400" />
@@ -332,7 +360,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                       'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left block',
                       pathname === `/dataset/${datasetId}/consensus`
                         ? 'bg-blue-50 text-blue-700 font-semibold'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                        : 'text-muted-foreground hover:bg-active/60 hover:text-foreground'
                     )}
                   >
                     <Scale className="h-3.5 w-3.5 text-gray-400" />
@@ -347,14 +375,14 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
             <Link
               href="/users"
               className={cn(
-                'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
+                'w-full flex items-center space-x-3 px-4 py-2.5 rounded-md transition-colors duration-150 text-left group',
                 pathname === '/users'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                  ? 'bg-active text-foreground font-medium'
+                  : 'text-muted-foreground hover:bg-active/60 hover:text-foreground',
                 effectiveCollapsed && 'justify-center px-2',
               )}
             >
-              <Users className={cn('h-5 w-5 flex-shrink-0', pathname === '/users' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
+              <Users className={cn('h-5 w-5 flex-shrink-0', pathname === '/users' ? 'text-foreground' : 'text-faint group-hover:text-foreground')} />
               {!effectiveCollapsed && <span className="font-medium text-sm">Users</span>}
             </Link>
             )}
@@ -366,14 +394,14 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
             <Link
               href="/tasks"
               className={cn(
-                'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
+                'w-full flex items-center space-x-3 px-4 py-2.5 rounded-md transition-colors duration-150 text-left group',
                 pathname === '/tasks'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                  ? 'bg-active text-foreground font-medium'
+                  : 'text-muted-foreground hover:bg-active/60 hover:text-foreground',
                 effectiveCollapsed && 'justify-center px-2',
               )}
             >
-              <ClipboardList className={cn('h-5 w-5 flex-shrink-0', pathname === '/tasks' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
+              <ClipboardList className={cn('h-5 w-5 flex-shrink-0', pathname === '/tasks' ? 'text-foreground' : 'text-faint group-hover:text-foreground')} />
               {!effectiveCollapsed && <span className="font-medium text-sm">My Tasks</span>}
             </Link>
 
@@ -383,14 +411,14 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
               <Link
                 href="/dataset"
                 className={cn(
-                  'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
+                  'w-full flex items-center space-x-3 px-4 py-2.5 rounded-md transition-colors duration-150 text-left group',
                   pathname === '/dataset'
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                    ? 'bg-active text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-active/60 hover:text-foreground',
                   effectiveCollapsed && 'justify-center px-2',
                 )}
               >
-                <Database className={cn('h-5 w-5 flex-shrink-0', pathname === '/dataset' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
+                <Database className={cn('h-5 w-5 flex-shrink-0', pathname === '/dataset' ? 'text-foreground' : 'text-faint group-hover:text-foreground')} />
                 {!effectiveCollapsed && <span className="font-medium text-sm">{isReviewer ? 'Datasets' : 'Personal Datasets'}</span>}
               </Link>
             )}
@@ -407,7 +435,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                     'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
                     pathname === `/dataset/${datasetId}`
                       ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                      : 'text-muted-foreground hover:bg-active/60 hover:text-foreground'
                   )}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
@@ -419,7 +447,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
                     'w-full flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left',
                     pathname === `/dataset/${datasetId}/consensus`
                       ? 'bg-blue-50 text-blue-700 font-semibold'
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                      : 'text-muted-foreground hover:bg-active/60 hover:text-foreground'
                   )}
                 >
                   <Scale className="h-3.5 w-3.5 text-gray-400" />
@@ -434,14 +462,14 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
         <Link
           href="/profile"
           className={cn(
-            'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left group',
+            'w-full flex items-center space-x-3 px-4 py-2.5 rounded-md transition-colors duration-150 text-left group',
             pathname === '/profile'
-              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transform scale-[1.02]'
-              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+              ? 'bg-active text-foreground font-medium'
+              : 'text-muted-foreground hover:bg-active/60 hover:text-foreground',
             effectiveCollapsed && 'justify-center px-2',
           )}
         >
-          <Settings className={cn('h-5 w-5 flex-shrink-0', pathname === '/profile' ? 'text-white' : 'text-gray-400 group-hover:text-gray-600')} />
+          <Settings className={cn('h-5 w-5 flex-shrink-0', pathname === '/profile' ? 'text-foreground' : 'text-faint group-hover:text-foreground')} />
           {!effectiveCollapsed && <span className="font-medium text-sm">Profile Settings</span>}
         </Link>
 
@@ -450,7 +478,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
           <PopoverTrigger asChild>
             <button
               className={cn(
-                'w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900 relative group',
+                'w-full flex items-center space-x-3 px-4 py-2.5 rounded-md transition-colors duration-150 text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900 relative group',
                 effectiveCollapsed && 'justify-center px-2',
               )}
             >
