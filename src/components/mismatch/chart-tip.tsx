@@ -19,13 +19,13 @@ export function TipCard({ tip }: { tip: Tip }) {
           {tip.rows.map((r) => (
             <tr key={r.name}>
               <td className="py-0.5 pr-1.5 align-middle">
-                {r.line
+                {!r.color ? null : r.line
                   ? <i className="block h-0.5 w-3.5" style={{ background: r.dash ? `repeating-linear-gradient(90deg, ${r.color} 0 4px, transparent 4px 7px)` : r.color }} />
                   : <i className="block h-2.5 w-2.5 rounded-sm" style={{ background: r.color }} />}
               </td>
               <td className="py-0.5 pr-3 text-muted-foreground">{r.name}</td>
-              <td className="py-0.5 text-right font-medium tabular-nums">{r.value}</td>
-              <td className="py-0.5 pl-1.5 text-right tabular-nums text-muted-foreground">{r.sub ?? ''}</td>
+              <td className="whitespace-nowrap py-0.5 text-right font-medium tabular-nums">{r.value}</td>
+              <td className="whitespace-nowrap py-0.5 pl-1.5 text-right tabular-nums text-muted-foreground">{r.sub ?? ''}</td>
             </tr>
           ))}
         </tbody>
