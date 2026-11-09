@@ -22,6 +22,8 @@ import { adviceEnglish, displayName } from '@/lib/format-display';
 import { rate, TableSearch, useRowFilter } from './shared';
 import { Drill, DrillProvider } from './drill-link';
 import { bucketRange, drillHref, type DrillSpec } from '@/lib/drill';
+import { barTop, FloatingTip, inSection, RechartsTip, useFloatingTip } from './chart-tip';
+import { countTip, partsTip, tipLabel } from '@/lib/chart-tooltip';
 
 // White / blue / navy palette.
 const C = { navy: '#1e3a8a', blue: '#2563eb', sky: '#60a5fa', light: '#bfdbfe', slate: '#94a3b8', faint: '#e2e8f0' };
@@ -542,7 +544,8 @@ function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={C.faint} />
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
-                  <Tooltip />
+                  <Tooltip cursor={{ fill: 'var(--raised)' }} isAnimationActive={false} wrapperStyle={{ outline: 'none' }}
+                    content={<RechartsTip build={(label, p) => countTip(label, [{ name: 'Medicines', color: C.blue, count: Number(p[0]?.value) || 0 }])} />} />
                   <Bar dataKey="n" name="Medicines" fill={C.blue} radius={[0, 3, 3, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -587,11 +590,7 @@ function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
               <td className={tdR}><Drill spec={{ m: 'med_suggested', k: m.name }} label={`${displayName(m.name)} · suggested`}>{fmt(m.suggested)}</Drill></td>
               <td className={cn(td, 'min-w-[200px]')}>
                 {/* D8: 100% bar per medicine, with the shares under it */}
-                <div className="flex h-2.5 w-full max-w-[220px] overflow-hidden rounded-sm bg-slate-100" title={`${pctOf(m.unchanged, m.suggested)} unchanged · ${pctOf(m.changed, m.suggested)} changed · ${pctOf(m.notPicked, m.suggested)} not used`}>
-                  {m.unchanged > 0 && <span className="bg-[#1d5fbf]" style={{ width: `${(100 * m.unchanged) / m.suggested}%` }} />}
-                  {m.changed > 0 && <span className="bg-[#e9a23b]" style={{ width: `${(100 * m.changed) / m.suggested}%` }} />}
-                  {m.notPicked > 0 && <span className="bg-[#c3c8cf]" style={{ width: `${(100 * m.notPicked) / m.suggested}%` }} />}
-                </div>
+                <MedShareBar name={displayName(m.name)} unchanged={m.unchanged} changed={m.changed} notPicked={m.notPicked} suggested={m.suggested} />
                 <div className="mt-1 text-[11px] tabular-nums text-slate-500">
                   <Drill spec={{ m: 'med_unchanged', k: m.name }} label={`${displayName(m.name)} · unchanged`}>{pctOf(m.unchanged, m.suggested)}</Drill> · <Drill spec={{ m: 'med_changed', k: m.name }} label={`${displayName(m.name)} · changed`}>{pctOf(m.changed, m.suggested)}</Drill> · <Drill spec={{ m: 'med_not_used', k: m.name }} label={`${displayName(m.name)} · not used`}>{pctOf(m.notPicked, m.suggested)}</Drill>
                 </div>
@@ -655,6 +654,25 @@ function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
           ))}
         </Table>
       </Section>
+    </>
+  );
+}
+
+/** D8: one medicine's 100% bar (unchanged / changed / not used), with its values on hover, focus or tap. */
+function MedShareBar({ name, unchanged, changed, notPicked, suggested }: { name: string; unchanged: number; changed: number; notPicked: number; suggested: number }) {
+  const { shown, bind } = useFloatingTip();
+  const parts = [
+    { name: 'Unchanged', color: '#1d5fbf', count: unchanged }, { name: 'Changed', color: '#e9a23b', count: changed }, { name: 'Not used', color: '#c3c8cf', count: notPicked },
+  ];
+  const tip = partsTip(name, parts, { total: suggested });
+  return (
+    <>
+      <div tabIndex={tip ? 0 : undefined} aria-label={tip ? tipLabel(tip) : undefined}
+        className="flex h-2.5 w-full max-w-[220px] overflow-hidden rounded-sm bg-slate-100 outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-data"
+        {...bind(tip, inSection, barTop)}>
+        {parts.map((p) => (p.count > 0 ? <span key={p.name} style={{ background: p.color, width: `${(100 * p.count) / suggested}%` }} /> : null))}
+      </div>
+      <FloatingTip shown={shown} />
     </>
   );
 }

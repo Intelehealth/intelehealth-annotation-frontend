@@ -13,6 +13,8 @@ import type { DrillSpec } from '@/lib/drill';
 // Same base as the AI metrics: follows the dashboard follow-up switch.
 const fuLabel = (d: DashboardData) => (d.ai.headline.includeFollowUps ? 'follow-ups included' : 'follow-ups excluded');
 import { rate, TableSearch, useRowFilter } from './shared';
+import { RechartsTip } from './chart-tip';
+import { countTip } from '@/lib/chart-tooltip';
 
 const PERSON_COLORS = ['#1e3a8a', '#2563eb', '#60a5fa', '#0f766e', '#64748b', '#93c5fd', '#334155'];
 const VERDICT_SHORT: Record<string, string> = {
@@ -134,7 +136,8 @@ export function DoctorProgress({ p, personHref }: {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                <Tooltip />
+                <Tooltip cursor={{ fill: 'var(--raised)' }} isAnimationActive={false} wrapperStyle={{ outline: 'none' }}
+                  content={<RechartsTip build={(label, pl) => countTip(label, people.map((n, i) => ({ name: n, color: PERSON_COLORS[i % PERSON_COLORS.length], count: Number(pl.find((x) => x.dataKey === n)?.value) || 0 })), { total: true })} />} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 {people.map((n, i) => <Bar key={n} dataKey={n} stackId="a" fill={PERSON_COLORS[i % PERSON_COLORS.length]} />)}
               </BarChart>
