@@ -13,7 +13,7 @@ const share = (n: number, d: number) => (d ? n / d : null);
  * as an .xlsx with one sheet per dashboard tab. exceljs is loaded on click so
  * it stays out of the page bundle.
  */
-export async function exportDashboardExcel(data: DashboardData, meta: { programme: string; period: string; patients: string; followUps?: string }) {
+export async function exportDashboardExcel(data: DashboardData, meta: { programme: string; period: string; patients: string; followUps?: string; dxMatch?: string }) {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.created = new Date();
@@ -54,7 +54,7 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
   // Overview
   const ov = sheet('Overview');
   block(ov, 'AI Use Dashboard', [{ header: 'Field', width: 34 }, { header: 'Value', width: 40 }], [
-    ['Programme', meta.programme], ['Period', meta.period], ['Patients', meta.patients], ['Follow-up visits', meta.followUps ?? 'Follow-ups excluded'],
+    ['Programme', meta.programme], ['Period', meta.period], ['Patients', meta.patients], ['Follow-up visits', meta.followUps ?? 'Follow-ups excluded'], ['AI diagnosis counted', meta.dxMatch ?? 'Clicked by doctor'],
     ['Exported', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })],
     ['Follow-up visits not counted', ai.followUpVisitsExcluded],
   ], 'Follow-up visits only record medicine adherence and how the patient feels, so AI suggestions on them are not considered.');
@@ -71,7 +71,7 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
     ['AI medicines per case', h.ttxGenerated ? Number((h.aiMedicines / h.ttxGenerated).toFixed(2)) : null, null],
     ['Picked a medicine unchanged', h.casesUnchanged, share(h.casesUnchanged, h.ttxGenerated)],
     ['Picked a medicine with changes', h.casesChanged, share(h.casesChanged, h.ttxGenerated)],
-    ['Did not pick an AI medicine', h.casesNotPicked, share(h.casesNotPicked, h.ttxGenerated)],
+    ['AI medications not used', h.casesNotPicked, share(h.casesNotPicked, h.ttxGenerated)],
     ['Added a new medicine', h.casesAdded, share(h.casesAdded, h.ttxGenerated)],
   ];
   block(ov, 'Headline (all patients)', [{ header: 'Metric', width: 34 }, { header: 'Count' }, { header: '%', pct: true }], head(all),
