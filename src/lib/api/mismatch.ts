@@ -292,8 +292,8 @@ export const mismatchAPI = {
   syncState: (id: string) => jsonApi.get<SyncState>(`${base}/${id}/sync`).then((r) => r.data),
   queue: (id: string, q: QueueQuery) => jsonApi.get<QueuePage>(`${base}/${id}/queue`, { params: clean(q) }).then((r) => r.data),
   facets: (id: string) => jsonApi.get<Facets>(`${base}/${id}/facets`).then((r) => r.data),
-  dashboard: (id: string, from?: string, to?: string, population?: string, followUps?: 'include' | 'exclude') =>
-    jsonApi.get<DashboardData>(`${base}/${id}/dashboard`, { params: clean({ from, to, population, followUps }) }).then((r) => r.data),
+  dashboard: (id: string, from?: string, to?: string, population?: string, followUps?: 'include' | 'exclude', dxMatch?: 'clicked' | 'assisted') =>
+    jsonApi.get<DashboardData>(`${base}/${id}/dashboard`, { params: clean({ from, to, population, followUps, dxMatch: dxMatch === 'assisted' ? 'assisted' : undefined }) }).then((r) => r.data),
   visit: (id: string, uuid: string) => jsonApi.get<VisitDetail>(`${base}/${id}/visits/${uuid}`).then((r) => r.data),
   /** Image `index` of a visit as a blob, proxied from OpenMRS by the backend. */
   image: (id: string, uuid: string, index: number) =>

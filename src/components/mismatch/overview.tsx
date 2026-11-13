@@ -238,7 +238,7 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
             <Kpi label="AI medicines per case" value={h.ttxGenerated ? (h.aiMedicines / h.ttxGenerated).toFixed(1) : '—'} note={`${fmt(h.aiMedicines)} medicines${p && p.ttxGenerated ? ` · was ${(p.aiMedicines / p.ttxGenerated).toFixed(1)}` : ''}`} />
             <Kpi label="AI medicine kept as is" n={h.casesUnchanged} of={h.ttxGenerated} prev={P((x) => x.casesUnchanged, (x) => x.ttxGenerated)} better="up" />
             <Kpi label="AI medicine changed" n={h.casesChanged} of={h.ttxGenerated} prev={P((x) => x.casesChanged, (x) => x.ttxGenerated)} better="down" />
-            <Kpi label="AI medicine not used" n={h.casesNotPicked} of={h.ttxGenerated} prev={P((x) => x.casesNotPicked, (x) => x.ttxGenerated)} better="down" />
+            <Kpi label="AI medications not used" n={h.casesNotPicked} of={h.ttxGenerated} prev={P((x) => x.casesNotPicked, (x) => x.ttxGenerated)} better="down" />
             <Kpi label="Doctor added a medicine" n={h.casesAdded} of={h.ttxGenerated} prev={P((x) => x.casesAdded, (x) => x.ttxGenerated)} better="down" />
           </div>
         </section>

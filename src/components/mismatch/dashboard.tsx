@@ -76,6 +76,8 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
   const [grain, setGrain] = useState<Grain>('day');
   // T3: follow-up visits are left out of the AI metrics by default; this switch puts them back.
   const [followUps, setFollowUps] = useState<'exclude' | 'include'>('exclude');
+  // Default: only AI diagnoses the doctor clicked; 'assisted' adds AI suggestions the doctor wrote as their own.
+  const [dxMatch, setDxMatch] = useState<'clicked' | 'assisted'>('clicked');
   const [tab, setTab] = useState<TabKey>('overview');
   const [data, setData] = useState<DashboardData | null>(null);
   const [loadedKey, setLoadedKey] = useState("");
@@ -84,15 +86,15 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
 
   const [from, to] = period === 'custom' ? [custom.from, custom.to] : (PERIODS.find((p) => p.key === period)?.range() ?? [undefined, undefined]);
 
-  const key = [workspaceId, from, to, population, followUps].join('|');
+  const key = [workspaceId, from, to, population, followUps, dxMatch].join('|');
   // D1: the previous equal-length period, for the Overview deltas (none for 'All time').
   const prevRange = previousRange(from, to);
-  const prevKey = prevRange ? [workspaceId, prevRange.from, prevRange.to, population, followUps].join('|') : '';
+  const prevKey = prevRange ? [workspaceId, prevRange.from, prevRange.to, population, followUps, dxMatch].join('|') : '';
   const [prev, setPrev] = useState<{ key: string; data: DashboardData } | null>(null);
   useEffect(() => {
     if (!prevRange) return;
     let live = true;
-    mismatchAPI.dashboard(workspaceId, prevRange.from, prevRange.to, population || undefined, followUps === 'include' ? 'include' : undefined)
+    mismatchAPI.dashboard(workspaceId, prevRange.from, prevRange.to, population || undefined, followUps === 'include' ? 'include' : undefined, dxMatch)
       .then((d) => { if (live) setPrev({ key: prevKey, data: d }); })
       .catch(() => undefined);
     return () => { live = false; };
@@ -104,12 +106,12 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
   const loading = loadedKey !== key;
   useEffect(() => {
     let live = true;
-    mismatchAPI.dashboard(workspaceId, from, to, population || undefined, followUps === 'include' ? 'include' : undefined)
+    mismatchAPI.dashboard(workspaceId, from, to, population || undefined, followUps === 'include' ? 'include' : undefined, dxMatch)
       .then((d) => { if (live) { setData(d); setError(null); } })
       .catch((e) => live && setError(friendlyError(e, 'Could not load the dashboard')))
       .finally(() => live && setLoadedKey(key));
     return () => { live = false; };
-  }, [workspaceId, from, to, population, followUps, key]);
+  }, [workspaceId, from, to, population, followUps, dxMatch, key]);
 
   return (
     <div className="space-y-5">
@@ -138,6 +140,8 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
           <Segmented label="Patients" value={population} onChange={setPopulation} options={POPULATIONS} />
           <Segmented label="Follow-ups" value={followUps} onChange={(v) => setFollowUps(v as 'exclude' | 'include')}
             options={[{ key: 'exclude', label: 'Excluded' }, { key: 'include', label: 'Included' }]} />
+          <Segmented label="AI diagnosis" value={dxMatch} onChange={(v) => setDxMatch(v as 'clicked' | 'assisted')}
+            options={[{ key: 'clicked', label: 'Clicked by doctor' }, { key: 'assisted', label: '+ Written by doctor' }]} />
           <Segmented label="Trend by" value={grain} onChange={(v) => setGrain(v as Grain)} options={[{ key: 'day', label: 'Day' }, { key: 'week', label: 'Week' }, { key: 'month', label: 'Month' }]} />
           <span className="ml-auto text-xs text-slate-500">
             {from || to ? `${from ?? '…'} → ${to ?? '…'}` : 'All time'}
@@ -155,6 +159,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
                   period: period === 'custom' || from || to ? `${from ?? 'start'} to ${to ?? 'today'}` : 'All time',
                   patients: POPULATIONS.find((p) => p.key === population)?.label ?? 'All patients',
                   followUps: data.ai.headline.includeFollowUps ? 'Follow-ups included' : 'Follow-ups excluded',
+                  dxMatch: dxMatch === 'assisted' ? 'Clicked + written by doctor (same or equivalent)' : 'Clicked by doctor',
                 });
               } catch (e) {
                 setError(friendlyError(e, 'Could not export to Excel'));
@@ -416,8 +421,15 @@ function TreatmentTab({ data }: { data: DashboardData }) {
   const medSearch = useRowFilter(sorted, byName);
   const meds = medSearch.filtered;
   const addedSearch = useRowFilter(data.ai.addedMedicines, byName);
+  const h = data.ai.headline.all;
   return (
     <>
+      <Section title="AI medications not used" description={`At least one AI medicine not selected · ${aiBase(data)}`}>
+        <div className="flex items-baseline gap-3 px-4 py-3">
+          <span className="text-3xl font-semibold tabular-nums text-slate-900">{pct(h.casesNotPicked, h.ttxGenerated)}</span>
+          <span className="text-sm text-slate-500">{fmt(h.casesNotPicked)} of {fmt(h.ttxGenerated)} TTx cases</span>
+        </div>
+      </Section>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <Section title="Type of change" description={`Changed AI medicines · ${aiBase(data)}`}>
           {!totalChanges ? <Empty>No changed medicines in this period.</Empty> : (
