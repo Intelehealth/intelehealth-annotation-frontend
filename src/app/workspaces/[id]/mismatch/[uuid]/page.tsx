@@ -204,6 +204,7 @@ export default function MismatchVisitPage() {
               <b className="font-semibold text-[#111418]">{SOURCE_LABEL[v.source] ?? v.source}</b> · {displayName(v.attributes?.specialty)}
               {v.providers?.doctorPseudoIds?.length ? <> · {v.providers.doctorPseudoIds.map(doctorLabel).join(', ')}</> : null}
               {' · '}{fmtDate(v.encounterAt)}
+              {v.visitId != null ? <> · Visit ID {v.visitId}</> : null}
               {v.providers?.creatorPseudoId ? <> · health worker #{v.providers.creatorPseudoId}</> : null}
             </p>
             <VisitTiming v={v} />
@@ -237,7 +238,7 @@ export default function MismatchVisitPage() {
               {v.review.annotatedBy && <span>by {v.review.annotatedBy.name}</span>}
               <span className="ml-auto">
                 {v.langfuse?.model && <>AI: {v.langfuse.model}{v.langfuse.engine ? ` (${v.langfuse.engine})` : ''}{typeof v.langfuse.latency === 'number' ? `, ${v.langfuse.latency.toFixed(1)} s` : ''}{v.langfuse.totalTokens ? `, ${v.langfuse.totalTokens.toLocaleString()} tokens` : ''} · </>}
-                Visit {v.visitPseudoId ?? v.visitId ?? ''}
+                {v.visitId != null ? `Visit ID ${v.visitId}` : `Visit ${v.visitPseudoId ?? ''}`}
               </span>
             </div>
 

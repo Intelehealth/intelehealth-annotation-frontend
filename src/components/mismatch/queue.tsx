@@ -231,7 +231,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
           </div>
           <form className="relative ml-auto min-w-[220px] flex-1 sm:max-w-xs" onSubmit={(e) => { e.preventDefault(); set({ q: search.trim() || undefined }); }}>
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input className="h-9 pl-8" placeholder="Search note, diagnosis, medicine, visit id…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input className="h-9 pl-8" placeholder="Visit ID, UUID, patient / doctor / health worker ID, or any text" value={search} onChange={(e) => setSearch(e.target.value)} />
           </form>
           <Button variant={more ? 'secondary' : 'outline'} size="sm" className="h-9" onClick={() => setMore((m) => !m)}>
             <SlidersHorizontal className="mr-1.5 h-4 w-4" /> Filters{chips.length ? ` (${chips.length})` : ''}
@@ -377,6 +377,7 @@ function Row({ v, workspaceId, view, select }: { v: QueueItem; workspaceId: stri
         <Link href={`/workspaces/${workspaceId}/mismatch/${v.uuid}?view=${encodeURIComponent(view)}`} className="font-medium text-blue-700 hover:underline">{fmtDate(v.encounterAt)}</Link>
         <div className="text-xs text-muted-foreground">{[v.gender, v.age != null ? `${v.age}y` : null, v.specialty ? displayName(v.specialty) : null].filter(Boolean).join(' · ')}</div>
         {v.doctor && <div className="text-xs text-muted-foreground">{doctorLabel(v.doctor)}</div>}
+        {v.visitId != null && <div className="text-xs tabular-nums text-muted-foreground">Visit ID {v.visitId}</div>}
       </td>
       <td className="block pt-1 text-xs text-muted-foreground sm:table-cell sm:max-w-[220px] sm:px-4 sm:py-3">{dash(v.complaint)}</td>
       <td className="block pt-1 text-xs sm:table-cell sm:max-w-[280px] sm:px-4 sm:py-3">
