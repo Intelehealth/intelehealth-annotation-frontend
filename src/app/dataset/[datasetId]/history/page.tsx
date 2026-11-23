@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { goToLogin } from '@/lib/return-to';
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, History, RefreshCw, Search } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
@@ -37,7 +38,7 @@ export default function DatasetHistoryPage() {
     finally { setBusy(false); }
   }, [datasetId, filters]);
 
-  useEffect(() => { if (!isLoading && !isAuthenticated) router.push('/login'); }, [isLoading, isAuthenticated, router]);
+  useEffect(() => { if (!isLoading && !isAuthenticated) goToLogin(router); }, [isLoading, isAuthenticated, router]);
   useEffect(() => { if (isAuthenticated) load(); }, [isAuthenticated, load]);
   useEffect(() => {
     if (!isAuthenticated) return;

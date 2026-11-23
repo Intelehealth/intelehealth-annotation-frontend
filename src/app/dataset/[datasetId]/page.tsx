@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { goToLogin } from "@/lib/return-to";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { datasetsAPI, DatasetResponse } from "@/lib/api/datasets";
@@ -54,7 +55,7 @@ export default function DatasetDetailPage() {
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
-        router.push("/login");
+        goToLogin(router);
       }
       // Allow both ADMIN and ANNOTATOR to view dataset detail page
       // Annotators can view but not modify

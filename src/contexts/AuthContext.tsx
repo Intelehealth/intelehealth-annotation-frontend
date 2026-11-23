@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, useRef, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { takeReturnTo } from '@/lib/return-to';
 import { authAPI, usersAPI } from '@/lib/api';
 import { datasetsAPI } from '@/lib/api/datasets';
 import { workspacesAPI } from '@/lib/api/workspaces';
@@ -171,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Everyone lands on the dashboard; it renders the admin or annotator view
       // by role. (Annotators used to be sent to /documentation, which hid their
       // task view entirely.)
-      router.push('/dashboard');
+      router.push(takeReturnTo());
 
       return { success: true };
     } catch (error: any) {
@@ -216,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Everyone lands on the dashboard; it renders the admin or annotator view
       // by role. (Annotators used to be sent to /documentation, which hid their
       // task view entirely.)
-      router.push('/dashboard');
+      router.push(takeReturnTo());
 
       return { success: true };
     } catch (error: any) {
@@ -256,7 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       startHeartbeat();
 
       // Admin always goes to dashboard
-      router.push('/dashboard');
+      router.push(takeReturnTo());
 
       return { success: true };
     } catch (error: any) {
@@ -316,7 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('user', JSON.stringify(response.user));
       setUser(response.user);
       startHeartbeat();
-      router.push('/dashboard');
+      router.push(takeReturnTo());
       return { success: true };
     } catch (error: any) {
       console.error('Activation error:', error);

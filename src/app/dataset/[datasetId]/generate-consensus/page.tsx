@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { goToLogin } from '@/lib/return-to';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from '@/components/sidebar';
 import { MobileNav } from '@/components/mobile-nav';
@@ -178,7 +179,7 @@ export default function GenerateConsensusPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated) { router.push('/login'); return; }
+    if (!isAuthenticated) { goToLogin(router); return; }
     load();
   }, [authLoading, isAuthenticated, user, datasetId]);
 

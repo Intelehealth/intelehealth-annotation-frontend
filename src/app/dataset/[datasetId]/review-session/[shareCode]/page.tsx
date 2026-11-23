@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { goToLogin } from '@/lib/return-to';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from '@/components/sidebar';
 import { Button } from '@/components/ui/button';
@@ -63,7 +64,7 @@ export default function CollaborativeReviewSessionPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated) { router.push('/login'); return; }
+    if (!isAuthenticated) { goToLogin(router); return; }
     load();
   }, [authLoading, isAuthenticated, load, router]);
 

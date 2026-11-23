@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { goToLogin } from '@/lib/return-to';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from '@/components/sidebar';
 import { Button } from '@/components/ui/button';
@@ -40,7 +41,7 @@ export default function StatisticsPage() {
   const { catalog: metricCatalog, metric, setMetric } = useReliabilityMetric();
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) router.push('/login');
+    if (!authLoading && !isAuthenticated) goToLogin(router);
   }, [authLoading, isAuthenticated, router]);
 
   useEffect(() => {

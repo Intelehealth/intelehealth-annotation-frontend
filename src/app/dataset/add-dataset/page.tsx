@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { goToLogin } from '@/lib/return-to';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { datasetsAPI } from '@/lib/api/datasets';
@@ -217,7 +218,7 @@ export default function AddDatasetPage() {
           description: 'Please log in again to continue.',
           type: 'error',
         });
-        router.push('/login');
+        goToLogin(router);
       } else {
         showToast({
           title: 'Failed to Create Dataset',

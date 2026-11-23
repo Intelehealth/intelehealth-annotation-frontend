@@ -1,3 +1,4 @@
+import { rememberReturnTo } from './return-to';
 import axios from 'axios';
 
 // Most API calls go directly to the backend (absolute). The multipart document
@@ -83,6 +84,7 @@ function forceLogout() {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
+  rememberReturnTo(); // #15: come back to this page after logging in again
   window.location.href = '/login';
 }
 

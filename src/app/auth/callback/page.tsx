@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { takeReturnTo } from '@/lib/return-to';
 import { Loader2 } from 'lucide-react';
 
 export default function AuthCallbackPage() {
@@ -68,7 +69,7 @@ export default function AuthCallbackPage() {
           setStatus('success');
           if (userData.role.toUpperCase() === 'ADMIN') {
             setMessage('Authentication successful! Redirecting to dashboard...');
-            setTimeout(() => router.push('/dashboard'), 1500);
+            setTimeout(() => router.push(takeReturnTo()), 1500);
           } else {
             setMessage('Authentication successful! Checking assigned tasks...');
             import('@/lib/api/datasets').then(({ datasetsAPI }) => {
@@ -79,16 +80,16 @@ export default function AuthCallbackPage() {
                     setTimeout(() => router.push('/tasks'), 1500);
                   } else {
                     setMessage('Authentication successful! Redirecting to dashboard...');
-                    setTimeout(() => router.push('/dashboard'), 1500);
+                    setTimeout(() => router.push(takeReturnTo()), 1500);
                   }
                 })
                 .catch((err) => {
                   console.error('Error fetching tasks on OAuth redirect:', err);
                   setMessage('Authentication successful! Redirecting to dashboard...');
-                  setTimeout(() => router.push('/dashboard'), 1500);
+                  setTimeout(() => router.push(takeReturnTo()), 1500);
                 });
             }).catch(() => {
-              setTimeout(() => router.push('/dashboard'), 1500);
+              setTimeout(() => router.push(takeReturnTo()), 1500);
             });
           }
         } catch (jwtError) {
