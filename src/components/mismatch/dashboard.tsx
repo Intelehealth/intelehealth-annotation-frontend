@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { DiagnosisPatterns, DoctorProgress } from './insights';
 import { exportDashboardExcel } from './export-excel';
 import { OverviewTab } from './overview';
+import { CasePatternsSection } from './case-patterns';
 import { earlierRanges, presetRange } from '@/lib/period-range';
 import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { adviceEnglish, displayName } from '@/lib/format-display';
@@ -113,6 +114,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
   const prevLabel = !prevDone ? null
     : prev!.range ? `deltas vs ${fmtDay(prev!.range.from)} – ${fmtDay(prev!.range.to)}` : 'no earlier visits to compare';
   const loading = loadedKey !== key;
+  const viewer = data?.member === false;
   useEffect(() => {
     let live = true;
     mismatchAPI.dashboard(workspaceId, from, to, population || undefined, followUps === 'include' ? 'include' : undefined, dxMatch)
@@ -183,7 +185,8 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
       </div>
 
       <nav className="flex gap-1 overflow-x-auto border-b" aria-label="Dashboard sections">
-        {TABS.map((t) => (
+        {/* #18: a dashboard viewer outside the workspace does not see annotators' work */}
+        {TABS.filter((t) => !(viewer && t.key === 'annotation')).map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={cn('-mb-px whitespace-nowrap border-b-2 px-3.5 py-2 text-sm font-medium',
               tab === t.key ? 'border-blue-700 text-blue-900' : 'border-transparent text-slate-500 hover:text-slate-900')}>
@@ -196,16 +199,16 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
       {!data ? <div className="h-96 animate-pulse rounded-xl bg-slate-100" /> : (
         <div className={cn('space-y-5 transition-opacity', loading && 'opacity-60')}>
           {tab !== 'tat' && tab !== 'annotation' && <ModeBadge included={data.ai.headline.includeFollowUps} />}
-          {tab === 'annotation' && (
+          {tab === 'annotation' && !viewer && (
             <p className="text-xs text-muted-foreground">All visits · follow-ups included</p>
           )}
           {tab === 'overview' && <OverviewTab data={data} prev={prevData} prevLabel={prevLabel} base={aiBase(data)} onTab={(t) => setTab(t)} />}
-          {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} />}
-          {tab === 'treatment' && <TreatmentTab data={data} grain={grain} />}
+          {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} prev={prevData} prevLabel={prevLabel} />}
+          {tab === 'treatment' && <TreatmentTab data={data} grain={grain} prev={prevData} prevLabel={prevLabel} />}
           {tab === 'doctors' && <DoctorsTab data={data} />}
           {tab === 'tat' && <TatTab data={data} />}
           {tab === 'orders' && <OrdersTab data={data} />}
-          {tab === 'annotation' && <AnnotationTab data={data} />}
+          {tab === 'annotation' && !viewer && <AnnotationTab data={data} />}
         </div>
       )}
     </div>
@@ -342,7 +345,7 @@ const DxCells = ({ r }: { r: DxAgg }) => (
 
 const byName = (r: { name: string }) => r.name;
 
-function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
+function DiagnosisTab({ data, grain, prev, prevLabel }: { data: DashboardData; grain: Grain; prev: DashboardData | null; prevLabel: string | null }) {
   const dxSearch = useRowFilter(data.ai.byDx, byName);
   const [doctor, setDoctor] = useState('');
   const days = useMemo(() => [...bucket(data.ai.byDay, grain)].reverse(), [data, grain]);
@@ -350,6 +353,8 @@ function DiagnosisTab({ data, grain }: { data: DashboardData; grain: Grain }) {
   const dd = data.ai.byDoctorDay.filter((r) => !doctor || r.doctor === doctor);
   return (
     <>
+      <CasePatternsSection kind="dx" patterns={data.ai.headline.all.patterns} prev={prev?.ai.headline.all.patterns ?? null}
+        prevLabel={prev ? prevLabel : null} rows={days} grain={grain} base={aiBase(data)} />
       <EquivalentPanel data={data} />
       <div className="grid gap-5 xl:grid-cols-2">
         <Section title={`Top 5 / 3 / 1 by ${grain}`} description={`% of scored · ${aiBase(data)}`}>
@@ -429,8 +434,9 @@ const TTX_CASES = [
   { key: 'casesAdded', label: 'Doctor added a medicine', note: 'At least one medicine the AI did not suggest' },
 ] as const;
 
-function TreatmentTab({ data, grain }: { data: DashboardData; grain: Grain }) {
-  const trend = useMemo(() => [...bucket(data.ai.byDay, grain)].filter((r) => r.ttxGenerated > 0).reverse(), [data, grain]);
+function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; grain: Grain; prev: DashboardData | null; prevLabel: string | null }) {
+  const periods = useMemo(() => [...bucket(data.ai.byDay, grain)].reverse(), [data, grain]);
+  const trend = useMemo(() => periods.filter((r) => r.ttxGenerated > 0), [periods]);
   const [sort, setSort] = useState<'suggested' | 'changed' | 'notPicked'>('suggested');
   const ct = data.ai.changeTypes;
   const totalChanges = Object.values(ct).reduce((a, b) => a + b, 0);
@@ -441,6 +447,8 @@ function TreatmentTab({ data, grain }: { data: DashboardData; grain: Grain }) {
   const h = data.ai.headline.all;
   return (
     <>
+      <CasePatternsSection kind="ttx" patterns={h.patterns} prev={prev?.ai.headline.all.patterns ?? null}
+        prevLabel={prev ? prevLabel : null} rows={periods} grain={grain} base={aiBase(data)} />
       <div className="grid gap-5 md:grid-cols-3">
         {TTX_CASES.map((c) => (
           <Section key={c.key} title={c.label} description={`${c.note} · ${aiBase(data)}`}>

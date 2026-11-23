@@ -2,6 +2,7 @@ import type { AiHeadline, DashboardData, TatRow } from '@/lib/api/mismatch';
 import { doctorLabel, EQUIV_REASON_LABEL, RULE_LABEL } from '@/lib/api/mismatch';
 import { doctorTable, planTable } from '@/lib/dashboard-tables';
 import { adviceEnglish } from '@/lib/format-display';
+import { BASE, BASE_LABEL, GROUPS, STATS, statValue, type PatternKind } from '@/lib/case-patterns';
 
 type Cell = string | number | null;
 type Col = { header: string; pct?: boolean; width?: number };
@@ -81,6 +82,25 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
   block(ov, `Paediatric (age ${ai.headline.paediatricMaxAge} or under) vs adult`,
     [{ header: 'Metric', width: 34 }, { header: 'Paediatric' }, { header: 'Paediatric %', pct: true }, { header: 'Adult' }, { header: 'Adult %', pct: true }],
     pa.map((r, i) => [r[0], r[1], r[2], ad[i][1], ad[i][2]]));
+
+  // #17 Case patterns: groups (each case in exactly one) + multiplicity / averages, then by day.
+  const cp = sheet('Case patterns');
+  for (const kind of ['dx', 'ttx'] as PatternKind[]) {
+    const p = all.patterns;
+    const base = p?.[BASE[kind]] ?? 0;
+    const title = kind === 'dx' ? 'Diagnosis' : 'Treatment';
+    block(cp, `${title}: groups (base: ${base} ${BASE_LABEL[kind]})`, [{ header: 'Group', width: 40 }, { header: 'Count' }, { header: '%', pct: true }],
+      GROUPS[kind].map((g) => [g.label, p?.[g.key] ?? 0, share(p?.[g.key] ?? 0, base)]));
+    block(cp, `${title}: multiplicity and per case`, [{ header: 'Metric', width: 40 }, { header: 'Count' }, { header: '%', pct: true }, { header: 'Per case' }],
+      STATS[kind].map((st) => {
+        const v = statValue(p, kind, st);
+        return st.kind === 'share'
+          ? [st.label, p?.[st.key] ?? 0, v === null ? null : v / 100, null]
+          : [st.label, null, null, v === null ? null : Number(v.toFixed(2))];
+      }));
+    block(cp, `${title}: by day`, [{ header: 'Date' }, { header: BASE_LABEL[kind] }, ...GROUPS[kind].map((g) => ({ header: g.label }))],
+      ai.byDay.filter((r) => (r[BASE[kind]] ?? 0) > 0).map((r) => [r.name, r[BASE[kind]] ?? 0, ...GROUPS[kind].map((g) => r[g.key] ?? 0)]));
+  }
 
   // Diagnosis
   const dxCols: Col[] = [{ header: 'Visits' }, { header: 'Scored' }, { header: 'Picked AI Dx %', pct: true }, { header: 'Top 5 %', pct: true }, { header: 'Top 3 %', pct: true }, { header: 'Top 1 %', pct: true }, { header: 'Added non-AI Dx' }, { header: 'Equivalent, not picked (separate)' }];
