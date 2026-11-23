@@ -7,7 +7,7 @@ import { ArrowRight } from 'lucide-react';
 import { MismatchDashboard } from '@/components/mismatch/dashboard';
 import { Shell } from '@/components/mismatch/shared';
 import { apiMessage } from '@/lib/api/workspaces';
-import { mismatchAPI, SOURCE_LABEL, type MismatchWorkspace } from '@/lib/api/mismatch';
+import { mismatchAPI, SOURCE_LABEL, type DashboardProgramme, type MismatchWorkspace } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
 
 const LAST_PROGRAM_KEY = 'ai-dashboard-program';
@@ -16,11 +16,14 @@ const LAST_PROGRAM_KEY = 'ai-dashboard-program';
 function AiDashboardPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const [workspaces, setWorkspaces] = useState<MismatchWorkspace[] | null>(null);
+  // #18: every signed-in user sees every programme; workspace access (links, export rights) only where a member.
+  const [workspaces, setWorkspaces] = useState<DashboardProgramme[] | null>(null);
+  const [memberOf, setMemberOf] = useState<MismatchWorkspace[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    mismatchAPI.list().then(setWorkspaces).catch((e) => setError(apiMessage(e, 'Could not load programmes')));
+    mismatchAPI.dashboardProgrammes().then(setWorkspaces).catch((e) => setError(apiMessage(e, 'Could not load programmes')));
+    mismatchAPI.list().then(setMemberOf).catch(() => setMemberOf([]));
   }, []);
 
   // D10: ?program wins; otherwise the programme last opened here (this browser), then NAS, then the first.
@@ -40,7 +43,7 @@ function AiDashboardPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-blue-950">AI Use Dashboard</h1>
         </div>
-        {current && (
+        {current?.member && (
           <Link href={`/workspaces/${current._id}/mismatch`} className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline">
             Open {SOURCE_LABEL[current.source]} mismatches <ArrowRight className="h-4 w-4" />
           </Link>
@@ -64,7 +67,9 @@ function AiDashboardPage() {
       )}
 
       {!workspaces && !error && <div className="h-96 animate-pulse rounded-xl bg-slate-100" />}
-      {current && <MismatchDashboard key={current._id} workspaceId={current._id} programme={SOURCE_LABEL[current.source]} canExport={!!current.access?.canExport} />}
+      {current && <MismatchDashboard key={current._id} workspaceId={current._id} programme={SOURCE_LABEL[current.source]}
+        // Members keep their role's export right; a dashboard viewer may export the same aggregates (#18).
+        canExport={current.member ? !!memberOf.find((w) => w._id === current._id)?.access?.canExport : true} />}
     </Shell>
   );
 }

@@ -21,6 +21,7 @@ type TabKey = 'diagnosis' | 'doctors' | 'treatment';
 const fmt = (n: number) => n.toLocaleString();
 const pct = (n: number, d: number) => (d ? (100 * n) / d : null);
 const pctText = (v: number | null) => (v === null ? '—' : `${v.toFixed(1)}%`);
+const perCase = (n?: number, d?: number) => (n !== undefined && d ? (n / d).toFixed(1) : '—');
 
 /** One KPI: value, delta in points vs the previous period, coloured by which direction is good. */
 function Kpi({ label, n, of, prev, better, lead, value, note }: {
@@ -215,13 +216,17 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
       <div className="min-w-0 space-y-4">
         <section className="overflow-hidden rounded-lg border border-border bg-surface" aria-label="Diagnosis KPIs">
           <div className="px-5 pt-3 text-xs text-muted-foreground">Diagnosis · base: {fmt(h.dxScored)} {base} with an AI list{prevLabel ? ` · ${prevLabel}` : ''}</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
+          {/* #17: both strips follow one order: what the AI generated -> what the doctor took from it ->
+              changed / not used -> what the doctor added -> AI items per case. */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
+            <Kpi label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} prev={P((x) => x.dxGenerated, (x) => x.visits)} better="up" />
             {/* P7: widest net first, 5 -> 3 -> 1 */}
             <Kpi lead label="In the AI top 5" n={h.top5} of={h.dxScored} prev={P((x) => x.top5, (x) => x.dxScored)} better="up" />
             <Kpi label="In the AI top 3" n={h.top3} of={h.dxScored} prev={P((x) => x.top3, (x) => x.dxScored)} better="up" />
             <Kpi label="Doctor's Dx was the AI's #1" n={h.top1} of={h.dxScored} prev={P((x) => x.top1, (x) => x.dxScored)} better="up" />
             <Kpi label="Doctor added own Dx" n={h.dxAddedNonAi} of={h.dxScored} prev={P((x) => x.dxAddedNonAi, (x) => x.dxScored)} better="down" />
-            <Kpi label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} prev={P((x) => x.dxGenerated, (x) => x.visits)} better="up" />
+            <Kpi label="AI diagnoses selected per case" value={perCase(h.patterns?.dxAiSelected, h.patterns?.dxScored)}
+              note={`${fmt(h.patterns?.dxAiSelected ?? 0)} AI diagnoses${perCase(p?.patterns?.dxAiSelected, p?.patterns?.dxScored) !== '—' ? ` · was ${perCase(p?.patterns?.dxAiSelected, p?.patterns?.dxScored)}` : ''}`} />
           </div>
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border px-5 py-3 text-[13px] text-muted-foreground">
             <span>Equivalent listed, not picked</span>
@@ -235,11 +240,11 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
           <div className="px-5 pt-3 text-xs text-muted-foreground">Treatment · base: {fmt(h.ttxGenerated)} TTx cases ({base} with AI medicines){prevLabel ? ` · ${prevLabel}` : ''}</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
             <Kpi label="AI generated a TTx list" n={h.ttxGenerated} of={h.visits} prev={P((x) => x.ttxGenerated, (x) => x.visits)} better="up" />
-            <Kpi label="AI medicines per case" value={h.ttxGenerated ? (h.aiMedicines / h.ttxGenerated).toFixed(1) : '—'} note={`${fmt(h.aiMedicines)} medicines${p && p.ttxGenerated ? ` · was ${(p.aiMedicines / p.ttxGenerated).toFixed(1)}` : ''}`} />
             <Kpi label="AI medicine kept as is" n={h.casesUnchanged} of={h.ttxGenerated} prev={P((x) => x.casesUnchanged, (x) => x.ttxGenerated)} better="up" />
             <Kpi label="AI medicine changed" n={h.casesChanged} of={h.ttxGenerated} prev={P((x) => x.casesChanged, (x) => x.ttxGenerated)} better="down" />
             <Kpi label="AI medications not used" n={h.casesNotPicked} of={h.ttxGenerated} prev={P((x) => x.casesNotPicked, (x) => x.ttxGenerated)} better="down" />
             <Kpi label="Doctor added a medicine" n={h.casesAdded} of={h.ttxGenerated} prev={P((x) => x.casesAdded, (x) => x.ttxGenerated)} better="down" />
+            <Kpi label="AI medicines per case" value={h.ttxGenerated ? (h.aiMedicines / h.ttxGenerated).toFixed(1) : '—'} note={`${fmt(h.aiMedicines)} medicines${p && p.ttxGenerated ? ` · was ${(p.aiMedicines / p.ttxGenerated).toFixed(1)}` : ''}`} />
           </div>
         </section>
 

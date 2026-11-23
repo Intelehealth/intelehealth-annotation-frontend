@@ -174,6 +174,8 @@ export type ReviewInput = Pick<Review, 'ddxVerdict' | 'ddxReason' | 'correctDiag
 
 export interface DashboardData {
   source: MismatchSource; from: string | null; to: string | null;
+  /** #18: false = a signed-in dashboard viewer outside the workspace (no annotator names, no workspace links). */
+  member?: boolean;
   summary: {
     visits: number; ddxVisits: number; top1: number; top3: number; top5: number; ddxMismatch: number; doctorAddedDx: number;
     pickedByName: number; followUpExcluded: number; noAiDdx: number;
@@ -219,7 +221,20 @@ export interface AiHeadline {
   investigations: number; advice: number; referral: number; followUp: number;
   /** D3, separate from the strict picks. */
   dxEquivalentNotPicked: number;
+  /** #17 case patterns (backend src/mismatch/case-patterns.ts). */
+  patterns?: CasePatterns;
 }
+export const PATTERN_KEYS = [
+  'dxScored', 'dxOnlyAi', 'dxAiPlusOwn', 'dxOnlyOwn', 'dxNone',
+  'dxMulti', 'dxMultiAi', 'dxMultiMixed', 'dxMultiNoAi',
+  'dxTotal', 'dxAiSelected', 'dxOwnAdded',
+  'ttxCases', 'ttxOnlyAi', 'ttxMixed', 'ttxNoAiSelected',
+  'ttxAiSuggested', 'ttxAiSelected', 'ttxOwnAdded', 'ttxPrescribed',
+] as const;
+export type PatternKey = (typeof PATTERN_KEYS)[number];
+export type CasePatterns = Record<PatternKey, number>;
+/** #18: AI Dashboard programme switcher entry (every signed-in user). */
+export interface DashboardProgramme { _id: string; name: string; icon?: string; source: MismatchSource; member: boolean }
 export interface DxAgg { name: string; visits: number; scored: number; picked: number; top1: number; top3: number; top5: number; addedNonAi: number; equivalent: number }
 export type ChangeType = 'dose' | 'frequency' | 'duration' | 'instructions' | 'not_in_prescription' | 'no_visible_difference';
 export interface AiMetrics {
@@ -230,7 +245,7 @@ export interface AiMetrics {
   /** Every follow-up visit in the range, in both modes. */
   followUpVisits?: number;
   byDoctor: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number })[];
-  byDay: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number })[];
+  byDay: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number } & Partial<CasePatterns>)[];
   byDoctorDay: (DxAgg & { doctor: string; date: string })[];
   byDx: DxAgg[];
   medicines: { name: string; suggested: number; unchanged: number; changed: number; notPicked: number; paediatric: number; changes: Record<ChangeType, number> }[];
@@ -286,6 +301,8 @@ const clean = (q: object) => Object.fromEntries(Object.entries(q).filter(([, v])
 
 export const mismatchAPI = {
   list: () => jsonApi.get<MismatchWorkspace[]>(base).then((r) => r.data),
+  /** #18: every programme for the AI Dashboard, open to every signed-in user. */
+  dashboardProgrammes: () => jsonApi.get<DashboardProgramme[]>('/mismatch/dashboard-programmes').then((r) => r.data),
   overview: (id: string) =>
     jsonApi.get<{ workspace: { _id: string; name: string; description?: string; icon?: string }; source: MismatchSource; sync: SyncState; access?: MismatchAccess }>(`${base}/${id}`).then((r) => r.data),
   sync: (id: string, force = false) => jsonApi.post<SyncState>(`${base}/${id}/sync${force ? '?force=1' : ''}`).then((r) => r.data),
@@ -339,13 +356,13 @@ export const TTX_REASONS = [
   'Doctor preference (equivalent drug)', 'Doctor referred instead', 'Follow-up or advice covers it', 'Other',
 ];
 
-// ACL1: whether this user can open any mismatch workspace (sidebar "AI Dashboard" link).
-// One lookup per signed-in user per page load; the sidebar renders on every page.
+// Sidebar "AI Dashboard" link: since #18 every signed-in user may open the dashboard, so this only
+// checks that a programme exists. One lookup per signed-in user per page load (the sidebar renders on every page).
 const accessCache = new Map<string, Promise<boolean>>();
 export const mismatchAccessFor = (userId: string): Promise<boolean> => {
   let p = accessCache.get(userId);
   if (!p) {
-    p = mismatchAPI.list().then((w) => w.length > 0).catch(() => { accessCache.delete(userId); return false; });
+    p = mismatchAPI.dashboardProgrammes().then((w) => w.length > 0).catch(() => { accessCache.delete(userId); return false; });
     accessCache.set(userId, p);
   }
   return p;
