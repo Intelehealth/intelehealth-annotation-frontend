@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { goToLogin } from '@/lib/return-to';
 import { useEffect } from 'react';
 import { Sidebar } from '@/components/sidebar';
 import { DatasetManagement } from '@/components/dataset-components/dataset-management';
@@ -19,7 +20,7 @@ export default function DatasetPage() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/login');
+      goToLogin(router);
     }
     if (!isLoading && user && user.invitedByAdmin === true && user.role !== 'ADMIN') {
       router.push('/tasks');

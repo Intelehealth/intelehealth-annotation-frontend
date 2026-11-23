@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { goToLogin } from '@/lib/return-to';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from '@/components/sidebar';
 import { TopNav } from '@/components/top-nav';
@@ -367,7 +368,7 @@ export default function ReviewConsensusPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
-      router.push('/login');
+      goToLogin(router);
       return;
     }
     if (!selectionLoaded) return;

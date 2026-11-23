@@ -39,6 +39,21 @@ export function previousRange(from?: string, to?: string): { from: string; to: s
 }
 
 /**
+ * The earlier windows of the same length, most recent first: previousRange, then the one before it, ...
+ * The Overview deltas use the first one that has visits, so a weekend or a programme break just before
+ * the period (e.g. no NAS visits 7-15 Nov 2026) does not leave the KPIs without a comparison.
+ */
+export function earlierRanges(from?: string, to?: string, max = 6): { from: string; to: string }[] {
+  const out: { from: string; to: string }[] = [];
+  let r = previousRange(from, to);
+  while (r && out.length < max) {
+    out.push(r);
+    r = previousRange(r.from, r.to);
+  }
+  return out;
+}
+
+/**
  * B1: one x-axis slot per day (or per Monday-started week) from `from` to `to`, so a day
  * with no visits is a visible gap instead of a skipped point.
  */

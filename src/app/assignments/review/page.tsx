@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { goToLogin } from '@/lib/return-to';
 import { useAuth } from '@/contexts/AuthContext';
 import { datasetsAPI } from '@/lib/api/datasets';
 import { Sidebar } from '@/components/sidebar';
@@ -117,7 +118,7 @@ export default function ReviewQueuePage() {
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push('/login');
+        goToLogin(router);
       } else if (user?.role?.toUpperCase() !== 'ADMIN') {
         router.push('/dashboard');
       } else {

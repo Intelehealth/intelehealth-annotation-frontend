@@ -3,6 +3,7 @@
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { goToLogin } from "@/lib/return-to";
 import { useEffect } from "react";
 
 export default function ProfileLayout({
@@ -15,7 +16,7 @@ export default function ProfileLayout({
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/login");
+      goToLogin(router);
     }
   }, [isAuthenticated, isLoading, router]);
 

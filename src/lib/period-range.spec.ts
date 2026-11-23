@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { presetRange, previousRange, timeSlots } from './period-range';
+import { earlierRanges, presetRange, previousRange, timeSlots } from './period-range';
 
 // Thu 5 Nov 2026, 15:00 IST (09:30 UTC).
 const NOW = new Date('2026-11-05T09:30:00Z');
@@ -34,6 +34,20 @@ describe('previousRange', () => {
   it('is the equal-length window just before (8 days before 29 Oct)', () => {
     expect(previousRange('2026-10-29', '2026-11-05')).toEqual({ from: '2026-10-21', to: '2026-10-28' });
     expect(previousRange(undefined, undefined)).toBeNull();
+  });
+});
+
+describe('earlierRanges (#13)', () => {
+  it('steps back window by window, most recent first (Last 7 days on 23 Nov 2026)', () => {
+    expect(earlierRanges('2026-11-16', '2026-11-23', 3)).toEqual([
+      { from: '2026-11-08', to: '2026-11-15' },
+      { from: '2026-10-31', to: '2026-11-07' },
+      { from: '2026-10-23', to: '2026-10-30' },
+    ]);
+  });
+  it('Today steps back one day at a time; none for All time', () => {
+    expect(earlierRanges('2026-11-23', '2026-11-23', 3).map((r) => r.from)).toEqual(['2026-11-22', '2026-11-21', '2026-11-20']);
+    expect(earlierRanges(undefined, undefined)).toEqual([]);
   });
 });
 

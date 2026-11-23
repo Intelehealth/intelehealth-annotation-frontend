@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { goToLogin } from '@/lib/return-to';
 import { useEffect } from 'react';
 import { Sidebar } from '@/components/sidebar';
 import { UsersManagement } from '@/components/users-components/users-management';
@@ -19,7 +20,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/login');
+      goToLogin(router);
     } else if (!isLoading && isAuthenticated && user?.role?.toUpperCase() !== 'ADMIN') {
       router.push('/dashboard');
     }

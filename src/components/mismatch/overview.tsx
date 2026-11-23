@@ -214,7 +214,7 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_384px]">
       <div className="min-w-0 space-y-4">
         <section className="overflow-hidden rounded-lg border border-border bg-surface" aria-label="Diagnosis KPIs">
-          <div className="px-5 pt-3 text-xs text-muted-foreground">Diagnosis · base: {fmt(h.dxScored)} {base} with an AI list{prevLabel ? ` · deltas vs ${prevLabel}` : ''}</div>
+          <div className="px-5 pt-3 text-xs text-muted-foreground">Diagnosis · base: {fmt(h.dxScored)} {base} with an AI list{prevLabel ? ` · ${prevLabel}` : ''}</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
             {/* P7: widest net first, 5 -> 3 -> 1 */}
             <Kpi lead label="In the AI top 5" n={h.top5} of={h.dxScored} prev={P((x) => x.top5, (x) => x.dxScored)} better="up" />
@@ -232,7 +232,7 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
         </section>
 
         <section className="overflow-hidden rounded-lg border border-border bg-surface" aria-label="Treatment KPIs">
-          <div className="px-5 pt-3 text-xs text-muted-foreground">Treatment · base: {fmt(h.ttxGenerated)} TTx cases ({base} with AI medicines){prevLabel ? ` · deltas vs ${prevLabel}` : ''}</div>
+          <div className="px-5 pt-3 text-xs text-muted-foreground">Treatment · base: {fmt(h.ttxGenerated)} TTx cases ({base} with AI medicines){prevLabel ? ` · ${prevLabel}` : ''}</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
             <Kpi label="AI generated a TTx list" n={h.ttxGenerated} of={h.visits} prev={P((x) => x.ttxGenerated, (x) => x.visits)} better="up" />
             <Kpi label="AI medicines per case" value={h.ttxGenerated ? (h.aiMedicines / h.ttxGenerated).toFixed(1) : '—'} note={`${fmt(h.aiMedicines)} medicines${p && p.ttxGenerated ? ` · was ${(p.aiMedicines / p.ttxGenerated).toFixed(1)}` : ''}`} />
@@ -244,7 +244,7 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
         </section>
 
         <section className="overflow-hidden rounded-lg border border-border bg-surface" aria-label="Annotation KPIs">
-          <div className="px-5 pt-3 text-xs text-muted-foreground">Annotation · base: {fmt(queued)} mismatches in the queue{prevLabel ? ` · deltas vs ${prevLabel}` : ''}</div>
+          <div className="px-5 pt-3 text-xs text-muted-foreground">Annotation · base: {fmt(queued)} mismatches in the queue{prevLabel ? ` · ${prevLabel}` : ''}</div>
           <div className="grid grid-cols-1 sm:grid-cols-3">
             <Kpi label="Annotated" n={rv.done} of={queued} prev={pr ? { n: pr.done, of: prevQueued } : null} better="up" />
             <Kpi label="Not annotated" n={rv.pending + rv.in_progress} of={queued} prev={pr ? { n: pr.pending + pr.in_progress, of: prevQueued } : null} better="down" />

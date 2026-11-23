@@ -65,6 +65,7 @@ export function AuthForm() {
   const {
     register: loginRegister,
     handleSubmit: handleLoginSubmit,
+    getValues: getLoginValues,
     formState: { errors: loginErrors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -100,7 +101,9 @@ export function AuthForm() {
         return
       }
       if (result.code === "INVALID_PASSWORD") {
-        router.push(`/forgot-password?email=${encodeURIComponent(data.email)}`)
+        // #15: a typo used to send people straight to /forgot-password; stay on the form instead.
+        setError("Incorrect password. Try again, or use Forgot? to reset it.")
+        setSubmitting(false)
         return
       }
       if (result.code === "GOOGLE_ACCOUNT") {
@@ -239,7 +242,10 @@ export function AuthForm() {
               </label>
               <button
                 type="button"
-                onClick={() => router.push("/forgot-password")}
+                onClick={() => {
+                  const email = (getLoginValues("email") || "").trim()
+                  router.push(email ? `/forgot-password?email=${encodeURIComponent(email)}` : "/forgot-password")
+                }}
                 className="text-xs font-medium text-gray-600 transition-opacity hover:opacity-80"
               >
                 Forgot?

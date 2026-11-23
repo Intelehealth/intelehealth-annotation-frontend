@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { DiagnosisPatterns, DoctorProgress } from './insights';
 import { exportDashboardExcel } from './export-excel';
 import { OverviewTab } from './overview';
-import { presetRange, previousRange } from '@/lib/period-range';
+import { earlierRanges, presetRange } from '@/lib/period-range';
 import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { adviceEnglish, displayName } from '@/lib/format-display';
 import { rate, TableSearch, useRowFilter } from './shared';
@@ -87,22 +87,31 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
   const [from, to] = period === 'custom' ? [custom.from, custom.to] : (PERIODS.find((p) => p.key === period)?.range() ?? [undefined, undefined]);
 
   const key = [workspaceId, from, to, population, followUps, dxMatch].join('|');
-  // D1: the previous equal-length period, for the Overview deltas (none for 'All time').
-  const prevRange = previousRange(from, to);
-  const prevKey = prevRange ? [workspaceId, prevRange.from, prevRange.to, population, followUps, dxMatch].join('|') : '';
-  const [prev, setPrev] = useState<{ key: string; data: DashboardData } | null>(null);
+  // D1: the Overview deltas compare with the most recent earlier equal-length window that HAS visits
+  // (none for 'All time'). The window just before can be empty (a Sunday before 'Today', a programme
+  // break before 'Last 7 days'); comparing with it silently hid every indicator (#13).
+  const prevRanges = earlierRanges(from, to);
+  const prevKey = prevRanges.length ? [workspaceId, from, to, population, followUps, dxMatch].join('|') : '';
+  const [prev, setPrev] = useState<{ key: string; data: DashboardData | null; range: { from: string; to: string } | null } | null>(null);
   useEffect(() => {
-    if (!prevRange) return;
+    if (!prevRanges.length) return;
     let live = true;
-    mismatchAPI.dashboard(workspaceId, prevRange.from, prevRange.to, population || undefined, followUps === 'include' ? 'include' : undefined, dxMatch)
-      .then((d) => { if (live) setPrev({ key: prevKey, data: d }); })
-      .catch(() => undefined);
+    (async () => {
+      for (const r of prevRanges) {
+        const d = await mismatchAPI.dashboard(workspaceId, r.from, r.to, population || undefined, followUps === 'include' ? 'include' : undefined, dxMatch);
+        if (!live) return;
+        if (d.ai.headline.all.visits > 0) { setPrev({ key: prevKey, data: d, range: r }); return; }
+      }
+      if (live) setPrev({ key: prevKey, data: null, range: null });
+    })().catch(() => undefined);
     return () => { live = false; };
-    // prevKey captures every input of the range
+    // prevKey captures every input of the ranges
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prevKey]);
-  const prevData = prevRange && prev?.key === prevKey ? prev.data : null;
-  const prevLabel = prevRange ? `${fmtDay(prevRange.from)} – ${fmtDay(prevRange.to)}` : null;
+  const prevDone = prevRanges.length > 0 && prev?.key === prevKey;
+  const prevData = prevDone ? prev!.data : null;
+  const prevLabel = !prevDone ? null
+    : prev!.range ? `deltas vs ${fmtDay(prev!.range.from)} – ${fmtDay(prev!.range.to)}` : 'no earlier visits to compare';
   const loading = loadedKey !== key;
   useEffect(() => {
     let live = true;
@@ -190,9 +199,9 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
           {tab === 'annotation' && (
             <p className="text-xs text-muted-foreground">All visits · follow-ups included</p>
           )}
-          {tab === 'overview' && <OverviewTab data={data} prev={prevData} prevLabel={prevData ? prevLabel : null} base={aiBase(data)} onTab={(t) => setTab(t)} />}
+          {tab === 'overview' && <OverviewTab data={data} prev={prevData} prevLabel={prevLabel} base={aiBase(data)} onTab={(t) => setTab(t)} />}
           {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} />}
-          {tab === 'treatment' && <TreatmentTab data={data} />}
+          {tab === 'treatment' && <TreatmentTab data={data} grain={grain} />}
           {tab === 'doctors' && <DoctorsTab data={data} />}
           {tab === 'tat' && <TatTab data={data} />}
           {tab === 'orders' && <OrdersTab data={data} />}
@@ -413,7 +422,15 @@ function EquivalentPanel({ data }: { data: DashboardData }) {
 }
 
 // ---------- Treatment ----------
-function TreatmentTab({ data }: { data: DashboardData }) {
+/** #14: the three case-level treatment outcomes, as tiles and by day / week / month. */
+const TTX_CASES = [
+  { key: 'casesChanged', label: 'AI medicine changed', note: 'At least one AI medicine kept with a change' },
+  { key: 'casesNotPicked', label: 'AI medications not used', note: 'At least one AI medicine not selected' },
+  { key: 'casesAdded', label: 'Doctor added a medicine', note: 'At least one medicine the AI did not suggest' },
+] as const;
+
+function TreatmentTab({ data, grain }: { data: DashboardData; grain: Grain }) {
+  const trend = useMemo(() => [...bucket(data.ai.byDay, grain)].filter((r) => r.ttxGenerated > 0).reverse(), [data, grain]);
   const [sort, setSort] = useState<'suggested' | 'changed' | 'notPicked'>('suggested');
   const ct = data.ai.changeTypes;
   const totalChanges = Object.values(ct).reduce((a, b) => a + b, 0);
@@ -424,11 +441,32 @@ function TreatmentTab({ data }: { data: DashboardData }) {
   const h = data.ai.headline.all;
   return (
     <>
-      <Section title="AI medications not used" description={`At least one AI medicine not selected · ${aiBase(data)}`}>
-        <div className="flex items-baseline gap-3 px-4 py-3">
-          <span className="text-3xl font-semibold tabular-nums text-slate-900">{pct(h.casesNotPicked, h.ttxGenerated)}</span>
-          <span className="text-sm text-slate-500">{fmt(h.casesNotPicked)} of {fmt(h.ttxGenerated)} TTx cases</span>
-        </div>
+      <div className="grid gap-5 md:grid-cols-3">
+        {TTX_CASES.map((c) => (
+          <Section key={c.key} title={c.label} description={`${c.note} · ${aiBase(data)}`}>
+            <div className="flex items-baseline gap-3 px-4 py-3">
+              <span className="text-3xl font-semibold tabular-nums text-slate-900">{pctOf(h[c.key], h.ttxGenerated)}</span>
+              <span className="text-sm text-slate-500">{fmt(h[c.key])} of {fmt(h.ttxGenerated)} TTx cases</span>
+            </div>
+          </Section>
+        ))}
+      </div>
+      <Section title={`Changed / not used / added by ${grain}`} description={`% of TTx cases · ${aiBase(data)}`}>
+        <Table empty={!trend.length} head={(
+          <tr>
+            <th className={th}>{grain === 'day' ? 'Date' : grain === 'week' ? 'Week of' : 'Month'}</th>
+            <th className={thR}>TTx cases</th>
+            {TTX_CASES.map((c) => <th key={c.key} className={thR}>{c.label}</th>)}
+          </tr>
+        )}>
+          {trend.map((r) => (
+            <tr key={r.name}>
+              <td className={cn(td, 'whitespace-nowrap')}>{r.name}</td>
+              <td className={tdR}>{fmt(r.ttxGenerated)}</td>
+              {TTX_CASES.map((c) => <td key={c.key} className={tdR}>{fmt(r[c.key])} ({pctOf(r[c.key], r.ttxGenerated)})</td>)}
+            </tr>
+          ))}
+        </Table>
       </Section>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <Section title="Type of change" description={`Changed AI medicines · ${aiBase(data)}`}>

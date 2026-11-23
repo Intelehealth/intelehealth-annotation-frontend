@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { goToLogin } from '@/lib/return-to';
 import { useAuth } from '@/contexts/AuthContext';
 import { datasetsAPI } from '@/lib/api/datasets';
 import { consensusAPI } from '@/lib/api/consensus';
@@ -243,7 +244,7 @@ export default function MyTasksPage() {
   // Auth + role guard — admin has no tasks, redirected to dashboard
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated) { router.push('/login'); return; }
+    if (!isAuthenticated) { goToLogin(router); return; }
     if (user?.role?.toUpperCase() === 'ADMIN') { router.push('/dashboard'); return; }
   }, [authLoading, isAuthenticated, user, router]);
 
