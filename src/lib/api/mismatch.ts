@@ -50,6 +50,8 @@ export interface QueueItem {
     status: ReviewStatus; claimedBy: string | null; annotatedBy: string | null; annotatedAt?: string;
     ddxVerdict?: string; ttxVerdict?: string; followUp: boolean;
     discussed?: { at: string; by: string } | null;
+    /** #27 How many people the viewer may see have finished it (annotatedBy lists them). */
+    annotators?: number;
   };
 }
 
@@ -173,6 +175,9 @@ export interface PlanTypeStats {
   byDoctor: { doctor: string; generated: number; casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number; doctorEntered: number }[];
 }
 
+/** #27 Someone else's annotation of the visit (only those the viewer may see). */
+export type OtherReview = Review & { by: { _id: string; name: string } | null; savedAt?: string; doneAt?: string };
+
 export interface VisitDetail {
   uuid: string; visitId?: number; visitPseudoId?: string; source: MismatchSource; encounterAt?: string;
   demographics?: { patientId?: number; patientPseudoId?: string; gender?: string; age?: number; visitStartedDate?: string | null };
@@ -195,7 +200,10 @@ export interface VisitDetail {
   plan?: PlanItem[];
   analysis: VisitAnalysis;
   mismatchType: MismatchType;
+  /** #27 MY own annotation (the form). */
   review: Review;
+  /** #27 Other people's annotations this viewer may see, read-only. */
+  reviews?: OtherReview[];
   /** ACL1: this user's rights here (a reviewer gets canAnnotate false: view-only). */
   access?: MismatchAccess;
 }

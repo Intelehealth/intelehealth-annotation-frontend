@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
 import { fmtDate, Shell, StatusBadge, TypeBadge } from '@/components/mismatch/shared';
 import { VisitImages } from '@/components/mismatch/visit-images';
@@ -15,33 +15,25 @@ import Link from 'next/link';
 import { friendlyError } from '@/components/mismatch/shared';
 import {
   DDX_REASONS, DDX_VERDICTS, doctorLabel, EQUIV_REASON_LABEL, EQUIV_REASONS, mismatchAPI, parseView, RULE_LABEL, SOURCE_LABEL, TTX_REASONS, TTX_VERDICTS,
-  type ReviewInput, type VisitDetail,
+  type OtherReview, type Review, type ReviewInput, type VisitDetail,
 } from '@/lib/api/mismatch';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
 
 
 export default function MismatchVisitPage() {
   const { id, uuid } = useParams<{ id: string; uuid: string }>();
   const router = useRouter();
-  const { user } = useAuth();
   const [v, setV] = useState<VisitDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ReviewInput>({});
   const [saving, setSaving] = useState(false);
-  const claimed = useRef(false);
   // L1: notes are English only. Drop the old per-user note-language choice (V4) if this browser still has it.
   useEffect(() => {
     try { for (const k of Object.keys(localStorage)) if (k.startsWith('mismatch-note-lang-')) localStorage.removeItem(k); } catch { /* storage unavailable */ }
   }, []);
-  // An annotator's first edit claims the visit (30-min expiry, ticket A1) so two annotators don't work on it at once.
-  // Admins never claim: they only look, and must not show up as the person working on it.
+  // #27 The form is MY own annotation; editing it changes nothing on the server until a save, and never anyone else's.
   const update = (patch: Partial<ReviewInput>) => {
-    if (!v || cannotEdit(v, user?._id)) return; // reviewers, and admins on another person's visit, only view
-    if (!claimed.current && v.access?.role !== 'admin') {
-      claimed.current = true;
-      mismatchAPI.claim(id, uuid).catch(() => { claimed.current = false; });
-    }
+    if (!v || cannotEdit(v)) return; // view-only reviewers
     setForm((f) => ({ ...f, ...patch }));
   };
   const [saved, setSaved] = useState(false);
@@ -66,7 +58,6 @@ export default function MismatchVisitPage() {
   useEffect(() => {
     let live = true;
     setV(null); setSaved(false);
-    claimed.current = false;
     // Opening a visit does not claim it; the first edit does (ticket A1).
     mismatchAPI.visit(id, uuid)
       .then((d) => {
@@ -84,7 +75,7 @@ export default function MismatchVisitPage() {
   }, [id, uuid]);
 
   const save = async (next: boolean) => {
-    if (!v || cannotEdit(v, user?._id)) return;
+    if (!v || cannotEdit(v)) return;
     setSaving(true);
     try {
       await mismatchAPI.saveReview(id, uuid, { ...form, final: next });
@@ -131,13 +122,11 @@ export default function MismatchVisitPage() {
   if (error && !v) return <Shell wide><p className="text-sm text-destructive">{error}</p></Shell>;
   if (!v) return <Shell wide><div className="h-96 animate-pulse rounded-lg bg-muted" /></Shell>;
 
-  const readOnly = cannotEdit(v, user?._id);
+  const readOnly = cannotEdit(v);
   const a = v.analysis;
   const top5 = a.ddxRanked ?? [];
   const inTop5 = new Set(top5.map((d) => d.diagnosis.toLowerCase()));
   const otherAi = (v.ddx?.diagnoses ?? []).filter((d) => d.aiAssisted === 'I' && !inTop5.has(String(d.diagnosis).toLowerCase()));
-  const claimedByOther = v.review.claimedBy && v.review.claimedBy._id !== user?._id && v.review.status !== 'done' && v.review.claimedAt
-    && Date.now() - new Date(v.review.claimedAt).getTime() < 30 * 60_000 ? v.review.claimedBy : null;
   const dxRationale = (name: string) => (v.ddx?.diagnoses ?? []).find((x) => String(x.diagnosis).toLowerCase() === name.toLowerCase())?.rationale;
   // L1: the note is shown in English only (Marathi free-text values typed inside it stay as written).
   const note = v.notes;
@@ -251,7 +240,6 @@ export default function MismatchVisitPage() {
                   {detailText(v.ddx?.details) && <> · {detailText(v.ddx?.details)}</>}
                 </p>
               )}
-              {claimedByOther && <p className="mb-3 text-xs text-[#8a4b00]">Opened by {claimedByOther.name}</p>}
 
               {/* V12 summary */}
               <Summary lines={[
@@ -317,7 +305,7 @@ export default function MismatchVisitPage() {
                 {v.review.discussed && (
                   <p className="text-sm text-[#247b50]">Discussed with clinical team · {fmtDate(v.review.discussed.at)} · {v.review.discussed.by?.name ?? 'Unknown'}</p>
                 )}
-                {readOnly && <ReadOnlyReview v={v} />}
+                {readOnly && <ReadOnlyReview r={v.review} />}
                 {!readOnly && <>
                 {offered.dx && <TextInput label="Correct diagnosis, if different" value={form.correctDiagnosis} onChange={(x) => update({ correctDiagnosis: x })} />}
                 {offered.ttx && <TextInput label="Correct treatment, if different" value={form.correctTreatment} onChange={(x) => update({ correctTreatment: x })} />}
@@ -350,6 +338,7 @@ export default function MismatchVisitPage() {
                   </details>
                 )}
               </section>
+              <OtherReviews reviews={v.reviews ?? []} />
             </div>
 
             {/* Footer: pinned in the right pane (desktop) / at the bottom of the screen (phone). */}
@@ -387,8 +376,7 @@ const HISTORY_ACTION: Record<string, string> = {
 };
 
 // ACL1: what a reviewer (view-only) sees in place of the annotation form.
-function ReadOnlyReview({ v }: { v: VisitDetail }) {
-  const r = v.review;
+function ReadOnlyReview({ r }: { r: Review }) {
   const rows: [string, string | undefined][] = [
     ['Diagnosis', VERDICT[r.ddxVerdict ?? '']], ['Main reason', r.ddxReason],
     ['Equivalent, not picked', r.equivReason ? (r.equivReason === 'other' ? r.equivReasonText || 'Other' : EQUIV_REASON_LABEL[r.equivReason] ?? r.equivReason) : undefined],
@@ -465,9 +453,26 @@ function TextInput({ label, value, onChange }: { label: string; value?: string; 
   );
 }
 
-/** View only: reviewers always; a global admin / owner on a visit another person annotated or started (they never overwrite it). */
-function cannotEdit(v: VisitDetail, me?: string): boolean {
-  if (v.access?.canAnnotate === false) return true;
-  const owner = v.review.annotatedBy?._id ?? v.review.claimedBy?._id;
-  return v.access?.role === 'admin' && !!owner && owner !== me;
+/** View only: reviewers. Everyone else, admins included, edits only their own annotation (#27). */
+function cannotEdit(v: VisitDetail): boolean {
+  return v.access?.canAnnotate === false;
+}
+
+/** #27 The other people's annotations this viewer may see (the server leaves out the rest), read-only. */
+function OtherReviews({ reviews }: { reviews: OtherReview[] }) {
+  if (!reviews.length) return null;
+  return (
+    <section aria-label="Other annotations" className="space-y-3">
+      <SecH title={`Other annotations (${reviews.length})`} sub="View only" />
+      {reviews.map((r, i) => (
+        <details key={r.by?._id ?? i} className="rounded-lg border border-[#e3e7ec] px-3 py-2">
+          <summary className="flex cursor-pointer flex-wrap items-baseline justify-between gap-2 text-sm">
+            <span className="font-semibold text-[#111418]">{r.by?.name ?? 'Unknown'}</span>
+            <span className="text-xs text-[#59616c]">{r.status === 'done' ? 'Annotated' : 'Draft'} · {fmtDate(r.doneAt ?? r.savedAt)}</span>
+          </summary>
+          <div className="mt-2"><ReadOnlyReview r={r} /></div>
+        </details>
+      ))}
+    </section>
+  );
 }
