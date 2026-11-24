@@ -196,7 +196,8 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
     ['Annotated', s.review.done, share(s.review.done, queued)],
     ['In review', s.review.in_progress, share(s.review.in_progress, queued)],
     ['To review', s.review.pending, share(s.review.pending, queued)],
-    ['Discussed with clinical team', s.review.discussed ?? 0, share(s.review.discussed ?? 0, queued)],
+    // #36 of the annotated visits, as on the dashboard tile
+    ['Discussed with clinical team (% of annotated)', s.review.discussed ?? 0, share(s.review.discussed ?? 0, s.review.done)],
     ['Flagged by clinical team', s.review.redFlag ?? 0, null],
   ]);
   block(an, 'Annotator progress (by annotation date)', [{ header: 'Annotator', width: 28 }, { header: 'Annotated' }, { header: 'Diagnosis' }, { header: 'Treatment' }, { header: 'Flagged by clinical team', width: 24 }, { header: 'Discussed with clinical team', width: 28 }, { header: 'Last active', width: 22 }],

@@ -287,7 +287,8 @@ export interface AiMetrics {
   followUpVisitsExcluded: number;
   /** Every follow-up visit in the range, in both modes. */
   followUpVisits?: number;
-  byDoctor: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number })[];
+  /** #36 all four treatment outcomes share ttxGenerated as their base. */
+  byDoctor: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number; casesNotPicked?: number; casesAdded?: number })[];
   byDay: (DxAgg & { ttxGenerated: number; casesUnchanged: number; casesChanged: number; casesNotPicked: number; casesAdded: number } & Partial<CasePatterns>)[];
   byDoctorDay: (DxAgg & { doctor: string; date: string })[];
   byDx: DxAgg[];
