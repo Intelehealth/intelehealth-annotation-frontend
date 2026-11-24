@@ -79,6 +79,18 @@ export interface QueuePage {
 /** #21 archive picker: one month of a workspace. */
 export interface ArchiveMonth { month: string; year: number; from: string; to: string; archived: boolean; total: number; toAnnotate: number; annotated: number; redFlag: number }
 export interface ArchivePage { recentFrom: string; days: number; months: ArchiveMonth[] }
+/** #23 notes page */
+export interface MismatchNote { _id: string; author: string; authorName: string; day: string; text: string; createdAt: string; updatedAt: string; mine: boolean; edited: boolean }
+export type ReportCategory = 'ai_wrong' | 'doctor_wrong' | 'safety' | 'note_unclear' | 'process' | 'other';
+export interface ReportLine { text: string; category?: ReportCategory; visitIds: string[] }
+export interface ReviewReport {
+  _id: string; window: 'day' | '7d' | '30d'; from: string; to: string; status: 'running' | 'ok' | 'insufficient' | 'error';
+  model?: string; promptVersion?: string; trigger?: string; error?: string; fallback?: boolean; updatedAt: string;
+  counts?: { reviews: number; visits: number; withText: number; flagged: number; final: number; drafts: number; byPerson: { name: string; reviews: number }[]; verdicts: Record<string, number> };
+  lines: ReportLine[]; droppedCount: number;
+  feedback: { line: number; by: string; at: string; wrong: boolean }[];
+}
+export interface ReportsPage { configured: boolean; model: string | null; reports: ReviewReport[]; uuidOf: Record<string, string> }
 export interface Facets { specialties: string[]; models: string[]; doctors: string[]; rejectReasons: string[]; reviewers: { _id: string; name: string }[] }
 
 export interface AiDiagnosis { diagnosis: string; rank: string | null; likelihood?: string | null; aiAssisted?: string | null; rationale?: unknown }
@@ -220,7 +232,7 @@ export interface DashboardData {
   progress: {
     total: number;
     openInRange: number;
-    reviewers: { name: string; annotated: number; ddx: number; ttx: number; followUp: number; discussed?: number; verdicts: Record<string, number>; lastActive: string | null }[];
+    reviewers: { id?: string; name: string; annotated: number; drafts?: number; ddx: number; ttx: number; followUp: number; discussed?: number; verdicts: Record<string, number>; lastActive: string | null }[];
     daily: ({ date: string } & Record<string, number | string>)[];
   };
 }
@@ -323,6 +335,14 @@ export const mismatchAPI = {
   queue: (id: string, q: QueueQuery) => jsonApi.get<QueuePage>(`${base}/${id}/queue`, { params: clean(q) }).then((r) => r.data),
   facets: (id: string) => jsonApi.get<Facets>(`${base}/${id}/facets`).then((r) => r.data),
   archive: (id: string) => jsonApi.get<ArchivePage>(`${base}/${id}/archive`).then((r) => r.data),
+  notes: (id: string) => jsonApi.get<MismatchNote[]>(`${base}/${id}/notes`).then((r) => r.data),
+  addNote: (id: string, text: string, day?: string) => jsonApi.post<MismatchNote>(`${base}/${id}/notes`, { text, day }).then((r) => r.data),
+  editNote: (id: string, noteId: string, text: string) => jsonApi.put<MismatchNote>(`${base}/${id}/notes/${noteId}`, { text }).then((r) => r.data),
+  reports: (id: string, window: 'day' | '7d' | '30d') => jsonApi.get<ReportsPage>(`${base}/${id}/reports`, { params: { window } }).then((r) => r.data),
+  generateReport: (id: string, window: 'day' | '7d' | '30d', day?: string) =>
+    jsonApi.post<ReviewReport>(`${base}/${id}/reports/generate`, { window, day }, { timeout: 600_000 }).then((r) => r.data),
+  reportFeedback: (id: string, reportId: string, line: number, wrong: boolean) =>
+    jsonApi.post(`${base}/${id}/reports/${reportId}/feedback`, { line, wrong }).then((r) => r.data),
   dashboard: (id: string, from?: string, to?: string, population?: string, followUps?: 'include' | 'exclude', dxMatch?: 'clicked' | 'assisted') =>
     jsonApi.get<DashboardData>(`${base}/${id}/dashboard`, { params: clean({ from, to, population, followUps, dxMatch: dxMatch === 'assisted' ? 'assisted' : undefined }) }).then((r) => r.data),
   visit: (id: string, uuid: string) => jsonApi.get<VisitDetail>(`${base}/${id}/visits/${uuid}`).then((r) => r.data),

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CheckCheck, Inbox, Rows3, Settings } from 'lucide-react';
+import { ArrowLeft, CheckCheck, Inbox, NotebookPen, Rows3, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MismatchQueue } from '@/components/mismatch/queue';
 import { tabFromUrl } from '@/lib/queue-url';
@@ -111,6 +111,9 @@ export default function MismatchWorkspacePage() {
     <Shell wide>
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" className="-ml-2" onClick={() => router.push('/workspaces')}><ArrowLeft className="mr-1 h-4 w-4" /> Workspaces</Button>
+        <Link href={`/workspaces/${id}/mismatch/notes`} className="ml-auto mr-4 inline-flex items-center text-xs font-medium text-indigo-700 hover:underline">
+          <NotebookPen className="mr-1 h-3.5 w-3.5" /> Notes &amp; daily summary
+        </Link>
         {acl?.canManage && (
           <Link href={`/workspaces/${id}?manage=1`} className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground">
             <Settings className="mr-1 h-3.5 w-3.5" /> Members &amp; settings

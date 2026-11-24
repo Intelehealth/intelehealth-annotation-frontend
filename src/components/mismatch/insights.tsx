@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Empty, Section } from '@/components/dashboard/kpi';
 import { pct, timeAgo } from '@/components/dashboard/format';
@@ -70,7 +71,11 @@ export function ConsultingDoctors({ rows }: { rows: DoctorStat[] }) {
 }
 
 /** Who annotated how much in the selected range (by annotation date). */
-export function DoctorProgress({ p }: { p: DashboardData['progress'] }) {
+export function DoctorProgress({ p, personHref }: {
+  p: DashboardData['progress'];
+  /** #23: members open the visits a person saved a review on (drafts included). */
+  personHref?: (reviewerId: string) => string;
+}) {
   const people = p.reviewers.map((r) => r.name);
   const verdictKeys = [...new Set([...DDX_VERDICTS, ...TTX_VERDICTS].map((v) => v.value))];
   return (
@@ -86,6 +91,7 @@ export function DoctorProgress({ p }: { p: DashboardData['progress'] }) {
                 <tr>
                   <th className={th}>Annotator</th>
                   <th className={thR}>Annotated</th>
+                  <th className={thR} title="Saved, not yet Save &amp; next">Drafts</th>
                   <th className={thR}>Diagnosis</th>
                   <th className={thR}>Treatment</th>
                   <th className={th}>Verdicts</th>
@@ -99,9 +105,10 @@ export function DoctorProgress({ p }: { p: DashboardData['progress'] }) {
                   <tr key={r.name}>
                     <td className={cn(td, 'font-medium')}>
                       <span className="mr-2 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: PERSON_COLORS[i % PERSON_COLORS.length] }} />
-                      {r.name}
+                      {personHref && r.id ? <Link href={personHref(r.id)} className="text-blue-700 hover:underline">{r.name}</Link> : r.name}
                     </td>
                     <td className={tdR}>{r.annotated.toLocaleString()}</td>
+                    <td className={tdR}>{r.drafts ? r.drafts.toLocaleString() : '—'}</td>
                     <td className={tdR}>{r.ddx.toLocaleString()}</td>
                     <td className={tdR}>{r.ttx.toLocaleString()}</td>
                     <td className={cn(td, 'text-xs text-muted-foreground')}>
