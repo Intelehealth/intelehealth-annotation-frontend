@@ -74,10 +74,14 @@
 /* G1 (wave 2): theme tokens from the drop-2 design (ui-review/drop2/shared.css),
    "achromatic ledger": blue-grey ground, ink chrome, ONE data hue (--data),
    good / bad colour only on deltas, 8 px card radius. The shadcn names map onto
-   them so existing components follow. LIGHT is the shipped theme (forcedTheme);
-   the .dark values are here but not enabled until the older pages use tokens. */
+   them so existing components follow. Light and dark both ship: the theme follows the
+   system setting unless the user picks one (sidebar), see "Dark mode" below. */
 :root {
+  /* 'only light': when light is chosen (or the device is light), browsers that auto-darken pages leave it
+     alone; their guesses hid chart lines. Dark is our own theme (.dark below). */
   color-scheme: only light;
+  /* chart colours (dashboard.tsx C, insights.tsx PERSON_COLORS) */
+  --c-navy: #1e3a8a; --c-blue: #2563eb; --c-sky: #60a5fa; --c-light: #bfdbfe; --c-slate: #94a3b8; --c-teal: #0f766e; --c-ink: #334155;
   --radius: 0.5rem;
   --ground: #f2f4f7;
   --surface: #ffffff;
@@ -135,8 +139,10 @@
   --sidebar-ring: var(--data);
 }
 
-/* Dark values from the same design: shipped, NOT enabled (ThemeProvider forces light). */
+/* Dark values from the same design. */
 .dark {
+  color-scheme: dark;
+  --c-navy: #6f9ef0; --c-blue: #3b82f6; --c-sky: #93c5fd; --c-light: #1e3a5f; --c-slate: #64748b; --c-teal: #2dd4bf; --c-ink: #cbd5e1;
   --ground: #000000; --surface: #111111; --raised: #1a1a1a; --active: #222222; --rule: #1c1c1c; --control: #444444;
   --faint: #949494; --data: #6f9ef0; --data-soft: #1b2a42; --good: #3fc07a; --bad: #e5566f;
   --pill-pos-bg: #172a1d; --pill-pos-ink: #3fc07a; --pill-neg-bg: #2c1a20; --pill-neg-ink: #e5566f;
@@ -993,3 +999,186 @@ iframe {
 .landing-page .lp-tl-key::before { content: ''; position: absolute; inset: -6px; }
 .landing-page .lp-tl-key:hover, .landing-page .lp-tl-key[data-active] { opacity: 1; background: var(--lp-accent-2); }
 .landing-page .lp-tl-key:focus-visible { outline: 2px solid var(--lp-accent-2); outline-offset: 3px; }
+
+
+/* ─── Dark mode ──────────────────────────────────────────────────────────────
+   Most pages use Tailwind palette classes (bg-white, text-gray-700, bg-blue-50 …).
+   Tailwind 4 reads each one from a --color-* variable, so dark mode re-maps the
+   palette here instead of in ~2,800 class names:
+   - neutral scales (gray, slate, zinc, neutral, stone) are flipped;
+   - pale tints (50–300) become dark tints of the same hue, text shades (700–950)
+     become light; 400–600 (buttons, icons) stay as they are;
+   - bg-white and the hex classes of the V9 visit page map onto the theme tokens.
+   Unlayered on purpose, so it wins over Tailwind's utilities layer. */
+.dark {
+  --color-gray-50: #161616; --color-gray-100: #1d1d1d; --color-gray-200: #2a2a2a; --color-gray-300: #3a3a3a;
+  --color-gray-400: #6b6b6b; --color-gray-500: #9a9a9a; --color-gray-600: #b0b0b0; --color-gray-700: #cbcbcb;
+  --color-gray-800: #e2e2e2; --color-gray-900: #f2f2f2; --color-gray-950: #fafafa;
+  --color-slate-50: #141820; --color-slate-100: #1b2029; --color-slate-200: #262c37; --color-slate-300: #363e4b;
+  --color-slate-400: #66707f; --color-slate-500: #949eab; --color-slate-600: #aeb6c1; --color-slate-700: #c9d0d8;
+  --color-slate-800: #e1e6eb; --color-slate-900: #f1f4f7; --color-slate-950: #f8fafc;
+  --color-zinc-50: var(--color-gray-50); --color-zinc-100: var(--color-gray-100); --color-zinc-200: var(--color-gray-200);
+  --color-zinc-300: var(--color-gray-300); --color-zinc-500: var(--color-gray-500); --color-zinc-600: var(--color-gray-600);
+  --color-zinc-700: var(--color-gray-700); --color-zinc-800: var(--color-gray-800); --color-zinc-900: var(--color-gray-900);
+  --color-neutral-50: var(--color-gray-50); --color-neutral-100: var(--color-gray-100); --color-neutral-200: var(--color-gray-200);
+  --color-neutral-500: var(--color-gray-500); --color-neutral-600: var(--color-gray-600); --color-neutral-700: var(--color-gray-700);
+  --color-neutral-800: var(--color-gray-800); --color-neutral-900: var(--color-gray-900);
+  --color-stone-100: var(--color-gray-100); --color-stone-500: var(--color-gray-500); --color-stone-700: var(--color-gray-700);
+}
+/* Hue families: the original 400/500 kept as --tw-* (set on :root, read unchanged in dark). */
+:root {
+  --tw-red-400: var(--color-red-400); --tw-red-500: var(--color-red-500);
+  --tw-orange-400: var(--color-orange-400); --tw-orange-500: var(--color-orange-500);
+  --tw-amber-400: var(--color-amber-400); --tw-amber-500: var(--color-amber-500);
+  --tw-yellow-400: var(--color-yellow-400); --tw-yellow-500: var(--color-yellow-500);
+  --tw-lime-400: var(--color-lime-400); --tw-lime-500: var(--color-lime-500);
+  --tw-green-400: var(--color-green-400); --tw-green-500: var(--color-green-500);
+  --tw-emerald-400: var(--color-emerald-400); --tw-emerald-500: var(--color-emerald-500);
+  --tw-teal-400: var(--color-teal-400); --tw-teal-500: var(--color-teal-500);
+  --tw-cyan-400: var(--color-cyan-400); --tw-cyan-500: var(--color-cyan-500);
+  --tw-sky-400: var(--color-sky-400); --tw-sky-500: var(--color-sky-500);
+  --tw-blue-400: var(--color-blue-400); --tw-blue-500: var(--color-blue-500);
+  --tw-indigo-400: var(--color-indigo-400); --tw-indigo-500: var(--color-indigo-500);
+  --tw-violet-400: var(--color-violet-400); --tw-violet-500: var(--color-violet-500);
+  --tw-purple-400: var(--color-purple-400); --tw-purple-500: var(--color-purple-500);
+  --tw-fuchsia-400: var(--color-fuchsia-400); --tw-fuchsia-500: var(--color-fuchsia-500);
+  --tw-pink-400: var(--color-pink-400); --tw-pink-500: var(--color-pink-500);
+  --tw-rose-400: var(--color-rose-400); --tw-rose-500: var(--color-rose-500);
+}
+.dark {
+  --color-red-50: color-mix(in oklab, var(--tw-red-500) 12%, #111111); --color-red-100: color-mix(in oklab, var(--tw-red-500) 18%, #111111);
+  --color-red-200: color-mix(in oklab, var(--tw-red-500) 30%, #111111); --color-red-300: color-mix(in oklab, var(--tw-red-500) 48%, #111111);
+  --color-red-700: var(--tw-red-400); --color-red-800: color-mix(in oklab, var(--tw-red-400) 70%, #ffffff);
+  --color-red-900: color-mix(in oklab, var(--tw-red-400) 50%, #ffffff); --color-red-950: color-mix(in oklab, var(--tw-red-400) 35%, #ffffff);
+  --color-orange-50: color-mix(in oklab, var(--tw-orange-500) 12%, #111111); --color-orange-100: color-mix(in oklab, var(--tw-orange-500) 18%, #111111);
+  --color-orange-200: color-mix(in oklab, var(--tw-orange-500) 30%, #111111); --color-orange-300: color-mix(in oklab, var(--tw-orange-500) 48%, #111111);
+  --color-orange-700: var(--tw-orange-400); --color-orange-800: color-mix(in oklab, var(--tw-orange-400) 70%, #ffffff);
+  --color-orange-900: color-mix(in oklab, var(--tw-orange-400) 50%, #ffffff); --color-orange-950: color-mix(in oklab, var(--tw-orange-400) 35%, #ffffff);
+  --color-amber-50: color-mix(in oklab, var(--tw-amber-500) 12%, #111111); --color-amber-100: color-mix(in oklab, var(--tw-amber-500) 18%, #111111);
+  --color-amber-200: color-mix(in oklab, var(--tw-amber-500) 30%, #111111); --color-amber-300: color-mix(in oklab, var(--tw-amber-500) 48%, #111111);
+  --color-amber-700: var(--tw-amber-400); --color-amber-800: color-mix(in oklab, var(--tw-amber-400) 70%, #ffffff);
+  --color-amber-900: color-mix(in oklab, var(--tw-amber-400) 50%, #ffffff); --color-amber-950: color-mix(in oklab, var(--tw-amber-400) 35%, #ffffff);
+  --color-yellow-50: color-mix(in oklab, var(--tw-yellow-500) 12%, #111111); --color-yellow-100: color-mix(in oklab, var(--tw-yellow-500) 18%, #111111);
+  --color-yellow-200: color-mix(in oklab, var(--tw-yellow-500) 30%, #111111); --color-yellow-300: color-mix(in oklab, var(--tw-yellow-500) 48%, #111111);
+  --color-yellow-700: var(--tw-yellow-400); --color-yellow-800: color-mix(in oklab, var(--tw-yellow-400) 70%, #ffffff);
+  --color-yellow-900: color-mix(in oklab, var(--tw-yellow-400) 50%, #ffffff); --color-yellow-950: color-mix(in oklab, var(--tw-yellow-400) 35%, #ffffff);
+  --color-lime-50: color-mix(in oklab, var(--tw-lime-500) 12%, #111111); --color-lime-100: color-mix(in oklab, var(--tw-lime-500) 18%, #111111);
+  --color-lime-200: color-mix(in oklab, var(--tw-lime-500) 30%, #111111); --color-lime-300: color-mix(in oklab, var(--tw-lime-500) 48%, #111111);
+  --color-lime-700: var(--tw-lime-400); --color-lime-800: color-mix(in oklab, var(--tw-lime-400) 70%, #ffffff);
+  --color-lime-900: color-mix(in oklab, var(--tw-lime-400) 50%, #ffffff); --color-lime-950: color-mix(in oklab, var(--tw-lime-400) 35%, #ffffff);
+  --color-green-50: color-mix(in oklab, var(--tw-green-500) 12%, #111111); --color-green-100: color-mix(in oklab, var(--tw-green-500) 18%, #111111);
+  --color-green-200: color-mix(in oklab, var(--tw-green-500) 30%, #111111); --color-green-300: color-mix(in oklab, var(--tw-green-500) 48%, #111111);
+  --color-green-700: var(--tw-green-400); --color-green-800: color-mix(in oklab, var(--tw-green-400) 70%, #ffffff);
+  --color-green-900: color-mix(in oklab, var(--tw-green-400) 50%, #ffffff); --color-green-950: color-mix(in oklab, var(--tw-green-400) 35%, #ffffff);
+  --color-emerald-50: color-mix(in oklab, var(--tw-emerald-500) 12%, #111111); --color-emerald-100: color-mix(in oklab, var(--tw-emerald-500) 18%, #111111);
+  --color-emerald-200: color-mix(in oklab, var(--tw-emerald-500) 30%, #111111); --color-emerald-300: color-mix(in oklab, var(--tw-emerald-500) 48%, #111111);
+  --color-emerald-700: var(--tw-emerald-400); --color-emerald-800: color-mix(in oklab, var(--tw-emerald-400) 70%, #ffffff);
+  --color-emerald-900: color-mix(in oklab, var(--tw-emerald-400) 50%, #ffffff); --color-emerald-950: color-mix(in oklab, var(--tw-emerald-400) 35%, #ffffff);
+  --color-teal-50: color-mix(in oklab, var(--tw-teal-500) 12%, #111111); --color-teal-100: color-mix(in oklab, var(--tw-teal-500) 18%, #111111);
+  --color-teal-200: color-mix(in oklab, var(--tw-teal-500) 30%, #111111); --color-teal-300: color-mix(in oklab, var(--tw-teal-500) 48%, #111111);
+  --color-teal-700: var(--tw-teal-400); --color-teal-800: color-mix(in oklab, var(--tw-teal-400) 70%, #ffffff);
+  --color-teal-900: color-mix(in oklab, var(--tw-teal-400) 50%, #ffffff); --color-teal-950: color-mix(in oklab, var(--tw-teal-400) 35%, #ffffff);
+  --color-cyan-50: color-mix(in oklab, var(--tw-cyan-500) 12%, #111111); --color-cyan-100: color-mix(in oklab, var(--tw-cyan-500) 18%, #111111);
+  --color-cyan-200: color-mix(in oklab, var(--tw-cyan-500) 30%, #111111); --color-cyan-300: color-mix(in oklab, var(--tw-cyan-500) 48%, #111111);
+  --color-cyan-700: var(--tw-cyan-400); --color-cyan-800: color-mix(in oklab, var(--tw-cyan-400) 70%, #ffffff);
+  --color-cyan-900: color-mix(in oklab, var(--tw-cyan-400) 50%, #ffffff); --color-cyan-950: color-mix(in oklab, var(--tw-cyan-400) 35%, #ffffff);
+  --color-sky-50: color-mix(in oklab, var(--tw-sky-500) 12%, #111111); --color-sky-100: color-mix(in oklab, var(--tw-sky-500) 18%, #111111);
+  --color-sky-200: color-mix(in oklab, var(--tw-sky-500) 30%, #111111); --color-sky-300: color-mix(in oklab, var(--tw-sky-500) 48%, #111111);
+  --color-sky-700: var(--tw-sky-400); --color-sky-800: color-mix(in oklab, var(--tw-sky-400) 70%, #ffffff);
+  --color-sky-900: color-mix(in oklab, var(--tw-sky-400) 50%, #ffffff); --color-sky-950: color-mix(in oklab, var(--tw-sky-400) 35%, #ffffff);
+  --color-blue-50: color-mix(in oklab, var(--tw-blue-500) 12%, #111111); --color-blue-100: color-mix(in oklab, var(--tw-blue-500) 18%, #111111);
+  --color-blue-200: color-mix(in oklab, var(--tw-blue-500) 30%, #111111); --color-blue-300: color-mix(in oklab, var(--tw-blue-500) 48%, #111111);
+  --color-blue-700: var(--tw-blue-400); --color-blue-800: color-mix(in oklab, var(--tw-blue-400) 70%, #ffffff);
+  --color-blue-900: color-mix(in oklab, var(--tw-blue-400) 50%, #ffffff); --color-blue-950: color-mix(in oklab, var(--tw-blue-400) 35%, #ffffff);
+  --color-indigo-50: color-mix(in oklab, var(--tw-indigo-500) 12%, #111111); --color-indigo-100: color-mix(in oklab, var(--tw-indigo-500) 18%, #111111);
+  --color-indigo-200: color-mix(in oklab, var(--tw-indigo-500) 30%, #111111); --color-indigo-300: color-mix(in oklab, var(--tw-indigo-500) 48%, #111111);
+  --color-indigo-700: var(--tw-indigo-400); --color-indigo-800: color-mix(in oklab, var(--tw-indigo-400) 70%, #ffffff);
+  --color-indigo-900: color-mix(in oklab, var(--tw-indigo-400) 50%, #ffffff); --color-indigo-950: color-mix(in oklab, var(--tw-indigo-400) 35%, #ffffff);
+  --color-violet-50: color-mix(in oklab, var(--tw-violet-500) 12%, #111111); --color-violet-100: color-mix(in oklab, var(--tw-violet-500) 18%, #111111);
+  --color-violet-200: color-mix(in oklab, var(--tw-violet-500) 30%, #111111); --color-violet-300: color-mix(in oklab, var(--tw-violet-500) 48%, #111111);
+  --color-violet-700: var(--tw-violet-400); --color-violet-800: color-mix(in oklab, var(--tw-violet-400) 70%, #ffffff);
+  --color-violet-900: color-mix(in oklab, var(--tw-violet-400) 50%, #ffffff); --color-violet-950: color-mix(in oklab, var(--tw-violet-400) 35%, #ffffff);
+  --color-purple-50: color-mix(in oklab, var(--tw-purple-500) 12%, #111111); --color-purple-100: color-mix(in oklab, var(--tw-purple-500) 18%, #111111);
+  --color-purple-200: color-mix(in oklab, var(--tw-purple-500) 30%, #111111); --color-purple-300: color-mix(in oklab, var(--tw-purple-500) 48%, #111111);
+  --color-purple-700: var(--tw-purple-400); --color-purple-800: color-mix(in oklab, var(--tw-purple-400) 70%, #ffffff);
+  --color-purple-900: color-mix(in oklab, var(--tw-purple-400) 50%, #ffffff); --color-purple-950: color-mix(in oklab, var(--tw-purple-400) 35%, #ffffff);
+  --color-fuchsia-50: color-mix(in oklab, var(--tw-fuchsia-500) 12%, #111111); --color-fuchsia-100: color-mix(in oklab, var(--tw-fuchsia-500) 18%, #111111);
+  --color-fuchsia-200: color-mix(in oklab, var(--tw-fuchsia-500) 30%, #111111); --color-fuchsia-300: color-mix(in oklab, var(--tw-fuchsia-500) 48%, #111111);
+  --color-fuchsia-700: var(--tw-fuchsia-400); --color-fuchsia-800: color-mix(in oklab, var(--tw-fuchsia-400) 70%, #ffffff);
+  --color-fuchsia-900: color-mix(in oklab, var(--tw-fuchsia-400) 50%, #ffffff); --color-fuchsia-950: color-mix(in oklab, var(--tw-fuchsia-400) 35%, #ffffff);
+  --color-pink-50: color-mix(in oklab, var(--tw-pink-500) 12%, #111111); --color-pink-100: color-mix(in oklab, var(--tw-pink-500) 18%, #111111);
+  --color-pink-200: color-mix(in oklab, var(--tw-pink-500) 30%, #111111); --color-pink-300: color-mix(in oklab, var(--tw-pink-500) 48%, #111111);
+  --color-pink-700: var(--tw-pink-400); --color-pink-800: color-mix(in oklab, var(--tw-pink-400) 70%, #ffffff);
+  --color-pink-900: color-mix(in oklab, var(--tw-pink-400) 50%, #ffffff); --color-pink-950: color-mix(in oklab, var(--tw-pink-400) 35%, #ffffff);
+  --color-rose-50: color-mix(in oklab, var(--tw-rose-500) 12%, #111111); --color-rose-100: color-mix(in oklab, var(--tw-rose-500) 18%, #111111);
+  --color-rose-200: color-mix(in oklab, var(--tw-rose-500) 30%, #111111); --color-rose-300: color-mix(in oklab, var(--tw-rose-500) 48%, #111111);
+  --color-rose-700: var(--tw-rose-400); --color-rose-800: color-mix(in oklab, var(--tw-rose-400) 70%, #ffffff);
+  --color-rose-900: color-mix(in oklab, var(--tw-rose-400) 50%, #ffffff); --color-rose-950: color-mix(in oklab, var(--tw-rose-400) 35%, #ffffff);
+}
+/* Hex classes (V9 visit page / queue) onto dark values: generated by scripts/gen-dark-hex.py from every hex class in src (re-run after adding one). */
+.dark .bg-\[\#111418\] { background-color: var(--data); }
+.dark .bg-\[\#59616c\] { background-color: var(--active); }
+.dark .bg-\[\#8a9099\] { background-color: var(--active); }
+.dark .bg-\[\#F5F6FF\] { background-color: color-mix(in oklab, #F5F6FF 14%, var(--surface)); }
+.dark .bg-\[\#c3c8cf\] { background-color: color-mix(in oklab, #c3c8cf 35%, var(--surface)); }
+.dark .bg-\[\#c3cad4\] { background-color: color-mix(in oklab, #c3cad4 35%, var(--surface)); }
+.dark .bg-\[\#e6e9ee\] { background-color: color-mix(in oklab, #e6e9ee 6%, var(--surface)); }
+.dark .bg-\[\#e8effb\] { background-color: color-mix(in oklab, #e8effb 14%, var(--surface)); }
+.dark .bg-\[\#eef0f3\] { background-color: color-mix(in oklab, #eef0f3 6%, var(--surface)); }
+.dark .bg-\[\#eef3fb\] { background-color: color-mix(in oklab, #eef3fb 14%, var(--surface)); }
+.dark .bg-\[\#f3f4f6\] { background-color: color-mix(in oklab, #f3f4f6 6%, var(--surface)); }
+.dark .bg-\[\#f6f8fb\] { background-color: color-mix(in oklab, #f6f8fb 14%, var(--surface)); }
+.dark .bg-\[\#f9fafb\] { background-color: color-mix(in oklab, #f9fafb 6%, var(--surface)); }
+.dark .bg-\[\#ffe9a8\] { background-color: color-mix(in oklab, #ffe9a8 14%, var(--surface)); }
+.dark .bg-\[\#ffedea\] { background-color: color-mix(in oklab, #ffedea 14%, var(--surface)); }
+.dark .bg-\[\#fff3d6\] { background-color: color-mix(in oklab, #fff3d6 14%, var(--surface)); }
+.dark .bg-\[\#fff4d6\] { background-color: color-mix(in oklab, #fff4d6 14%, var(--surface)); }
+.dark .border-\[\#111418\] { border-color: var(--muted-foreground); }
+.dark .border-\[\#DFE3F5\] { border-color: color-mix(in oklab, #DFE3F5 40%, var(--surface)); }
+.dark .border-\[\#d9dee5\] { border-color: var(--border); }
+.dark .border-\[\#e3e7ec\] { border-color: var(--border); }
+.dark .border-\[\#eef0f3\] { border-color: var(--border); }
+.dark .decoration-\[\#c0392b\] { text-decoration-color: color-mix(in oklab, #c0392b 60%, #ffffff); }
+.dark .divide-\[\#eef0f3\] > :not(:last-child) { border-color: var(--border); }
+.dark .outline-\[\#d9dee5\] { outline-color: var(--border); }
+.dark .text-\[\#0B1020\] { color: color-mix(in oklab, #0B1020 45%, #ffffff); }
+.dark .text-\[\#111418\] { color: var(--foreground); }
+.dark .text-\[\#111827\] { color: color-mix(in oklab, #111827 45%, #ffffff); }
+.dark .text-\[\#1d5fbf\] { color: color-mix(in oklab, #1d5fbf 60%, #ffffff); }
+.dark .text-\[\#247b50\] { color: color-mix(in oklab, #247b50 60%, #ffffff); }
+.dark .text-\[\#374151\] { color: var(--foreground); }
+.dark .text-\[\#3a414a\] { color: var(--foreground); }
+.dark .text-\[\#3d4450\] { color: var(--foreground); }
+.dark .text-\[\#59616c\] { color: var(--foreground); }
+.dark .text-\[\#6b7280\] { color: var(--muted-foreground); }
+.dark .text-\[\#7a4d00\] { color: color-mix(in oklab, #7a4d00 45%, #ffffff); }
+.dark .text-\[\#831c1e\] { color: color-mix(in oklab, #831c1e 45%, #ffffff); }
+.dark .text-\[\#8a4b00\] { color: color-mix(in oklab, #8a4b00 45%, #ffffff); }
+.dark .text-\[\#a35a00\] { color: color-mix(in oklab, #a35a00 60%, #ffffff); }
+.dark .text-\[\#b42318\] { color: color-mix(in oklab, #b42318 45%, #ffffff); }
+.dark .hover\:bg-\[\#2a2f36\]:hover { background-color: var(--data); }
+.dark .hover\:bg-\[\#eef2f8\]:hover { background-color: color-mix(in oklab, #eef2f8 14%, var(--surface)); }
+.dark .hover\:text-\[\#111418\]:hover { color: var(--foreground); }
+.dark .bg-white, .dark .hover\:bg-white:hover { background-color: var(--surface); }
+.dark [class*="bg-white/"] { background-color: color-mix(in oklab, var(--surface) 85%, transparent); }
+.dark .text-black { color: var(--foreground); }
+.dark .border-white { border-color: var(--border); }
+/* Backgrounds in 700–950 are buttons / chips with white text: they stay dark and saturated (only the text
+   shades above get lighter). One rule per hue so the colour is kept. */
+.dark .bg-red-700, .dark .bg-red-800, .dark .bg-red-900, .dark .bg-red-950, .dark .hover\:bg-red-700:hover, .dark .hover\:bg-red-800:hover, .dark .hover\:bg-red-900:hover, .dark .hover\:bg-red-950:hover { background-color: color-mix(in oklab, var(--tw-red-500) 70%, #000000); }
+.dark .bg-orange-700, .dark .bg-orange-800, .dark .bg-orange-900, .dark .bg-orange-950, .dark .hover\:bg-orange-700:hover, .dark .hover\:bg-orange-800:hover, .dark .hover\:bg-orange-900:hover, .dark .hover\:bg-orange-950:hover { background-color: color-mix(in oklab, var(--tw-orange-500) 70%, #000000); }
+.dark .bg-amber-700, .dark .bg-amber-800, .dark .bg-amber-900, .dark .bg-amber-950, .dark .hover\:bg-amber-700:hover, .dark .hover\:bg-amber-800:hover, .dark .hover\:bg-amber-900:hover, .dark .hover\:bg-amber-950:hover { background-color: color-mix(in oklab, var(--tw-amber-500) 70%, #000000); }
+.dark .bg-yellow-700, .dark .bg-yellow-800, .dark .bg-yellow-900, .dark .bg-yellow-950, .dark .hover\:bg-yellow-700:hover, .dark .hover\:bg-yellow-800:hover, .dark .hover\:bg-yellow-900:hover, .dark .hover\:bg-yellow-950:hover { background-color: color-mix(in oklab, var(--tw-yellow-500) 70%, #000000); }
+.dark .bg-lime-700, .dark .bg-lime-800, .dark .bg-lime-900, .dark .bg-lime-950, .dark .hover\:bg-lime-700:hover, .dark .hover\:bg-lime-800:hover, .dark .hover\:bg-lime-900:hover, .dark .hover\:bg-lime-950:hover { background-color: color-mix(in oklab, var(--tw-lime-500) 70%, #000000); }
+.dark .bg-green-700, .dark .bg-green-800, .dark .bg-green-900, .dark .bg-green-950, .dark .hover\:bg-green-700:hover, .dark .hover\:bg-green-800:hover, .dark .hover\:bg-green-900:hover, .dark .hover\:bg-green-950:hover { background-color: color-mix(in oklab, var(--tw-green-500) 70%, #000000); }
+.dark .bg-emerald-700, .dark .bg-emerald-800, .dark .bg-emerald-900, .dark .bg-emerald-950, .dark .hover\:bg-emerald-700:hover, .dark .hover\:bg-emerald-800:hover, .dark .hover\:bg-emerald-900:hover, .dark .hover\:bg-emerald-950:hover { background-color: color-mix(in oklab, var(--tw-emerald-500) 70%, #000000); }
+.dark .bg-teal-700, .dark .bg-teal-800, .dark .bg-teal-900, .dark .bg-teal-950, .dark .hover\:bg-teal-700:hover, .dark .hover\:bg-teal-800:hover, .dark .hover\:bg-teal-900:hover, .dark .hover\:bg-teal-950:hover { background-color: color-mix(in oklab, var(--tw-teal-500) 70%, #000000); }
+.dark .bg-cyan-700, .dark .bg-cyan-800, .dark .bg-cyan-900, .dark .bg-cyan-950, .dark .hover\:bg-cyan-700:hover, .dark .hover\:bg-cyan-800:hover, .dark .hover\:bg-cyan-900:hover, .dark .hover\:bg-cyan-950:hover { background-color: color-mix(in oklab, var(--tw-cyan-500) 70%, #000000); }
+.dark .bg-sky-700, .dark .bg-sky-800, .dark .bg-sky-900, .dark .bg-sky-950, .dark .hover\:bg-sky-700:hover, .dark .hover\:bg-sky-800:hover, .dark .hover\:bg-sky-900:hover, .dark .hover\:bg-sky-950:hover { background-color: color-mix(in oklab, var(--tw-sky-500) 70%, #000000); }
+.dark .bg-blue-700, .dark .bg-blue-800, .dark .bg-blue-900, .dark .bg-blue-950, .dark .hover\:bg-blue-700:hover, .dark .hover\:bg-blue-800:hover, .dark .hover\:bg-blue-900:hover, .dark .hover\:bg-blue-950:hover { background-color: color-mix(in oklab, var(--tw-blue-500) 70%, #000000); }
+.dark .bg-indigo-700, .dark .bg-indigo-800, .dark .bg-indigo-900, .dark .bg-indigo-950, .dark .hover\:bg-indigo-700:hover, .dark .hover\:bg-indigo-800:hover, .dark .hover\:bg-indigo-900:hover, .dark .hover\:bg-indigo-950:hover { background-color: color-mix(in oklab, var(--tw-indigo-500) 70%, #000000); }
+.dark .bg-violet-700, .dark .bg-violet-800, .dark .bg-violet-900, .dark .bg-violet-950, .dark .hover\:bg-violet-700:hover, .dark .hover\:bg-violet-800:hover, .dark .hover\:bg-violet-900:hover, .dark .hover\:bg-violet-950:hover { background-color: color-mix(in oklab, var(--tw-violet-500) 70%, #000000); }
+.dark .bg-purple-700, .dark .bg-purple-800, .dark .bg-purple-900, .dark .bg-purple-950, .dark .hover\:bg-purple-700:hover, .dark .hover\:bg-purple-800:hover, .dark .hover\:bg-purple-900:hover, .dark .hover\:bg-purple-950:hover { background-color: color-mix(in oklab, var(--tw-purple-500) 70%, #000000); }
+.dark .bg-fuchsia-700, .dark .bg-fuchsia-800, .dark .bg-fuchsia-900, .dark .bg-fuchsia-950, .dark .hover\:bg-fuchsia-700:hover, .dark .hover\:bg-fuchsia-800:hover, .dark .hover\:bg-fuchsia-900:hover, .dark .hover\:bg-fuchsia-950:hover { background-color: color-mix(in oklab, var(--tw-fuchsia-500) 70%, #000000); }
+.dark .bg-pink-700, .dark .bg-pink-800, .dark .bg-pink-900, .dark .bg-pink-950, .dark .hover\:bg-pink-700:hover, .dark .hover\:bg-pink-800:hover, .dark .hover\:bg-pink-900:hover, .dark .hover\:bg-pink-950:hover { background-color: color-mix(in oklab, var(--tw-pink-500) 70%, #000000); }
+.dark .bg-rose-700, .dark .bg-rose-800, .dark .bg-rose-900, .dark .bg-rose-950, .dark .hover\:bg-rose-700:hover, .dark .hover\:bg-rose-800:hover, .dark .hover\:bg-rose-900:hover, .dark .hover\:bg-rose-950:hover { background-color: color-mix(in oklab, var(--tw-rose-500) 70%, #000000); }

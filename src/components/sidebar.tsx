@@ -32,6 +32,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Brand } from '@/components/brand';
+import { ThemeSwitch } from '@/components/theme-switch';
 
 function timeAgo(dateStr: string): string {
   const now = new Date();
@@ -197,7 +198,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
           )}
         >
           <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-            <User className="h-5 w-5 text-white" />
+            <User className="h-5 w-5 text-primary-foreground" />
           </div>
           {!effectiveCollapsed && (
             <div className="flex-1 min-w-0">
@@ -535,6 +536,7 @@ export function Sidebar({ className, forceCollapsed = false }: SidebarProps) {
 
       {/* Footer Actions */}
       <div className="p-4 border-t border-gray-100 space-y-2">
+        <ThemeSwitch compact={effectiveCollapsed} />
         <Button
           onClick={logout}
           variant="ghost"

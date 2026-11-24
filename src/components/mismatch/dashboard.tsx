@@ -26,7 +26,8 @@ import { barTop, FloatingTip, inSection, RechartsTip, useFloatingTip } from './c
 import { countTip, partsTip, tipLabel } from '@/lib/chart-tooltip';
 
 // White / blue / navy palette.
-const C = { navy: '#1e3a8a', blue: '#2563eb', sky: '#60a5fa', light: '#bfdbfe', slate: '#94a3b8', faint: '#e2e8f0' };
+// Theme variables (globals.css), so the charts follow light / dark.
+const C = { navy: 'var(--c-navy)', blue: 'var(--c-blue)', sky: 'var(--c-sky)', light: 'var(--c-light)', slate: 'var(--c-slate)', faint: 'var(--grid)' };
 
 // ---------- period presets (IST calendar; B2: built by the pure presetRange) ----------
 const ymd = (d: Date) => d.toISOString().slice(0, 10);

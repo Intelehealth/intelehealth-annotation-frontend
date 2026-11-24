@@ -12,15 +12,15 @@ export const metadata: Metadata = {
     shortcut: '/favicon.ico?v=2',
     apple: '/favicon.ico?v=2',
   },
-  // The site is light-only (forcedTheme below); ask dark-mode extensions not to recolour it.
+  // The site has its own dark mode; ask dark-mode extensions not to recolour it on top.
   other: { 'darkreader-lock': '' },
 };
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  // Stops the browser's automatic dark mode from guessing colours (it hid chart lines and legend dots).
-  colorScheme: 'only light' as const,
+  // Light and dark are both supported (globals.css), so the browser does not auto-darken the page.
+  colorScheme: 'light dark' as const,
 };
 
 export default function RootLayout({
@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <ThemeProvider attribute="class" defaultTheme="light" forcedTheme="light" enableSystem={false} disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem enableColorScheme={false} disableTransitionOnChange>
           <AuthProvider>
             <ToastProvider>{children}</ToastProvider>
           </AuthProvider>

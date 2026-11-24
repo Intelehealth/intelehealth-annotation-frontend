@@ -16,7 +16,8 @@ import { rate, TableSearch, useRowFilter } from './shared';
 import { RechartsTip } from './chart-tip';
 import { countTip } from '@/lib/chart-tooltip';
 
-const PERSON_COLORS = ['#1e3a8a', '#2563eb', '#60a5fa', '#0f766e', '#64748b', '#93c5fd', '#334155'];
+// Theme variables (globals.css), so the bars stay visible in dark mode.
+const PERSON_COLORS = ['var(--c-navy)', 'var(--c-blue)', 'var(--c-sky)', 'var(--c-teal)', 'var(--c-slate)', 'var(--c-light)', 'var(--c-ink)'];
 const VERDICT_SHORT: Record<string, string> = {
   ai_correct: 'AI right', doctor_correct: 'Doctor right', both_acceptable: 'Both OK', neither: 'Neither', insufficient: 'Too thin',
 };
@@ -133,7 +134,7 @@ export function DoctorProgress({ p, personHref }: {
           <div className="h-56 px-2 py-3">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={p.daily.map((d) => ({ ...d, date: String(d.date).slice(5) }))} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--grid)" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                 <Tooltip cursor={{ fill: 'var(--raised)' }} isAnimationActive={false} wrapperStyle={{ outline: 'none' }}
