@@ -215,7 +215,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
           {tab === 'doctors' && <DoctorsTab data={data} />}
           {tab === 'tat' && <TatTab data={data} />}
           {tab === 'orders' && <OrdersTab data={data} />}
-          {tab === 'annotation' && !viewer && <AnnotationTab data={data} />}
+          {tab === 'annotation' && !viewer && <AnnotationTab data={data} queueHref={queueHref} />}
         </div>
       )}
     </div>
@@ -766,7 +766,7 @@ function OrdersTab({ data }: { data: DashboardData }) {
 }
 
 // ---------- Annotation ----------
-function AnnotationTab({ data }: { data: DashboardData }) {
+function AnnotationTab({ data, queueHref }: { data: DashboardData; queueHref?: (extra: Record<string, string>) => string }) {
   const s = data.summary;
   const mismatched = s.mismatch.ddx + s.mismatch.ttx + s.mismatch.both;
   // Review status is over the mismatches in the workspace queue (follow-up-only visits are not in it).
@@ -780,7 +780,7 @@ function AnnotationTab({ data }: { data: DashboardData }) {
         <Stat label="To review" n={s.review.pending} of={queued} ofLabel="mismatches in the queue" />
         <Stat label="Discussed with clinical team" n={s.review.discussed ?? 0} of={s.review.done} ofLabel="annotated" />
       </div>
-      <DoctorProgress p={data.progress} />
+      <DoctorProgress p={data.progress} personHref={queueHref ? (id) => queueHref({ reviewer: id, range: 'all', from: '', to: '' }) : undefined} />
       <div className="grid gap-5 lg:grid-cols-2">
         <Section title="Mismatch type" description="All visits · follow-ups included">
           <RankedList items={[

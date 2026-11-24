@@ -186,7 +186,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
         : k === 'age' ? `Age ${label(AGES, String(v))}`
         : k === 'dx' ? `Diagnosis: “${v}”`
         : k === 'med' ? `Medicine: “${v}”`
-        : k === 'reviewer' ? `Reviewer: ${facets?.reviewers.find((r) => r._id === v)?.name ?? '…'}`
+        : k === 'reviewer' ? `Annotated by: ${facets?.reviewers.find((r) => r._id === v)?.name ?? '…'}`
         : k === 'verdict' ? `Verdict: ${label(VERDICTS, String(v))}`
         : k === 'followUp' ? RED_FLAG_LABEL
         : k === 'range' ? 'All dates'
@@ -287,6 +287,12 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
               </div>
             )}
           </div>
+          {/* #23: whoever saved a review on the visit (draft or final), on every tab. */}
+          <select aria-label="Annotated by" value={q.reviewer ?? ''} onChange={(e) => set({ reviewer: e.target.value || undefined })}
+            className={cn('h-7 rounded-full border px-2 text-xs font-medium', q.reviewer ? 'border-indigo-600 bg-indigo-600 text-white' : 'bg-transparent')}>
+            <option value="">Annotated by: anyone</option>
+            {(facets?.reviewers ?? []).map((r) => <option key={r._id} value={r._id}>Annotated by: {r.name}</option>)}
+          </select>
           <button onClick={() => set({ followUp: flagOn ? undefined : '1' })} aria-pressed={flagOn}
             className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium', flagOn ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-300 text-rose-700 hover:bg-rose-50')}>
             <Flag className="h-3.5 w-3.5" />{RED_FLAG_LABEL}
@@ -338,11 +344,6 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
               <Labeled label="Age"><Select opts={AGES} value={q.age} onChange={(v) => set({ age: v })} /></Labeled>
             </div>
             {tab === 'todo' && <Labeled label="Review status"><Select opts={STATUS} value={q.status} onChange={(v) => set({ status: v })} /></Labeled>}
-            {tab !== 'todo' && (
-              <Labeled label="Reviewed by">
-                <Select opts={[{ value: '', label: 'Anyone' }, ...(facets?.reviewers ?? []).map((r) => ({ value: r._id, label: r.name }))]} value={q.reviewer} onChange={(v) => set({ reviewer: v })} />
-              </Labeled>
-            )}
             {tab !== 'todo' && <Labeled label="Reviewer verdict"><Select opts={VERDICTS} value={q.verdict} onChange={(v) => set({ verdict: v })} /></Labeled>}
             {tab !== 'todo' && <Labeled label="Discussed with clinical team"><Select opts={DISCUSSED} value={q.discussed} onChange={(v) => set({ discussed: v })} /></Labeled>}
             <Labeled label="Sort"><Select opts={SORTS} value={q.sort} onChange={(v) => set({ sort: v || 'missed' })} /></Labeled>
