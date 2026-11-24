@@ -1,10 +1,12 @@
 'use client';
 
 /**
- * #23 Notes & daily summary for one mismatch workspace.
- *   Left:  MedGemma summary of what reviewers wrote (daily / 7 days / 30 days). Every line cites the visits it
- *          comes from; counts are computed by the server, not the model; lines can be marked wrong.
- *   Right: notes annotators / reviewers write themselves (author + day; only the author edits).
+ * #23 Notes & daily summary for one mismatch workspace, PER PERSON.
+ *   Left:  MedGemma summary of what THIS person wrote in their reviews and scratchpad (daily / 7 / 30 days).
+ *          Every line cites the visits (or the person's own notes) it comes from; counts are computed by the
+ *          server, not the model; lines can be marked wrong.
+ *   Right: the person's scratchpad: their notes go into their next summary (nightly or Build now).
+ *   Everyone sees and builds their own; admins pick any annotator and see / build theirs.
  */
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -39,18 +41,22 @@ export default function NotesPage() {
   const [error, setError] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
   const [buildDay, setBuildDay] = useState(istToday());
+  // Admins: whose reports / notes are shown ('' = me).
+  const [person, setPerson] = useState('');
 
   useEffect(() => {
     mismatchAPI.overview(id).then((o) => { setAcl(o.access ?? null); setName(o.workspace.name); }).catch((e) => setError(friendlyError(e, 'Could not open the workspace')));
   }, [id]);
-  const loadReports = useCallback(() => mismatchAPI.reports(id, win).then(setReports).catch((e) => setError(friendlyError(e, 'Could not load the summaries'))), [id, win]);
-  const loadNotes = useCallback(() => mismatchAPI.notes(id).then(setNotes).catch((e) => setError(friendlyError(e, 'Could not load the notes'))), [id]);
+  const loadReports = useCallback(() => mismatchAPI.reports(id, win, person || undefined).then(setReports).catch((e) => setError(friendlyError(e, 'Could not load the summaries'))), [id, win, person]);
+  const loadNotes = useCallback(() => mismatchAPI.notes(id, person || undefined).then(setNotes).catch((e) => setError(friendlyError(e, 'Could not load the notes'))), [id, person]);
+  const viewing = reports?.person;
+  const own = !viewing || viewing.id === reports?.me;
   useEffect(() => { void loadReports(); }, [loadReports]);
   useEffect(() => { void loadNotes(); }, [loadNotes]);
 
   const build = async () => {
     setBuilding(true); setError(null);
-    try { await mismatchAPI.generateReport(id, win, buildDay); await loadReports(); }
+    try { await mismatchAPI.generateReport(id, win, buildDay, person || undefined); await loadReports(); }
     catch (e) { setError(friendlyError(e, 'Could not build the summary')); }
     finally { setBuilding(false); }
   };
@@ -58,19 +64,27 @@ export default function NotesPage() {
   return (
     <Shell wide>
       <Link href={`/workspaces/${id}/mismatch`} className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="mr-1 h-4 w-4" /> {name || 'Workspace'}</Link>
-      <h1 className="text-xl font-semibold">Notes &amp; daily summary</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-xl font-semibold">Notes &amp; daily summary</h1>
+        {reports?.canSeeAll && (
+          <select aria-label="Annotator" value={person || reports.me} onChange={(e) => setPerson(e.target.value === reports.me ? '' : e.target.value)}
+            className="h-8 rounded-full border border-indigo-600 bg-indigo-600 px-3 text-sm font-medium text-white">
+            {reports.people.map((p) => <option key={p.id} value={p.id}>{p.id === reports.me ? `${p.name} (me)` : p.name}</option>)}
+          </select>
+        )}
+      </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <section className="rounded-lg border bg-card" aria-label="Summary of review comments">
           <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-            <h2 className="mr-auto text-base font-semibold">Summary of review comments</h2>
+            <h2 className="mr-auto text-base font-semibold">{own ? 'Your review summary' : `${viewing?.name}'s review summary`}</h2>
             <div className="inline-flex rounded-lg border bg-muted/40 p-0.5" role="group" aria-label="Window">
               {WINS.map((w) => (
                 <button key={w.key} onClick={() => setWin(w.key)} aria-pressed={win === w.key}
                   className={cn('rounded-md px-3 py-1 text-sm', win === w.key ? 'bg-indigo-600 font-medium text-white' : 'text-muted-foreground hover:text-foreground')}>{w.label}</button>
               ))}
             </div>
-            {acl?.canSync && reports?.configured && (
+            {reports?.configured && (own || acl?.canSync) && (
               <div className="flex items-center gap-1.5">
                 <input type="date" aria-label="Day" className="h-8 rounded-md border bg-background px-2 text-xs" value={buildDay} max={istToday()} onChange={(e) => setBuildDay(e.target.value || istToday())} />
                 <Button size="sm" variant="outline" disabled={building} onClick={build}>
@@ -86,7 +100,7 @@ export default function NotesPage() {
               : reports.reports.map((r, i) => <Report key={r._id} r={r} open={i === 0} workspaceId={id} uuidOf={reports.uuidOf} onChange={loadReports} />)}
           </div>
         </section>
-        <Notes workspaceId={id} notes={notes} onChange={loadNotes} />
+        <Notes workspaceId={id} notes={notes} onChange={loadNotes} own={own} name={viewing?.name} />
       </div>
     </Shell>
   );
@@ -102,7 +116,7 @@ function Report({ r, open, workspaceId, uuidOf, onChange }: { r: ReviewReport; o
     <article className="rounded-lg border">
       <button onClick={() => setShow((s) => !s)} aria-expanded={show} className="flex w-full flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 text-left">
         <span className="font-semibold">{period}</span>
-        {c && <span className="text-xs text-muted-foreground" data-counts>{c.reviews} reviews on {c.visits} visits · {c.flagged} flagged · {c.byPerson.map((p) => `${p.name} ${p.reviews}`).join(', ')}</span>}
+        {c && <span className="text-xs text-muted-foreground" data-counts>{c.reviews} reviews on {c.visits} visits · {c.flagged} flagged{c.notes ? ` · ${c.notes} scratchpad note${c.notes === 1 ? '' : 's'}` : ''}</span>}
         <span className={cn('ml-auto rounded px-1.5 py-0.5 text-[11px] font-medium',
           r.status === 'ok' ? 'bg-emerald-100 text-emerald-800' : r.status === 'error' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700')}>
           {r.status === 'ok' ? 'Summary' : r.status === 'insufficient' ? 'Not enough comments' : r.status === 'running' ? 'Building…' : 'Not built'}
@@ -127,7 +141,9 @@ function Report({ r, open, workspaceId, uuidOf, onChange }: { r: ReviewReport; o
                       </button>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1 text-xs">
-                      {l.visitIds.map((v) => uuidOf[v]
+                      {l.visitIds.map((v) => /^N[0-9a-f]{6}$/.test(v)
+                        ? <span key={v} className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-900">Scratchpad note</span>
+                        : uuidOf[v]
                         ? <Link key={v} href={`/workspaces/${workspaceId}/mismatch/${uuidOf[v]}`} className="rounded bg-muted px-1.5 py-0.5 tabular-nums text-blue-700 hover:underline">Visit {v}</Link>
                         : <span key={v} className="rounded bg-muted px-1.5 py-0.5 tabular-nums">Visit {v}</span>)}
                     </div>
@@ -145,7 +161,7 @@ function Report({ r, open, workspaceId, uuidOf, onChange }: { r: ReviewReport; o
   );
 }
 
-function Notes({ workspaceId, notes, onChange }: { workspaceId: string; notes: MismatchNote[] | null; onChange: () => void }) {
+function Notes({ workspaceId, notes, onChange, own, name }: { workspaceId: string; notes: MismatchNote[] | null; onChange: () => void; own: boolean; name?: string }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
@@ -163,10 +179,15 @@ function Notes({ workspaceId, notes, onChange }: { workspaceId: string; notes: M
   };
   return (
     <section className="rounded-lg border bg-card" aria-label="Notes">
-      <h2 className="border-b px-4 py-3 text-base font-semibold">Notes</h2>
+      <div className="border-b px-4 py-3">
+        <h2 className="text-base font-semibold">{own ? 'Your scratchpad' : `${name}'s scratchpad`}</h2>
+        <p className="text-xs text-muted-foreground">Goes into the next summary</p>
+      </div>
       <div className="space-y-3 p-4">
-        <textarea className="w-full rounded-md border bg-background px-3 py-2 text-sm" rows={4} placeholder="Today's summary, recurring AI errors, things for the clinical team…" value={text} onChange={(e) => setText(e.target.value)} />
-        <div className="flex justify-end"><Button size="sm" disabled={busy || !text.trim()} onClick={save}>Save note</Button></div>
+        {own && <>
+          <textarea className="w-full rounded-md border bg-background px-3 py-2 text-sm" rows={4} placeholder="Anything for today's summary: patterns you noticed, things for the clinical team…" value={text} onChange={(e) => setText(e.target.value)} />
+          <div className="flex justify-end"><Button size="sm" disabled={busy || !text.trim()} onClick={save}>Save note</Button></div>
+        </>}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!notes ? <div className="h-24 animate-pulse rounded-md bg-muted" /> : notes.length === 0 ? <p className="text-sm text-muted-foreground">No notes yet.</p> : (
           <ul className="space-y-2">
