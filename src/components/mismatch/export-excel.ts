@@ -14,7 +14,7 @@ const share = (n: number, d: number) => (d ? n / d : null);
  * as an .xlsx with one sheet per dashboard tab. exceljs is loaded on click so
  * it stays out of the page bundle.
  */
-export async function exportDashboardExcel(data: DashboardData, meta: { programme: string; period: string; patients: string; followUps?: string; dxMatch?: string }) {
+export async function exportDashboardExcel(data: DashboardData, meta: { programme: string; period: string; patients: string; followUps?: string; dxMatch?: string; written?: boolean }) {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.created = new Date();
@@ -104,8 +104,9 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
 
   // Diagnosis
   const dxCols: Col[] = [{ header: 'Visits' }, { header: 'Scored' }, { header: 'Top 5 %', pct: true }, { header: 'Top 3 %', pct: true }, { header: 'Top 1 %', pct: true }, { header: 'Not in AI top 5' }, { header: 'Added non-AI Dx' }, { header: 'Equivalent, not picked (separate)' }];
+  if (meta.written) dxCols.pop(); // #35 no equivalent column in "+ Written by doctor"
   const dxCells = (r: { visits: number; scored: number; picked: number; top1: number; top3: number; top5: number; addedNonAi: number; equivalent?: number }): Cell[] =>
-    [r.visits, r.scored, share(r.top5, r.scored), share(r.top3, r.scored), share(r.top1, r.scored), r.scored - r.top5, r.addedNonAi, r.equivalent ?? 0];
+    [r.visits, r.scored, share(r.top5, r.scored), share(r.top3, r.scored), share(r.top1, r.scored), r.scored - r.top5, r.addedNonAi, r.equivalent ?? 0].slice(0, meta.written ? 7 : 8);
   const dx = sheet('Diagnosis');
   block(dx, 'Top 5 / 3 / 1 by day', [{ header: 'Date' }, ...dxCols], ai.byDay.map((r) => [r.name, ...dxCells(r)]));
   block(dx, 'By doctor and day', [{ header: 'Date' }, { header: 'Doctor' }, ...dxCols], ai.byDoctorDay.map((r) => [r.date, doctorLabel(r.doctor), ...dxCells(r)]));
@@ -132,7 +133,8 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
   block(tx, 'Medicines added, by diagnosis', [{ header: 'Diagnosis → medicine', width: 70 }, { header: 'Times' }], data.addedForDiagnosis.map((r) => [r.name, r.count]));
 
   // D3: equivalent suggested but not picked (separate from the strict numbers)
-  if (ai.equivalent) {
+  // #35 not in "+ Written by doctor": there an equivalent suggestion already counts as a pick (Top 5).
+  if (ai.equivalent && !meta.written) {
     const eqs = sheet('Equivalent not picked');
     block(eqs, 'Equivalent suggested, not picked', [{ header: 'Metric', width: 40 }, { header: 'Visits' }, { header: '% of visits with an AI list', pct: true }], [
       ['Strict: final Dx in AI top 5', all.top5, share(all.top5, all.dxScored)],

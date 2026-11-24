@@ -21,6 +21,7 @@ import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { adviceEnglish, displayName } from '@/lib/format-display';
 import { rate, TableSearch, useRowFilter } from './shared';
 import { Drill, DrillProvider } from './drill-link';
+import { useWrittenView, WrittenViewProvider } from './dx-view';
 import { bucketRange, drillHref, type DrillSpec } from '@/lib/drill';
 import { barTop, FloatingTip, inSection, RechartsTip, useFloatingTip } from './chart-tip';
 import { countTip, partsTip, tipLabel } from '@/lib/chart-tooltip';
@@ -142,6 +143,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
     : null;
   return (
     <DrillProvider value={drillMaker}>
+    <WrittenViewProvider value={dxMatch === 'assisted'}>
     <div className="space-y-5">
       <div className="rounded-xl border bg-white shadow-sm">
         <div className="flex flex-wrap items-center gap-1.5 border-b px-4 py-3">
@@ -187,6 +189,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
                   period: period === 'custom' || from || to ? `${from ?? 'start'} to ${to ?? 'today'}` : 'All time',
                   patients: POPULATIONS.find((p) => p.key === population)?.label ?? 'All patients',
                   followUps: data.ai.headline.includeFollowUps ? 'Follow-ups included' : 'Follow-ups excluded',
+                  written: dxMatch === 'assisted',
                   dxMatch: dxMatch === 'assisted' ? 'Clicked + written by doctor (same or equivalent)' : 'Clicked by doctor',
                 });
               } catch (e) {
@@ -229,6 +232,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
         </div>
       )}
     </div>
+    </WrittenViewProvider>
     </DrillProvider>
   );
 }
@@ -348,18 +352,22 @@ function bucket<T extends { name: string }>(rows: T[], grain: Grain): T[] {
   return [...out.values()];
 }
 
-const DxHead = ({ first }: { first: string }) => (
+const DxHead = ({ first }: { first: string }) => {
+  const written = useWrittenView();
+  return (
   <tr>
     <th className={th}>{first}</th><th className={thR}>Visits</th><th className={thR}>Scored</th>
     <th className={thR}>Top 5</th><th className={thR}>Top 3</th><th className={thR}>Top 1</th><th className={thR}>Not in AI top 5</th><th className={thR}>Added non-AI Dx</th>
-    <th className={thR} title="Separate metric, not part of the strict picks">Equivalent, not picked</th>
+    {!written && <th className={thR} title="Separate metric, not part of the strict picks">Equivalent, not picked</th>}
   </tr>
-);
+  );
+};
 /** #20/#29 each cell opens its visits: `at` = the row's dimensions, `what` = the row's name in the label. */
 type At = Omit<DrillSpec, 'm'>;
 const D = ({ m, at, what, label, children }: { m: string; at: At; what: string; label: string; children: ReactNode }) =>
   <Drill spec={{ m, ...at }} label={`${what} · ${label}`}>{children}</Drill>;
 const DxCells = ({ r, at, what }: { r: DxAgg; at: At; what: string }) => {
+  const written = useWrittenView();
   return (
     <>
       <td className={tdR}><D at={at} what={what} m="visits" label="visits">{fmt(r.visits)}</D></td>
@@ -369,7 +377,7 @@ const DxCells = ({ r, at, what }: { r: DxAgg; at: At; what: string }) => {
       <td className={tdR}><D at={at} what={what} m="top1" label="top 1">{pctOf(r.top1, r.scored)}</D></td>
       <td className={tdR}>{r.scored - r.top5 ? <D at={at} what={what} m="not_top5" label="not in the AI top 5">{`${fmt(r.scored - r.top5)} (${pctOf(r.scored - r.top5, r.scored)})`}</D> : '—'}</td>
       <td className={tdR}>{r.addedNonAi ? <D at={at} what={what} m="dx_added" label="added a non-AI Dx">{`${fmt(r.addedNonAi)} (${pctOf(r.addedNonAi, r.scored)})`}</D> : '—'}</td>
-      <td className={tdR}>{r.equivalent ? <D at={at} what={what} m="dx_equiv" label="equivalent, not picked">{`${fmt(r.equivalent)} (${pctOf(r.equivalent, r.scored)})`}</D> : '—'}</td>
+      {!written && <td className={tdR}>{r.equivalent ? <D at={at} what={what} m="dx_equiv" label="equivalent, not picked">{`${fmt(r.equivalent)} (${pctOf(r.equivalent, r.scored)})`}</D> : '—'}</td>}
     </>
   );
 };
@@ -377,6 +385,8 @@ const DxCells = ({ r, at, what }: { r: DxAgg; at: At; what: string }) => {
 const byName = (r: { name: string }) => r.name;
 
 function DiagnosisTab({ data, grain, prev, prevLabel }: { data: DashboardData; grain: Grain; prev: DashboardData | null; prevLabel: string | null }) {
+  // #35 In "+ Written by doctor" the equivalent suggestions already count as picks (inside Top 5).
+  const written = useWrittenView();
   const dxSearch = useRowFilter(data.ai.byDx, byName);
   const [doctor, setDoctor] = useState('');
   const days = useMemo(() => [...bucket(data.ai.byDay, grain)].reverse(), [data, grain]);
@@ -386,7 +396,7 @@ function DiagnosisTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
     <>
       <CasePatternsSection kind="dx" patterns={data.ai.headline.all.patterns} prev={prev?.ai.headline.all.patterns ?? null}
         prevLabel={prev ? prevLabel : null} rows={days} grain={grain} base={aiBase(data)} />
-      <EquivalentPanel data={data} />
+      {!written && <EquivalentPanel data={data} />}
       <div className="grid gap-5 xl:grid-cols-2">
         <Section title={`Top 5 / 3 / 1 by ${grain}`} description={`% of scored · ${aiBase(data)}`}>
           <Table empty={!days.length} head={<DxHead first={grain === 'day' ? 'Date' : grain === 'week' ? 'Week of' : 'Month'} />}>

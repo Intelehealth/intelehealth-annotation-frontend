@@ -19,6 +19,7 @@ import { trendWeekly } from '@/lib/trend-grain';
 import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { doctorLabel, type AiHeadline, type DashboardData, type DxAgg } from '@/lib/api/mismatch';
 import { Drill, useDrill } from './drill-link';
+import { useWrittenView } from './dx-view';
 import type { DrillSpec } from '@/lib/drill';
 import { partsTip, tipLabel, trendTip } from '@/lib/chart-tooltip';
 import { emptyRingTip, GENERAL_COLOR, PAED_COLOR, paedRings, sliceDash, sliceMidAngle, sliceTip } from '@/lib/paed-rings';
@@ -286,6 +287,7 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
 }) {
   // #20/#29 members open the visits behind a number (drill-link.tsx).
   const drill = useDrill();
+  const written = useWrittenView();
   const dh = (spec: DrillSpec, label: string) => drill?.(spec, label);
   const h = data.ai.headline.all;
   const p = prev?.ai.headline.all ?? null;
@@ -324,12 +326,13 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
             <Kpi label="AI diagnoses selected per case" value={perCase(h.patterns?.dxAiSelected, h.patterns?.dxScored)}
               note={`${fmt(h.patterns?.dxAiSelected ?? 0)} AI diagnoses${perCase(p?.patterns?.dxAiSelected, p?.patterns?.dxScored) !== '—' ? ` · was ${perCase(p?.patterns?.dxAiSelected, p?.patterns?.dxScored)}` : ''}`} />
           </div>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border px-5 py-3 text-[13px] text-muted-foreground">
+          {/* #35 not in "+ Written by doctor": there an equivalent suggestion already counts as a pick (Top 5). */}
+          {!written && <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border px-5 py-3 text-[13px] text-muted-foreground">
             <span>Equivalent listed, not picked</span>
             <b className="text-[15px] font-semibold tabular-nums text-foreground"><Drill spec={{ m: 'dx_equiv' }} label="Equivalent listed, not picked">{fmt(h.dxEquivalentNotPicked)}</Drill></b>
             <span className="min-w-0 flex-1">visits · separate from the strict figures</span>
             <button type="button" className="text-foreground underline underline-offset-2" onClick={() => onTab('diagnosis')}>See the pairs</button>
-          </div>
+          </div>}
         </section>
 
         <section className="overflow-hidden rounded-lg border border-border bg-surface" aria-label="Treatment KPIs">
@@ -348,7 +351,7 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
           <div className="px-5 pt-3 text-xs text-muted-foreground">Annotation · base: {fmt(queued)} mismatches in the queue{prevLabel ? ` · ${prevLabel}` : ''}</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
             <Kpi label="Annotated" n={rv.done} of={queued} prev={pr ? { n: pr.done, of: prevQueued } : null} better="up" href={dh({ m: 'annotated' }, 'Annotated')} />
-            <Kpi label="Not annotated" n={rv.pending + rv.in_progress} of={queued} prev={pr ? { n: pr.pending + pr.in_progress, of: prevQueued } : null} better="down" href={dh({ m: 'not_annotated' }, 'Not annotated')} />
+            <Kpi label="In review" n={rv.in_progress} of={queued} prev={pr ? { n: pr.in_progress, of: prevQueued } : null} href={dh({ m: 'in_review' }, 'In review')} />
             <Kpi label="Discussed with clinical team" n={rv.discussed ?? 0} of={rv.done} prev={pr ? { n: pr.discussed ?? 0, of: pr.done } : null} better="up" note={`${fmt(rv.discussed ?? 0)} of ${fmt(rv.done)} annotated`} href={dh({ m: 'discussed' }, 'Discussed with clinical team')} />
             {/* Annotators' "Flag for the clinical team" (drafts and done reviews alike). */}
             <Kpi label={<span className="inline-flex items-center gap-1.5"><Flag className="h-3.5 w-3.5 text-rose-600" />Flagged by clinical team</span>}
