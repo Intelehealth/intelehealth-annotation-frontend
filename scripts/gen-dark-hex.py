@@ -32,8 +32,8 @@ def dark_value(kind, hx):
     if kind in ('bg', 'from', 'to', 'via'):
         if L > 0.7:  # pale fills -> dark tint of the same hue
             return f'color-mix(in oklab, {h} {14 if sat else 6}%, var(--surface))'
-        if L > 0.35:
-            return f'color-mix(in oklab, {h} 35%, var(--surface))' if not sat else None
+        if L > 0.12:
+            return None  # mid greys / colours (chart segments, legend swatches) are visible on dark as they are
         if not sat:  # ink / charcoal fills (selected states, white text on them)
             return 'var(--data)' if L < 0.03 else 'var(--active)'
         return None  # saturated accents stay
