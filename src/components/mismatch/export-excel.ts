@@ -103,9 +103,9 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
   }
 
   // Diagnosis
-  const dxCols: Col[] = [{ header: 'Visits' }, { header: 'Scored' }, { header: 'Picked AI Dx %', pct: true }, { header: 'Top 5 %', pct: true }, { header: 'Top 3 %', pct: true }, { header: 'Top 1 %', pct: true }, { header: 'Added non-AI Dx' }, { header: 'Equivalent, not picked (separate)' }];
+  const dxCols: Col[] = [{ header: 'Visits' }, { header: 'Scored' }, { header: 'Top 5 %', pct: true }, { header: 'Top 3 %', pct: true }, { header: 'Top 1 %', pct: true }, { header: 'Not in AI top 5' }, { header: 'Added non-AI Dx' }, { header: 'Equivalent, not picked (separate)' }];
   const dxCells = (r: { visits: number; scored: number; picked: number; top1: number; top3: number; top5: number; addedNonAi: number; equivalent?: number }): Cell[] =>
-    [r.visits, r.scored, share(r.picked, r.scored), share(r.top5, r.scored), share(r.top3, r.scored), share(r.top1, r.scored), r.addedNonAi, r.equivalent ?? 0];
+    [r.visits, r.scored, share(r.top5, r.scored), share(r.top3, r.scored), share(r.top1, r.scored), r.scored - r.top5, r.addedNonAi, r.equivalent ?? 0];
   const dx = sheet('Diagnosis');
   block(dx, 'Top 5 / 3 / 1 by day', [{ header: 'Date' }, ...dxCols], ai.byDay.map((r) => [r.name, ...dxCells(r)]));
   block(dx, 'By doctor and day', [{ header: 'Date' }, { header: 'Doctor' }, ...dxCols], ai.byDoctorDay.map((r) => [r.date, doctorLabel(r.doctor), ...dxCells(r)]));
