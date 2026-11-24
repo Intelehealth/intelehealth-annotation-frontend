@@ -195,8 +195,9 @@ export async function exportDashboardExcel(data: DashboardData, meta: { programm
     ['In review', s.review.in_progress, share(s.review.in_progress, queued)],
     ['To review', s.review.pending, share(s.review.pending, queued)],
     ['Discussed with clinical team', s.review.discussed ?? 0, share(s.review.discussed ?? 0, queued)],
+    ['Flagged by clinical team', s.review.redFlag ?? 0, null],
   ]);
-  block(an, 'Annotator progress (by annotation date)', [{ header: 'Annotator', width: 28 }, { header: 'Annotated' }, { header: 'Diagnosis' }, { header: 'Treatment' }, { header: 'Flagged' }, { header: 'Discussed with clinical team', width: 28 }, { header: 'Last active', width: 22 }],
+  block(an, 'Annotator progress (by annotation date)', [{ header: 'Annotator', width: 28 }, { header: 'Annotated' }, { header: 'Diagnosis' }, { header: 'Treatment' }, { header: 'Flagged by clinical team', width: 24 }, { header: 'Discussed with clinical team', width: 28 }, { header: 'Last active', width: 22 }],
     data.progress.reviewers.map((r) => [r.name, r.annotated, r.ddx, r.ttx, r.followUp, r.discussed ?? 0, r.lastActive]));
   block(an, 'Mismatch type', [{ header: 'Type', width: 28 }, { header: 'Visits' }], [
     ['Diagnosis only', s.mismatch.ddx], ['Treatment only', s.mismatch.ttx], ['Diagnosis and treatment', s.mismatch.both], ['No mismatch', s.mismatch.none],

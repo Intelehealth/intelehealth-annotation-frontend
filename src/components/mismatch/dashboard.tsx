@@ -115,6 +115,13 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
     : prev!.range ? `deltas vs ${fmtDay(prev!.range.from)} – ${fmtDay(prev!.range.to)}` : 'no earlier visits to compare';
   const loading = loadedKey !== key;
   const viewer = data?.member === false;
+  // #20: members open the matching visits in the mismatch queue, with this dashboard's period and patients.
+  const queueHref = data?.member ? (extra: Record<string, string>) => {
+    const p = new URLSearchParams({ tab: 'all', ...(from || to ? {} : { range: 'all' }), ...(from ? { from } : {}), ...(to ? { to } : {}) });
+    if (population) p.set('population', population === 'adult' ? 'general' : population);
+    for (const [k, v] of Object.entries(extra)) p.set(k, v);
+    return `/workspaces/${workspaceId}/mismatch?${p.toString()}`;
+  } : undefined;
   useEffect(() => {
     let live = true;
     mismatchAPI.dashboard(workspaceId, from, to, population || undefined, followUps === 'include' ? 'include' : undefined, dxMatch)
@@ -202,7 +209,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
           {tab === 'annotation' && !viewer && (
             <p className="text-xs text-muted-foreground">All visits · follow-ups included</p>
           )}
-          {tab === 'overview' && <OverviewTab data={data} prev={prevData} prevLabel={prevLabel} base={aiBase(data)} onTab={(t) => setTab(t)} />}
+          {tab === 'overview' && <OverviewTab data={data} prev={prevData} prevLabel={prevLabel} base={aiBase(data)} onTab={(t) => setTab(t)} queueHref={queueHref} />}
           {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} prev={prevData} prevLabel={prevLabel} />}
           {tab === 'treatment' && <TreatmentTab data={data} grain={grain} prev={prevData} prevLabel={prevLabel} />}
           {tab === 'doctors' && <DoctorsTab data={data} />}

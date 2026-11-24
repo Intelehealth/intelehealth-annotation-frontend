@@ -10,7 +10,9 @@
  *   D2  "Where it fails" (doctor's diagnoses most often not at the AI's #1, rank bars) and
  *       "Right list, wrong #1" on the first screen; Paediatric vs general WITH treatment rows; by doctor.
  */
+import Link from 'next/link';
 import { ReactNode, useCallback, useMemo, useRef, useState } from 'react';
+import { ArrowRight, Flag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { displayName } from '@/lib/format-display';
 import { trendWeekly } from '@/lib/trend-grain';
@@ -24,16 +26,18 @@ const pctText = (v: number | null) => (v === null ? '—' : `${v.toFixed(1)}%`);
 const perCase = (n?: number, d?: number) => (n !== undefined && d ? (n / d).toFixed(1) : '—');
 
 /** One KPI: value, delta in points vs the previous period, coloured by which direction is good. */
-function Kpi({ label, n, of, prev, better, lead, value, note }: {
-  label: string; n?: number; of?: number; prev?: { n: number; of: number } | null; better?: 'up' | 'down';
+function Kpi({ label, n, of, prev, better, lead, value, note, href }: {
+  label: ReactNode; n?: number; of?: number; prev?: { n: number; of: number } | null; better?: 'up' | 'down';
   lead?: boolean; value?: string; note?: ReactNode;
+  /** #20: members open the visits behind the number in the mismatch queue. */
+  href?: string;
 }) {
   const cur = n !== undefined && of !== undefined ? pct(n, of) : null;
   const was = prev ? pct(prev.n, prev.of) : null;
   const d = cur !== null && was !== null ? cur - was : null;
   const tone = d === null || Math.abs(d) < 1 || !better ? 'flat' : (d > 0) === (better === 'up') ? 'good' : 'bad';
-  return (
-    <div className="-ml-px -mt-px min-w-0 border-l border-t border-border px-5 py-4">
+  const body = (
+    <>
       <div className="min-h-[2.6em] text-sm text-muted-foreground">{label}</div>
       <div className={cn('mt-0.5 font-medium tabular-nums tracking-tight', lead ? 'text-[32px] leading-tight' : 'text-2xl')}>
         {value ?? (cur === null ? '—' : <>{cur.toFixed(1)}<small className="ml-1 text-sm font-normal text-muted-foreground">%</small></>)}
@@ -43,8 +47,12 @@ function Kpi({ label, n, of, prev, better, lead, value, note }: {
         {d !== null && was !== null && <>vs {was.toFixed(1)}% · </>}
         {note ?? (n !== undefined && of !== undefined ? `${fmt(n)} of ${fmt(of)}` : null)}
       </div>
-    </div>
+      {href && <div className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-700 group-hover:underline">Open visits <ArrowRight className="h-3 w-3" /></div>}
+    </>
   );
+  return href
+    ? <Link href={href} className="group -ml-px -mt-px block min-w-0 border-l border-t border-border px-5 py-4 hover:bg-raised">{body}</Link>
+    : <div className="-ml-px -mt-px min-w-0 border-l border-t border-border px-5 py-4">{body}</div>;
 }
 
 type Period = { label: string; visits: number; scored: number; top1: number; top3: number; top5: number; ttx: number; kept: number; changed: number; gap: boolean };
@@ -188,8 +196,10 @@ const pv = (h: AiHeadline) => [
   ['Doctor added a medicine', pctText(pct(h.casesAdded, h.ttxGenerated))],
 ] as const;
 
-export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
+export function OverviewTab({ data, prev, prevLabel, base, onTab, queueHref }: {
   data: DashboardData; prev: DashboardData | null; prevLabel: string | null; base: string; onTab: (t: TabKey) => void;
+  /** Members only: link to the mismatch queue with this dashboard's period and patients plus `extra` filters. */
+  queueHref?: (extra: Record<string, string>) => string;
 }) {
   const h = data.ai.headline.all;
   const p = prev?.ai.headline.all ?? null;
@@ -250,10 +260,13 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
 
         <section className="overflow-hidden rounded-lg border border-border bg-surface" aria-label="Annotation KPIs">
           <div className="px-5 pt-3 text-xs text-muted-foreground">Annotation · base: {fmt(queued)} mismatches in the queue{prevLabel ? ` · ${prevLabel}` : ''}</div>
-          <div className="grid grid-cols-1 sm:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
             <Kpi label="Annotated" n={rv.done} of={queued} prev={pr ? { n: pr.done, of: prevQueued } : null} better="up" />
             <Kpi label="Not annotated" n={rv.pending + rv.in_progress} of={queued} prev={pr ? { n: pr.pending + pr.in_progress, of: prevQueued } : null} better="down" />
             <Kpi label="Discussed with clinical team" n={rv.discussed ?? 0} of={rv.done} prev={pr ? { n: pr.discussed ?? 0, of: pr.done } : null} better="up" note={`${fmt(rv.discussed ?? 0)} of ${fmt(rv.done)} annotated`} />
+            {/* Annotators' "Flag for the clinical team" (drafts and done reviews alike). */}
+            <Kpi label={<span className="inline-flex items-center gap-1.5"><Flag className="h-3.5 w-3.5 text-rose-600" />Flagged by clinical team</span>}
+              value={fmt(rv.redFlag ?? 0)} note={pr ? `was ${fmt(pr.redFlag ?? 0)}` : 'visits'} href={queueHref?.({ followUp: '1' })} />
           </div>
         </section>
 
