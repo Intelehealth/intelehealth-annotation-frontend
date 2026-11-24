@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { fmtDate, Shell, StatusBadge, TypeBadge } from '@/components/mismatch/shared';
 import { VisitImages } from '@/components/mismatch/visit-images';
@@ -29,13 +29,19 @@ export default function MismatchVisitPage() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ReviewInput>({});
   const [saving, setSaving] = useState(false);
+  const claimed = useRef(false);
   // L1: notes are English only. Drop the old per-user note-language choice (V4) if this browser still has it.
   useEffect(() => {
     try { for (const k of Object.keys(localStorage)) if (k.startsWith('mismatch-note-lang-')) localStorage.removeItem(k); } catch { /* storage unavailable */ }
   }, []);
-  // Editing the form changes nothing on the server; only a save does (a draft save claims the visit).
+  // An annotator's first edit claims the visit (30-min expiry, ticket A1) so two annotators don't work on it at once.
+  // Admins never claim: they only look, and must not show up as the person working on it.
   const update = (patch: Partial<ReviewInput>) => {
     if (!v || cannotEdit(v, user?._id)) return; // reviewers, and admins on another person's visit, only view
+    if (!claimed.current && v.access?.role !== 'admin') {
+      claimed.current = true;
+      mismatchAPI.claim(id, uuid).catch(() => { claimed.current = false; });
+    }
     setForm((f) => ({ ...f, ...patch }));
   };
   const [saved, setSaved] = useState(false);
@@ -60,6 +66,7 @@ export default function MismatchVisitPage() {
   useEffect(() => {
     let live = true;
     setV(null); setSaved(false);
+    claimed.current = false;
     // Opening a visit does not claim it; the first edit does (ticket A1).
     mismatchAPI.visit(id, uuid)
       .then((d) => {
