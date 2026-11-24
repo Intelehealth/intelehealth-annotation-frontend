@@ -443,7 +443,7 @@ function EquivalentPanel({ data }: { data: DashboardData }) {
         <span className="tabular-nums"><Drill spec={{ m: 'dx_equiv' }} label="Equivalent suggested, not picked">{fmt(h.dxEquivalentNotPicked)}</Drill> of {fmt(h.dxScored)} scored</span>
         {topPair && <span className="text-muted-foreground">· {displayName(topPair.aiName)} → {displayName(topPair.doctorName)} ({fmt(topPair.count)})</span>}
         <button type="button" className="ml-auto inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs hover:bg-muted" onClick={() => setOpen(true)} aria-expanded={false}>
-          {fmt(eqv.pairs.length)} pairs <ChevronDown className="h-3.5 w-3.5" />
+          {fmt(eqv.pairs.length)} pair{eqv.pairs.length === 1 ? '' : 's'} <ChevronDown className="h-3.5 w-3.5" />
         </button>
       </section>
     );
