@@ -3,11 +3,14 @@
  * bookmarked and linked from the AI Dashboard. Pure helpers; the queue component calls them.
  */
 import type { QueueQuery, QueueTab, QueueWindow } from '@/lib/api/mismatch';
+import { DRILL_KEYS } from '@/lib/drill';
 
 /** Query keys that belong to the queue view (everything else in the URL is left alone). */
 export const QUEUE_KEYS = [
   'tab', 'mismatch', 'ddx', 'ttx', 'status', 'from', 'to', 'range', 'specialty', 'gender', 'age', 'dx', 'med',
   'reviewer', 'verdict', 'followUp', 'discussed', 'images', 'population', 'flag', 'model', 'doctor', 'q', 'sort',
+  // #20/#29 a drill-down from an AI Dashboard number (src/lib/drill.ts)
+  ...DRILL_KEYS,
 ] as const;
 const KEYS = new Set<string>(QUEUE_KEYS);
 const TABS: QueueTab[] = ['todo', 'done', 'all'];
@@ -21,6 +24,12 @@ export function queueFromUrl(search: string): (QueueQuery & { tab?: QueueTab }) 
   if (p.get('redFlag') === '1') out.followUp = '1';
   if (out.population && out.population !== 'paediatric' && out.population !== 'general') delete out.population;
   if (out.tab && !TABS.includes(out.tab as QueueTab)) delete out.tab;
+  // A drill shows exactly the visits behind a dashboard number: no other filter, every visit (tab All).
+  if (out.dm) {
+    const drill: Record<string, string> = { tab: 'all' };
+    for (const k of DRILL_KEYS) if (out[k]) drill[k] = out[k];
+    return drill as QueueQuery & { tab?: QueueTab };
+  }
   return Object.keys(out).length ? (out as QueueQuery & { tab?: QueueTab }) : null;
 }
 

@@ -18,6 +18,8 @@ import { displayName } from '@/lib/format-display';
 import { trendWeekly } from '@/lib/trend-grain';
 import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { doctorLabel, type AiHeadline, type DashboardData, type DxAgg } from '@/lib/api/mismatch';
+import { Drill, useDrill } from './drill-link';
+import type { DrillSpec } from '@/lib/drill';
 
 type TabKey = 'diagnosis' | 'doctors' | 'treatment';
 const fmt = (n: number) => n.toLocaleString();
@@ -195,12 +197,15 @@ const pv = (h: AiHeadline) => [
   ['Not used', pctText(pct(h.casesNotPicked, h.ttxGenerated))],
   ['Doctor added a medicine', pctText(pct(h.casesAdded, h.ttxGenerated))],
 ] as const;
+// The visits behind each row of the paediatric vs general table (numerator of the %).
+const PV_METRIC = ['visits', 'top5', 'top3', 'top1', 'ttx_generated', 'ttx_unchanged', 'ttx_changed', 'ttx_not_used', 'ttx_added'];
 
-export function OverviewTab({ data, prev, prevLabel, base, onTab, queueHref }: {
+export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
   data: DashboardData; prev: DashboardData | null; prevLabel: string | null; base: string; onTab: (t: TabKey) => void;
-  /** Members only: link to the mismatch queue with this dashboard's period and patients plus `extra` filters. */
-  queueHref?: (extra: Record<string, string>) => string;
 }) {
+  // #20/#29 members open the visits behind a number (drill-link.tsx).
+  const drill = useDrill();
+  const dh = (spec: DrillSpec, label: string) => drill?.(spec, label);
   const h = data.ai.headline.all;
   const p = prev?.ai.headline.all ?? null;
   const P = (n: (x: AiHeadline) => number, of: (x: AiHeadline) => number) => (p ? { n: n(p), of: of(p) } : null);
@@ -229,18 +234,18 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab, queueHref }: {
           {/* #17: both strips follow one order: what the AI generated -> what the doctor took from it ->
               changed / not used -> what the doctor added -> AI items per case. */}
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
-            <Kpi label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} prev={P((x) => x.dxGenerated, (x) => x.visits)} better="up" />
+            <Kpi label="AI generated a Dx list" n={h.dxGenerated} of={h.visits} prev={P((x) => x.dxGenerated, (x) => x.visits)} better="up" href={dh({ m: 'dx_generated' }, "AI generated a Dx list")} />
             {/* P7: widest net first, 5 -> 3 -> 1 */}
-            <Kpi lead label="In the AI top 5" n={h.top5} of={h.dxScored} prev={P((x) => x.top5, (x) => x.dxScored)} better="up" />
-            <Kpi label="In the AI top 3" n={h.top3} of={h.dxScored} prev={P((x) => x.top3, (x) => x.dxScored)} better="up" />
-            <Kpi label="Doctor's Dx was the AI's #1" n={h.top1} of={h.dxScored} prev={P((x) => x.top1, (x) => x.dxScored)} better="up" />
-            <Kpi label="Doctor added own Dx" n={h.dxAddedNonAi} of={h.dxScored} prev={P((x) => x.dxAddedNonAi, (x) => x.dxScored)} better="down" />
+            <Kpi lead label="In the AI top 5" n={h.top5} of={h.dxScored} prev={P((x) => x.top5, (x) => x.dxScored)} better="up" href={dh({ m: 'top5' }, "In the AI top 5")} />
+            <Kpi label="In the AI top 3" n={h.top3} of={h.dxScored} prev={P((x) => x.top3, (x) => x.dxScored)} better="up" href={dh({ m: 'top3' }, "In the AI top 3")} />
+            <Kpi label="Doctor's Dx was the AI's #1" n={h.top1} of={h.dxScored} prev={P((x) => x.top1, (x) => x.dxScored)} better="up" href={dh({ m: 'top1' }, "Doctor's Dx was the AI's #1")} />
+            <Kpi label="Doctor added own Dx" n={h.dxAddedNonAi} of={h.dxScored} prev={P((x) => x.dxAddedNonAi, (x) => x.dxScored)} better="down" href={dh({ m: 'dx_added' }, "Doctor added own Dx")} />
             <Kpi label="AI diagnoses selected per case" value={perCase(h.patterns?.dxAiSelected, h.patterns?.dxScored)}
               note={`${fmt(h.patterns?.dxAiSelected ?? 0)} AI diagnoses${perCase(p?.patterns?.dxAiSelected, p?.patterns?.dxScored) !== '—' ? ` · was ${perCase(p?.patterns?.dxAiSelected, p?.patterns?.dxScored)}` : ''}`} />
           </div>
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border px-5 py-3 text-[13px] text-muted-foreground">
             <span>Equivalent listed, not picked</span>
-            <b className="text-[15px] font-semibold tabular-nums text-foreground">{fmt(h.dxEquivalentNotPicked)}</b>
+            <b className="text-[15px] font-semibold tabular-nums text-foreground"><Drill spec={{ m: 'dx_equiv' }} label="Equivalent listed, not picked">{fmt(h.dxEquivalentNotPicked)}</Drill></b>
             <span className="min-w-0 flex-1">visits · separate from the strict figures</span>
             <button type="button" className="text-foreground underline underline-offset-2" onClick={() => onTab('diagnosis')}>See the pairs</button>
           </div>
@@ -249,11 +254,11 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab, queueHref }: {
         <section className="overflow-hidden rounded-lg border border-border bg-surface" aria-label="Treatment KPIs">
           <div className="px-5 pt-3 text-xs text-muted-foreground">Treatment · base: {fmt(h.ttxGenerated)} TTx cases ({base} with AI medicines){prevLabel ? ` · ${prevLabel}` : ''}</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
-            <Kpi label="AI generated a TTx list" n={h.ttxGenerated} of={h.visits} prev={P((x) => x.ttxGenerated, (x) => x.visits)} better="up" />
-            <Kpi label="AI medicine kept as is" n={h.casesUnchanged} of={h.ttxGenerated} prev={P((x) => x.casesUnchanged, (x) => x.ttxGenerated)} better="up" />
-            <Kpi label="AI medicine changed" n={h.casesChanged} of={h.ttxGenerated} prev={P((x) => x.casesChanged, (x) => x.ttxGenerated)} better="down" />
-            <Kpi label="AI medications not used" n={h.casesNotPicked} of={h.ttxGenerated} prev={P((x) => x.casesNotPicked, (x) => x.ttxGenerated)} better="down" />
-            <Kpi label="Doctor added a medicine" n={h.casesAdded} of={h.ttxGenerated} prev={P((x) => x.casesAdded, (x) => x.ttxGenerated)} better="down" />
+            <Kpi label="AI generated a TTx list" n={h.ttxGenerated} of={h.visits} prev={P((x) => x.ttxGenerated, (x) => x.visits)} better="up" href={dh({ m: 'ttx_generated' }, "AI generated a TTx list")} />
+            <Kpi label="AI medicine kept as is" n={h.casesUnchanged} of={h.ttxGenerated} prev={P((x) => x.casesUnchanged, (x) => x.ttxGenerated)} better="up" href={dh({ m: 'ttx_unchanged' }, "AI medicine kept as is")} />
+            <Kpi label="AI medicine changed" n={h.casesChanged} of={h.ttxGenerated} prev={P((x) => x.casesChanged, (x) => x.ttxGenerated)} better="down" href={dh({ m: 'ttx_changed' }, "AI medicine changed")} />
+            <Kpi label="AI medications not used" n={h.casesNotPicked} of={h.ttxGenerated} prev={P((x) => x.casesNotPicked, (x) => x.ttxGenerated)} better="down" href={dh({ m: 'ttx_not_used' }, "AI medications not used")} />
+            <Kpi label="Doctor added a medicine" n={h.casesAdded} of={h.ttxGenerated} prev={P((x) => x.casesAdded, (x) => x.ttxGenerated)} better="down" href={dh({ m: 'ttx_added' }, "Doctor added a medicine")} />
             <Kpi label="AI medicines per case" value={h.ttxGenerated ? (h.aiMedicines / h.ttxGenerated).toFixed(1) : '—'} note={`${fmt(h.aiMedicines)} medicines${p && p.ttxGenerated ? ` · was ${(p.aiMedicines / p.ttxGenerated).toFixed(1)}` : ''}`} />
           </div>
         </section>
@@ -261,12 +266,12 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab, queueHref }: {
         <section className="overflow-hidden rounded-lg border border-border bg-surface" aria-label="Annotation KPIs">
           <div className="px-5 pt-3 text-xs text-muted-foreground">Annotation · base: {fmt(queued)} mismatches in the queue{prevLabel ? ` · ${prevLabel}` : ''}</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-            <Kpi label="Annotated" n={rv.done} of={queued} prev={pr ? { n: pr.done, of: prevQueued } : null} better="up" />
-            <Kpi label="Not annotated" n={rv.pending + rv.in_progress} of={queued} prev={pr ? { n: pr.pending + pr.in_progress, of: prevQueued } : null} better="down" />
-            <Kpi label="Discussed with clinical team" n={rv.discussed ?? 0} of={rv.done} prev={pr ? { n: pr.discussed ?? 0, of: pr.done } : null} better="up" note={`${fmt(rv.discussed ?? 0)} of ${fmt(rv.done)} annotated`} />
+            <Kpi label="Annotated" n={rv.done} of={queued} prev={pr ? { n: pr.done, of: prevQueued } : null} better="up" href={dh({ m: 'annotated' }, 'Annotated')} />
+            <Kpi label="Not annotated" n={rv.pending + rv.in_progress} of={queued} prev={pr ? { n: pr.pending + pr.in_progress, of: prevQueued } : null} better="down" href={dh({ m: 'not_annotated' }, 'Not annotated')} />
+            <Kpi label="Discussed with clinical team" n={rv.discussed ?? 0} of={rv.done} prev={pr ? { n: pr.discussed ?? 0, of: pr.done } : null} better="up" note={`${fmt(rv.discussed ?? 0)} of ${fmt(rv.done)} annotated`} href={dh({ m: 'discussed' }, 'Discussed with clinical team')} />
             {/* Annotators' "Flag for the clinical team" (drafts and done reviews alike). */}
             <Kpi label={<span className="inline-flex items-center gap-1.5"><Flag className="h-3.5 w-3.5 text-rose-600" />Flagged by clinical team</span>}
-              value={fmt(rv.redFlag ?? 0)} note={pr ? `was ${fmt(pr.redFlag ?? 0)}` : 'visits'} href={queueHref?.({ followUp: '1' })} />
+              value={fmt(rv.redFlag ?? 0)} note={pr ? `was ${fmt(pr.redFlag ?? 0)}` : 'visits'} href={dh({ m: 'red_flag' }, 'Flagged by clinical team')} />
           </div>
         </section>
 
@@ -295,9 +300,9 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab, queueHref }: {
                   return (
                     <tr key={g.name} className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 border-b border-rule py-2.5 sm:table-row sm:py-0">
                       <td className="sm:border-b sm:border-rule sm:py-2.5 sm:pr-3">{displayName(g.name)}{eq && <span className="ml-1.5 inline-flex h-5 items-center rounded bg-pill-n-bg px-1.5 text-xs text-pill-n-ink">Equivalent: AI listed {displayName(eq.aiName)}</span>}</td>
-                      <td className="text-right tabular-nums text-muted-foreground sm:border-b sm:border-rule sm:py-2.5 sm:pr-3 sm:text-foreground"><span className="sm:hidden">n </span>{fmt(g.scored)}</td>
+                      <td className="text-right tabular-nums text-muted-foreground sm:border-b sm:border-rule sm:py-2.5 sm:pr-3 sm:text-foreground"><span className="sm:hidden">n </span><Drill spec={{ m: 'dx_scored', finalDx: g.name }} label={`${displayName(g.name)} · scored`}>{fmt(g.scored)}</Drill></td>
                       <td className="col-span-2 sm:border-b sm:border-rule sm:py-2.5 sm:pr-3"><RankBar g={g} /></td>
-                      <td className="col-span-2 text-xs text-muted-foreground sm:border-b sm:border-rule sm:py-2.5 sm:text-right sm:text-sm sm:tabular-nums sm:text-foreground"><span className="sm:hidden">Not at #1: </span>{fmt(g.scored - g.top1)}</td>
+                      <td className="col-span-2 text-xs text-muted-foreground sm:border-b sm:border-rule sm:py-2.5 sm:text-right sm:text-sm sm:tabular-nums sm:text-foreground"><span className="sm:hidden">Not at #1: </span><Drill spec={{ m: 'not_top1', finalDx: g.name }} label={`${displayName(g.name)} · not at the AI's #1`}>{fmt(g.scored - g.top1)}</Drill></td>
                     </tr>
                   );
                 })}
@@ -314,7 +319,7 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab, queueHref }: {
           {wrong1.length === 0 ? <p className="text-sm text-muted-foreground">None in this period.</p> : (
             <ul className="divide-y divide-rule text-sm">
               {wrong1.map((x) => { const [ai, dr] = x.name.split(' → '); return (
-                <li key={x.name} className="flex items-center justify-between gap-3 py-2"><div className="min-w-0">{displayName(ai)}<div className="text-xs text-muted-foreground">→ doctor: {displayName(dr)}</div></div><span className="tabular-nums">{x.count}</span></li>
+                <li key={x.name} className="flex items-center justify-between gap-3 py-2"><div className="min-w-0">{displayName(ai)}<div className="text-xs text-muted-foreground">→ doctor: {displayName(dr)}</div></div><Drill spec={{ m: 'pair_lower', k: x.name }} label={`AI #1 ${displayName(ai)} → doctor ${displayName(dr)}`} className="tabular-nums">{x.count}</Drill></li>
               ); })}
             </ul>
           )}
@@ -326,7 +331,9 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab, queueHref }: {
             <span /><span className="text-right text-xs text-muted-foreground">Paediatric</span><span className="text-right text-xs text-muted-foreground">General</span>
             {pv(ph).map(([l, v], i) => (
               <div key={l} className={cn('contents', i === 4 && '[&>*]:border-t [&>*]:border-rule [&>*]:pt-1.5')}>
-                <span className={i >= 4 ? 'text-muted-foreground' : ''}>{l}</span><span className="text-right tabular-nums">{v}</span><span className="text-right tabular-nums">{pv(ah)[i][1]}</span>
+                <span className={i >= 4 ? 'text-muted-foreground' : ''}>{l}</span>
+                <span className="text-right tabular-nums"><Drill spec={{ m: PV_METRIC[i], pop: 'paediatric' }} label={`Paediatric · ${l}`}>{v}</Drill></span>
+                <span className="text-right tabular-nums"><Drill spec={{ m: PV_METRIC[i], pop: 'adult' }} label={`General · ${l}`}>{pv(ah)[i][1]}</Drill></span>
               </div>
             ))}
           </div>
@@ -338,7 +345,7 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab, queueHref }: {
 
         <Card title="By doctor" meta="Pseudo id · share of scored visits at the AI's #1">
           <ul className="divide-y divide-rule text-sm">
-            {docs.map((d) => <li key={d.name} className="flex justify-between gap-3 py-2"><span>{doctorLabel(d.name)}</span><span className="tabular-nums text-muted-foreground">{fmt(d.scored)} scored · <span className="text-foreground">{d.scored >= MIN_DOCTOR_N ? pctText(pct(d.top1, d.scored)) : '—'}</span> at #1</span></li>)}
+            {docs.map((d) => <li key={d.name} className="flex justify-between gap-3 py-2"><span>{doctorLabel(d.name)}</span><span className="tabular-nums text-muted-foreground"><Drill spec={{ m: 'dx_scored', doctor: d.name }} label={`${doctorLabel(d.name)} · scored`}>{fmt(d.scored)}</Drill> scored · <span className="text-foreground">{d.scored >= MIN_DOCTOR_N ? <Drill spec={{ m: 'top1', doctor: d.name }} label={`${doctorLabel(d.name)} · at the AI's #1`}>{pctText(pct(d.top1, d.scored))}</Drill> : '—'}</span> at #1</span></li>)}
           </ul>
           <button type="button" className="mt-3 inline-flex h-8 items-center rounded-md border border-control px-3 text-sm hover:bg-raised" onClick={() => onTab('doctors')}>Doctors tab</button>
         </Card>

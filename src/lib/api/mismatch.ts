@@ -67,6 +67,9 @@ export interface QueueQuery {
   /** #21: 'all' = every date; without from / to / range the server shows the last 45 days. */
   range?: string;
   q?: string; sort?: string; page?: number; limit?: number;
+  /** #20/#29 drill-down from an AI Dashboard number (src/lib/drill.ts DRILL_KEYS). */
+  dm?: string; dk?: string; ddoc?: string; dday?: string; dsp?: string; dfx?: string; dt1?: string; dpop?: string;
+  dfrom?: string; dto?: string; dpopn?: string; dfu?: string; dmatch?: string; dl?: string; du?: string;
 }
 
 export interface QueueWindow { from: string | null; to: string | null; recent: boolean; days: number; recentFrom: string }
@@ -76,6 +79,8 @@ export interface QueuePage {
   redFlagCount?: number;
   /** #21: the dates the server used for this view. */
   window?: QueueWindow;
+  /** #20/#29 an open drill: how many units (visits, medicines, suggestions) its visits hold. */
+  drill?: { units: number; visits: number } | null;
   items: QueueItem[];
 }
 /** #21 archive picker: one month of a workspace. */
@@ -289,6 +294,8 @@ export interface AiMetrics {
   medicines: { name: string; suggested: number; unchanged: number; changed: number; notPicked: number; paediatric: number; changes: Record<ChangeType, number> }[];
   changeTypes: Record<ChangeType, number>;
   addedMedicines: { name: string; count: number; paediatric: number; dose: string | null; frequency: string | null; duration: string | null }[];
+  /** #29 the doctor's own diagnoses (not from the AI list), most common first. */
+  addedDiagnoses?: { name: string; count: number }[];
   orders: Record<'investigations' | 'advice' | 'referrals', { name: string; count: number }[]>;
   /** D3 pairs table (overruled = annotators answered "Not the same condition"), per-rule totals and reason counts. */
   equivalent: {
