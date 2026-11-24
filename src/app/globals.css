@@ -77,6 +77,7 @@
    them so existing components follow. LIGHT is the shipped theme (forcedTheme);
    the .dark values are here but not enabled until the older pages use tokens. */
 :root {
+  color-scheme: only light;
   --radius: 0.5rem;
   --ground: #f2f4f7;
   --surface: #ffffff;

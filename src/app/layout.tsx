@@ -12,11 +12,15 @@ export const metadata: Metadata = {
     shortcut: '/favicon.ico?v=2',
     apple: '/favicon.ico?v=2',
   },
+  // The site is light-only (forcedTheme below); ask dark-mode extensions not to recolour it.
+  other: { 'darkreader-lock': '' },
 };
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
+  // Stops the browser's automatic dark mode from guessing colours (it hid chart lines and legend dots).
+  colorScheme: 'only light' as const,
 };
 
 export default function RootLayout({
