@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { Download, Info, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, Info, Loader2 } from 'lucide-react';
 import { Empty, Section } from '@/components/dashboard/kpi';
 import { pct } from '@/components/dashboard/format';
 import { friendlyError } from '@/components/mismatch/shared';
@@ -20,6 +20,8 @@ import { earlierRanges, presetRange } from '@/lib/period-range';
 import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { adviceEnglish, displayName } from '@/lib/format-display';
 import { rate, TableSearch, useRowFilter } from './shared';
+import { Drill, DrillProvider } from './drill-link';
+import { bucketRange, drillHref, type DrillSpec } from '@/lib/drill';
 
 // White / blue / navy palette.
 const C = { navy: '#1e3a8a', blue: '#2563eb', sky: '#60a5fa', light: '#bfdbfe', slate: '#94a3b8', faint: '#e2e8f0' };
@@ -131,7 +133,12 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
     return () => { live = false; };
   }, [workspaceId, from, to, population, followUps, dxMatch, key]);
 
+  // #20/#29 members open the visits behind any number, with this dashboard's period, patients and switches.
+  const drillMaker = data?.member
+    ? (spec: DrillSpec, label: string) => drillHref({ workspaceId, from, to, population: population || undefined, followUps, dxMatch }, spec, label)
+    : null;
   return (
+    <DrillProvider value={drillMaker}>
     <div className="space-y-5">
       <div className="rounded-xl border bg-white shadow-sm">
         <div className="flex flex-wrap items-center gap-1.5 border-b px-4 py-3">
@@ -209,7 +216,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
           {tab === 'annotation' && !viewer && (
             <p className="text-xs text-muted-foreground">All visits · follow-ups included</p>
           )}
-          {tab === 'overview' && <OverviewTab data={data} prev={prevData} prevLabel={prevLabel} base={aiBase(data)} onTab={(t) => setTab(t)} queueHref={queueHref} />}
+          {tab === 'overview' && <OverviewTab data={data} prev={prevData} prevLabel={prevLabel} base={aiBase(data)} onTab={(t) => setTab(t)} />}
           {tab === 'diagnosis' && <DiagnosisTab data={data} grain={grain} prev={prevData} prevLabel={prevLabel} />}
           {tab === 'treatment' && <TreatmentTab data={data} grain={grain} prev={prevData} prevLabel={prevLabel} />}
           {tab === 'doctors' && <DoctorsTab data={data} />}
@@ -219,6 +226,7 @@ export function MismatchDashboard({ workspaceId, programme = '', canExport = fal
         </div>
       )}
     </div>
+    </DrillProvider>
   );
 }
 
@@ -259,17 +267,22 @@ function Segmented({ label, value, onChange, options }: { label: string; value: 
 }
 
 /** One metric: # and % with what the % is of. */
-function Stat({ label, n, of, ofLabel, value, note, accent }: {
+const MaybeDrill = ({ spec, label, children }: { spec?: DrillSpec; label: string; children: ReactNode }) =>
+  spec ? <Drill spec={spec} label={label}>{children}</Drill> : <>{children}</>;
+
+function Stat({ label, n, of, ofLabel, value, note, accent, drill }: {
   label: string; n?: number; of?: number; ofLabel?: string; value?: ReactNode; note?: ReactNode; accent?: boolean;
+  /** #20/#29 the visits behind the number. */
+  drill?: DrillSpec;
 }) {
   return (
     <div className={cn('rounded-xl border bg-white px-4 py-3 shadow-sm', accent && 'border-blue-200 bg-blue-50/40')}>
       <div className="text-xs font-medium text-slate-500">{label}</div>
       <div className="mt-1 flex items-baseline gap-2">
         <span className="text-2xl font-semibold tabular-nums tracking-tight text-blue-950">
-          {value ?? (of !== undefined ? pctOf(n ?? 0, of) : fmt(n ?? 0))}
+          <MaybeDrill spec={drill} label={label}>{value ?? (of !== undefined ? pctOf(n ?? 0, of) : fmt(n ?? 0))}</MaybeDrill>
         </span>
-        {value === undefined && of !== undefined && <span className="text-sm tabular-nums text-slate-500">{fmt(n ?? 0)}</span>}
+        {value === undefined && of !== undefined && <span className="text-sm tabular-nums text-slate-500"><MaybeDrill spec={drill} label={label}>{fmt(n ?? 0)}</MaybeDrill></span>}
       </div>
       {(ofLabel || note) && <div className="mt-0.5 text-xs text-slate-500">{note ?? `of ${fmt(of ?? 0)} ${ofLabel}`}</div>}
     </div>
@@ -294,8 +307,10 @@ function Table({ head, children, empty }: { head: ReactNode; children: ReactNode
   );
 }
 
-function RankedList({ items, empty = 'None in this period.', wrap, render }: {
+function RankedList({ items, empty = 'None in this period.', wrap, render, drill }: {
   items: { name: string; count: number }[]; empty?: string; wrap?: boolean; render?: (name: string) => ReactNode;
+  /** #20/#29 the visits behind a row's count. */
+  drill?: (name: string) => { spec: DrillSpec; label: string };
 }) {
   const max = Math.max(1, ...items.map((i) => i.count));
   if (!items.length) return <Empty>{empty}</Empty>;
@@ -306,7 +321,7 @@ function RankedList({ items, empty = 'None in this period.', wrap, render }: {
           <div className="absolute inset-y-0 left-0 rounded bg-blue-50" style={{ width: `${(100 * i.count) / max}%` }} />
           <div className={cn('relative flex justify-between gap-3 px-2', wrap ? 'py-1' : 'py-0.5')}>
             <span className={cn('min-w-0', !wrap && 'truncate')} title={i.name}>{render ? render(i.name) : i.name}</span>
-            <span className="tabular-nums text-slate-500">{fmt(i.count)}</span>
+            <span className="tabular-nums text-slate-500">{drill ? <Drill {...drill(i.name)}>{fmt(i.count)}</Drill> : fmt(i.count)}</span>
           </div>
         </li>
       ))}
@@ -337,18 +352,24 @@ const DxHead = ({ first }: { first: string }) => (
     <th className={thR} title="Separate metric, not part of the strict picks">Equivalent, not picked</th>
   </tr>
 );
-const DxCells = ({ r }: { r: DxAgg }) => (
-  <>
-    <td className={tdR}>{fmt(r.visits)}</td>
-    <td className={tdR}>{fmt(r.scored)}</td>
-    <td className={tdR}>{pctOf(r.picked, r.scored)}</td>
-    <td className={tdR}>{pctOf(r.top5, r.scored)}</td>
-    <td className={tdR}>{pctOf(r.top3, r.scored)}</td>
-    <td className={tdR}>{pctOf(r.top1, r.scored)}</td>
-    <td className={tdR}>{r.addedNonAi ? `${fmt(r.addedNonAi)} (${pctOf(r.addedNonAi, r.scored)})` : '—'}</td>
-    <td className={tdR}>{r.equivalent ? `${fmt(r.equivalent)} (${pctOf(r.equivalent, r.scored)})` : '—'}</td>
-  </>
-);
+/** #20/#29 each cell opens its visits: `at` = the row's dimensions, `what` = the row's name in the label. */
+type At = Omit<DrillSpec, 'm'>;
+const D = ({ m, at, what, label, children }: { m: string; at: At; what: string; label: string; children: ReactNode }) =>
+  <Drill spec={{ m, ...at }} label={`${what} · ${label}`}>{children}</Drill>;
+const DxCells = ({ r, at, what }: { r: DxAgg; at: At; what: string }) => {
+  return (
+    <>
+      <td className={tdR}><D at={at} what={what} m="visits" label="visits">{fmt(r.visits)}</D></td>
+      <td className={tdR}><D at={at} what={what} m="dx_scored" label="scored">{fmt(r.scored)}</D></td>
+      <td className={tdR}><D at={at} what={what} m="top5" label="picked an AI Dx">{pctOf(r.picked, r.scored)}</D></td>
+      <td className={tdR}><D at={at} what={what} m="top5" label="top 5">{pctOf(r.top5, r.scored)}</D></td>
+      <td className={tdR}><D at={at} what={what} m="top3" label="top 3">{pctOf(r.top3, r.scored)}</D></td>
+      <td className={tdR}><D at={at} what={what} m="top1" label="top 1">{pctOf(r.top1, r.scored)}</D></td>
+      <td className={tdR}>{r.addedNonAi ? <D at={at} what={what} m="dx_added" label="added a non-AI Dx">{`${fmt(r.addedNonAi)} (${pctOf(r.addedNonAi, r.scored)})`}</D> : '—'}</td>
+      <td className={tdR}>{r.equivalent ? <D at={at} what={what} m="dx_equiv" label="equivalent, not picked">{`${fmt(r.equivalent)} (${pctOf(r.equivalent, r.scored)})`}</D> : '—'}</td>
+    </>
+  );
+};
 
 const byName = (r: { name: string }) => r.name;
 
@@ -366,7 +387,7 @@ function DiagnosisTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
       <div className="grid gap-5 xl:grid-cols-2">
         <Section title={`Top 5 / 3 / 1 by ${grain}`} description={`% of scored · ${aiBase(data)}`}>
           <Table empty={!days.length} head={<DxHead first={grain === 'day' ? 'Date' : grain === 'week' ? 'Week of' : 'Month'} />}>
-            {days.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap')}>{r.name}</td><DxCells r={r} /></tr>)}
+            {days.map((r) => <tr key={r.name}><td className={cn(td, 'whitespace-nowrap')}>{r.name}</td><DxCells r={r} at={bucketRange(r.name, grain)} what={r.name} /></tr>)}
           </Table>
         </Section>
         <Section title="Top 5 / 3 / 1 by doctor and day" description={`% of scored · ${aiBase(data)}`}
@@ -380,7 +401,7 @@ function DiagnosisTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
             {dd.map((r) => (
               <tr key={r.name}>
                 <td className={cn(td, 'whitespace-nowrap')}>{r.date} <span className="text-slate-500">· {doctorLabel(r.doctor)}</span></td>
-                <DxCells r={r} />
+                <DxCells r={r} at={{ doctor: r.doctor, day: r.date }} what={`${r.date} · ${doctorLabel(r.doctor)}`} />
               </tr>
             ))}
           </Table>
@@ -389,8 +410,13 @@ function DiagnosisTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
       <Section title="Report by diagnosis" description={`Doctor's final Dx · % of scored · ${aiBase(data)}`}
         action={<TableSearch q={dxSearch.q} setQ={dxSearch.setQ} shown={dxSearch.filtered.length} total={data.ai.byDx.length} placeholder="Find a diagnosis…" />}>
         <Table empty={!dxSearch.filtered.length} head={<DxHead first="Doctor's final diagnosis" />}>
-          {dxSearch.filtered.map((r) => <tr key={r.name}><td className={cn(td, 'capitalize')}>{r.name}</td><DxCells r={r} /></tr>)}
+          {dxSearch.filtered.map((r) => <tr key={r.name}><td className={cn(td, 'capitalize')}>{r.name}</td><DxCells r={r} at={{ finalDx: r.name }} what={displayName(r.name)} /></tr>)}
         </Table>
+      </Section>
+      {/* #29 the diagnoses doctors write themselves (not from the AI list), most common first */}
+      <Section title="Diagnoses doctors added" description={`Not from the AI list · ${aiBase(data)}`}>
+        <RankedList items={data.ai.addedDiagnoses ?? []} render={(n) => displayName(n)}
+          drill={(name) => ({ spec: { m: 'dx_added_name', k: name }, label: `Diagnosis added by the doctor: ${displayName(name)}` })} />
       </Section>
       <DiagnosisPatterns data={data} />
     </>
@@ -406,15 +432,37 @@ function EquivalentPanel({ data }: { data: DashboardData }) {
   const h = data.ai.headline.all;
   const eqv = data.ai.equivalent;
   const pairs = useRowFilter(eqv?.pairs ?? [], (p) => `${p.aiName} ${p.doctorName}`);
+  // #29 one line by default; the stats and the pairs open on click.
+  const [open, setOpen] = useState(false);
   if (!eqv) return null;
+  const topPair = eqv.pairs[0];
+  if (!open) {
+    return (
+      <section aria-label="Equivalent suggested, not picked" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-card px-4 py-3 text-sm">
+        <span className="font-semibold">Equivalent suggested, not picked</span>
+        <span className="tabular-nums"><Drill spec={{ m: 'dx_equiv' }} label="Equivalent suggested, not picked">{fmt(h.dxEquivalentNotPicked)}</Drill> of {fmt(h.dxScored)} scored</span>
+        {topPair && <span className="text-muted-foreground">· {displayName(topPair.aiName)} → {displayName(topPair.doctorName)} ({fmt(topPair.count)})</span>}
+        <button type="button" className="ml-auto inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs hover:bg-muted" onClick={() => setOpen(true)} aria-expanded={false}>
+          {fmt(eqv.pairs.length)} pairs <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      </section>
+    );
+  }
   return (
     <Section title="Equivalent suggested, not picked"
       description={`Separate from top 5 / 3 / 1 · ${fmt(h.dxScored)} scored`}
-      action={<TableSearch q={pairs.q} setQ={pairs.setQ} shown={pairs.filtered.length} total={eqv.pairs.length} placeholder="Find a pair…" />}>
+      action={(
+        <div className="flex items-center gap-2">
+          <TableSearch q={pairs.q} setQ={pairs.setQ} shown={pairs.filtered.length} total={eqv.pairs.length} placeholder="Find a pair…" />
+          <button type="button" className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs hover:bg-muted" onClick={() => setOpen(false)} aria-expanded>
+            Hide <ChevronUp className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}>
       <div className="grid grid-cols-2 gap-3 px-4 pt-4 md:grid-cols-4">
-        <Stat label="Strict: final Dx in AI top 5" n={h.top5} of={h.dxScored} ofLabel="visits with an AI list" />
-        <Stat label="Strict: final Dx in AI top 1" n={h.top1} of={h.dxScored} ofLabel="visits with an AI list" />
-        <Stat label="Equivalent suggested, not picked" n={h.dxEquivalentNotPicked} of={h.dxScored} ofLabel="visits with an AI list" accent />
+        <Stat label="Strict: final Dx in AI top 5" n={h.top5} of={h.dxScored} ofLabel="visits with an AI list" drill={{ m: 'top5' }} />
+        <Stat label="Strict: final Dx in AI top 1" n={h.top1} of={h.dxScored} ofLabel="visits with an AI list" drill={{ m: 'top1' }} />
+        <Stat label="Equivalent suggested, not picked" n={h.dxEquivalentNotPicked} of={h.dxScored} ofLabel="visits with an AI list" accent drill={{ m: 'dx_equiv' }} />
         <Stat label="Matches overruled by annotators" value={fmt(eqv.byRule.reduce((s, r) => s + r.overruled, 0))}
           note={eqv.byRule.map((r) => `${RULE_LABEL[r.rule]}: ${r.overruled} of ${r.reviewed} reviewed`).join(' · ') || 'None reviewed yet'} />
       </div>
@@ -424,7 +472,9 @@ function EquivalentPanel({ data }: { data: DashboardData }) {
         {pairs.filtered.map((p) => (
           <tr key={`${p.aiName}|${p.doctorName}|${p.rule}`}>
             <td className={td}>{displayName(p.aiName)}</td><td className={td}>{displayName(p.doctorName)}</td><td className={td}>{RULE_LABEL[p.rule] ?? p.rule}</td>
-            <td className={tdR}>#{p.avgRank}</td><td className={tdR}>{fmt(p.count)}</td><td className={tdR}>{fmt(p.reviewed)}</td>
+            <td className={tdR}>#{p.avgRank}</td>
+            <td className={tdR}><Drill spec={{ m: 'dx_equiv', k: JSON.stringify([p.aiName, p.doctorName, p.rule]) }} label={`Equivalent: AI ${displayName(p.aiName)} → doctor ${displayName(p.doctorName)}`}>{fmt(p.count)}</Drill></td>
+            <td className={tdR}>{fmt(p.reviewed)}</td>
             <td className={cn(tdR, p.overruled > 0 && 'font-semibold text-red-700')}>{fmt(p.overruled)}</td>
           </tr>
         ))}
@@ -436,9 +486,9 @@ function EquivalentPanel({ data }: { data: DashboardData }) {
 // ---------- Treatment ----------
 /** #14: the three case-level treatment outcomes, as tiles and by day / week / month. */
 const TTX_CASES = [
-  { key: 'casesChanged', label: 'AI medicine changed', note: 'At least one AI medicine kept with a change' },
-  { key: 'casesNotPicked', label: 'AI medications not used', note: 'At least one AI medicine not selected' },
-  { key: 'casesAdded', label: 'Doctor added a medicine', note: 'At least one medicine the AI did not suggest' },
+  { key: 'casesChanged', m: 'ttx_changed', label: 'AI medicine changed', note: 'At least one AI medicine kept with a change' },
+  { key: 'casesNotPicked', m: 'ttx_not_used', label: 'AI medications not used', note: 'At least one AI medicine not selected' },
+  { key: 'casesAdded', m: 'ttx_added', label: 'Doctor added a medicine', note: 'At least one medicine the AI did not suggest' },
 ] as const;
 
 function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; grain: Grain; prev: DashboardData | null; prevLabel: string | null }) {
@@ -460,8 +510,8 @@ function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
         {TTX_CASES.map((c) => (
           <Section key={c.key} title={c.label} description={`${c.note} · ${aiBase(data)}`}>
             <div className="flex items-baseline gap-3 px-4 py-3">
-              <span className="text-3xl font-semibold tabular-nums text-slate-900">{pctOf(h[c.key], h.ttxGenerated)}</span>
-              <span className="text-sm text-slate-500">{fmt(h[c.key])} of {fmt(h.ttxGenerated)} TTx cases</span>
+              <span className="text-3xl font-semibold tabular-nums text-slate-900"><Drill spec={{ m: c.m }} label={c.label}>{pctOf(h[c.key], h.ttxGenerated)}</Drill></span>
+              <span className="text-sm text-slate-500"><Drill spec={{ m: c.m }} label={c.label}>{fmt(h[c.key])}</Drill> of <Drill spec={{ m: 'ttx_generated' }} label="TTx cases">{fmt(h.ttxGenerated)}</Drill> TTx cases</span>
             </div>
           </Section>
         ))}
@@ -477,8 +527,8 @@ function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
           {trend.map((r) => (
             <tr key={r.name}>
               <td className={cn(td, 'whitespace-nowrap')}>{r.name}</td>
-              <td className={tdR}>{fmt(r.ttxGenerated)}</td>
-              {TTX_CASES.map((c) => <td key={c.key} className={tdR}>{fmt(r[c.key])} ({pctOf(r[c.key], r.ttxGenerated)})</td>)}
+              <td className={tdR}><Drill spec={{ m: 'ttx_generated', ...bucketRange(r.name, grain) }} label={`${r.name} · TTx cases`}>{fmt(r.ttxGenerated)}</Drill></td>
+              {TTX_CASES.map((c) => <td key={c.key} className={tdR}><Drill spec={{ m: c.m, ...bucketRange(r.name, grain) }} label={`${r.name} · ${c.label}`}>{fmt(r[c.key])} ({pctOf(r[c.key], r.ttxGenerated)})</Drill></td>)}
             </tr>
           ))}
         </Table>
@@ -498,9 +548,16 @@ function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
               </ResponsiveContainer>
             </div>
           )}
+          {!!totalChanges && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 pb-3 text-xs text-slate-600">
+              {(Object.keys(CHANGE_LABEL) as ChangeType[]).filter((k) => ct[k]).map((k) => (
+                <span key={k}>{CHANGE_LABEL[k]} <Drill spec={{ m: 'change', k }} label={`Changed AI medicines · ${CHANGE_LABEL[k]}`} className="tabular-nums">{fmt(ct[k])}</Drill></span>
+              ))}
+            </div>
+          )}
         </Section>
         <Section title="Medicines doctors added, by diagnosis" description={aiBase(data)}>
-          <RankedList items={data.addedForDiagnosis} />
+          <RankedList items={data.addedForDiagnosis} drill={(name) => ({ spec: { m: 'added_for', k: name }, label: `Medicine added: ${name}` })} />
         </Section>
       </div>
 
@@ -527,7 +584,7 @@ function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
           {meds.map((m) => (
             <tr key={m.name}>
               <td className={td}>{displayName(m.name)}</td>
-              <td className={tdR}>{fmt(m.suggested)}</td>
+              <td className={tdR}><Drill spec={{ m: 'med_suggested', k: m.name }} label={`${displayName(m.name)} · suggested`}>{fmt(m.suggested)}</Drill></td>
               <td className={cn(td, 'min-w-[200px]')}>
                 {/* D8: 100% bar per medicine, with the shares under it */}
                 <div className="flex h-2.5 w-full max-w-[220px] overflow-hidden rounded-sm bg-slate-100" title={`${pctOf(m.unchanged, m.suggested)} unchanged · ${pctOf(m.changed, m.suggested)} changed · ${pctOf(m.notPicked, m.suggested)} not used`}>
@@ -535,7 +592,9 @@ function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
                   {m.changed > 0 && <span className="bg-[#e9a23b]" style={{ width: `${(100 * m.changed) / m.suggested}%` }} />}
                   {m.notPicked > 0 && <span className="bg-[#c3c8cf]" style={{ width: `${(100 * m.notPicked) / m.suggested}%` }} />}
                 </div>
-                <div className="mt-1 text-[11px] tabular-nums text-slate-500">{pctOf(m.unchanged, m.suggested)} · {pctOf(m.changed, m.suggested)} · {pctOf(m.notPicked, m.suggested)}</div>
+                <div className="mt-1 text-[11px] tabular-nums text-slate-500">
+                  <Drill spec={{ m: 'med_unchanged', k: m.name }} label={`${displayName(m.name)} · unchanged`}>{pctOf(m.unchanged, m.suggested)}</Drill> · <Drill spec={{ m: 'med_changed', k: m.name }} label={`${displayName(m.name)} · changed`}>{pctOf(m.changed, m.suggested)}</Drill> · <Drill spec={{ m: 'med_not_used', k: m.name }} label={`${displayName(m.name)} · not used`}>{pctOf(m.notPicked, m.suggested)}</Drill>
+                </div>
               </td>
               <td className={cn(td, 'text-xs text-slate-500')}>
                 {(Object.keys(CHANGE_LABEL) as ChangeType[]).filter((k) => m.changes[k]).map((k) => `${CHANGE_LABEL[k]} ${m.changes[k]}`).join(' · ') || '—'}
@@ -587,7 +646,7 @@ function TreatmentTab({ data, grain, prev, prevLabel }: { data: DashboardData; g
           {addedSearch.filtered.map((m) => (
             <tr key={m.name}>
               <td className={td}>{displayName(m.name)}</td>
-              <td className={tdR}>{fmt(m.count)}</td>
+              <td className={tdR}><Drill spec={{ m: 'med_added', k: m.name }} label={`${displayName(m.name)} · added by the doctor`}>{fmt(m.count)}</Drill></td>
               <td className={tdR}>{m.paediatric ? fmt(m.paediatric) : '—'}</td>
               <td className={cn(td, 'text-xs text-slate-600')}>{m.dose ?? '—'}</td>
               <td className={cn(td, 'text-xs text-slate-600')}>{m.frequency ?? '—'}</td>
@@ -766,6 +825,8 @@ function OrdersTab({ data }: { data: DashboardData }) {
 }
 
 // ---------- Annotation ----------
+const MISMATCH_KEY: Record<string, string> = { 'Diagnosis only': 'ddx', 'Treatment only': 'ttx', 'Diagnosis and treatment': 'both', 'No mismatch': 'none' };
+
 function AnnotationTab({ data, queueHref }: { data: DashboardData; queueHref?: (extra: Record<string, string>) => string }) {
   const s = data.summary;
   const mismatched = s.mismatch.ddx + s.mismatch.ttx + s.mismatch.both;
@@ -774,11 +835,11 @@ function AnnotationTab({ data, queueHref }: { data: DashboardData; queueHref?: (
   return (
     <>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Mismatches in this period" n={mismatched} of={s.visits} ofLabel="visits in the period (follow-ups included)" accent />
-        <Stat label="Annotated" n={s.review.done} of={queued} ofLabel="mismatches in the queue" />
-        <Stat label="In review" n={s.review.in_progress} of={queued} ofLabel="mismatches in the queue" />
-        <Stat label="To review" n={s.review.pending} of={queued} ofLabel="mismatches in the queue" />
-        <Stat label="Discussed with clinical team" n={s.review.discussed ?? 0} of={s.review.done} ofLabel="annotated" />
+        <Stat label="Mismatches in this period" n={mismatched} of={s.visits} ofLabel="visits in the period (follow-ups included)" accent drill={{ m: 'mismatch', k: 'any' }} />
+        <Stat label="Annotated" n={s.review.done} of={queued} ofLabel="mismatches in the queue" drill={{ m: 'annotated' }} />
+        <Stat label="In review" n={s.review.in_progress} of={queued} ofLabel="mismatches in the queue" drill={{ m: 'in_review' }} />
+        <Stat label="To review" n={s.review.pending} of={queued} ofLabel="mismatches in the queue" drill={{ m: 'to_review' }} />
+        <Stat label="Discussed with clinical team" n={s.review.discussed ?? 0} of={s.review.done} ofLabel="annotated" drill={{ m: 'discussed' }} />
       </div>
       <DoctorProgress p={data.progress} personHref={queueHref ? (id) => queueHref({ reviewer: id, range: 'all', from: '', to: '' }) : undefined} />
       <div className="grid gap-5 lg:grid-cols-2">
@@ -788,7 +849,7 @@ function AnnotationTab({ data, queueHref }: { data: DashboardData; queueHref?: (
             { name: 'Treatment only', count: s.mismatch.ttx },
             { name: 'Diagnosis and treatment', count: s.mismatch.both },
             { name: 'No mismatch', count: s.mismatch.none },
-          ]} />
+          ]} drill={(name) => ({ spec: { m: 'mismatch', k: MISMATCH_KEY[name] }, label: `Mismatch type: ${name}` })} />
         </Section>
         <Section title="Doctor rejected the AI (stated reason)" description="All visits · follow-ups included">
           <RankedList items={data.rejections ?? []} empty="No reasons recorded in this period." />

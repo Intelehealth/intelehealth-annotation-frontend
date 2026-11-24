@@ -13,6 +13,7 @@ import {
   type ArchivePage, type Facets, type QueueItem, type QueuePage, type QueueQuery, type QueueTab,
 } from '@/lib/api/mismatch';
 import { monthLabel, queueFromUrl, queueUrl, windowLabel } from '@/lib/queue-url';
+import { drillOf } from '@/lib/drill';
 import { dash, displayName } from '@/lib/format-display';
 import { Ladder, Pill } from './visit-layout';
 import { cn } from '@/lib/utils';
@@ -118,7 +119,8 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
   useEffect(() => { setQ((p) => ({ ...p, page: 1 })); }, [tab]);
   useEffect(() => {
     if (!ready) return;
-    try { const { page: _p, ...keep } = q; sessionStorage.setItem(storeKey, JSON.stringify(keep)); } catch { /* storage unavailable */ }
+    // A drill is never saved: it opens only from its dashboard link.
+    try { const { page: _p, ...keep } = q; if (!drillOf(keep as Record<string, unknown>)) sessionStorage.setItem(storeKey, JSON.stringify(keep)); } catch { /* storage unavailable */ }
     const next = queueUrl(window.location.search, q, tab);
     if (next !== window.location.search) router.replace(`${window.location.pathname}${next}`, { scroll: false });
   }, [q, tab, storeKey, ready, router]);
@@ -167,6 +169,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
   const setPopulation = (p: '' | 'paediatric' | 'general') => set({ population: p || undefined });
   const set = (patch: Partial<QueueQuery>) => setQ((p) => ({ ...p, ...patch, page: patch.page ?? 1 }));
   const clearAll = () => { setSearch(''); setDx(''); setMed(''); setQ({ ...DEFAULT, sort: q.sort }); };
+  const drill = drillOf(q as Record<string, unknown>);
   const pages = data ? Math.max(1, Math.ceil(data.total / (q.limit ?? 25))) : 1;
 
   const label = (opts: Opt[], v?: string) => opts.find((o) => o.value === v)?.label ?? v;
@@ -214,6 +217,21 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
 
   return (
     <div className="space-y-4">
+      {/* #20/#29 a drill from an AI Dashboard number: exactly its visits, no other filter. */}
+      {drill ? (
+        <div role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-950">
+          <span className="font-semibold">{drill.dl ?? 'AI Dashboard'}</span>
+          {data?.drill && (
+            <span className="tabular-nums">
+              · {data.drill.visits.toLocaleString()} visit{data.drill.visits === 1 ? '' : 's'}
+              {drill.du && data.drill.units !== data.drill.visits ? ` · ${data.drill.units.toLocaleString()} ${drill.du}` : ''}
+            </span>
+          )}
+          <button className="ml-auto inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-white px-2 py-1 text-xs hover:bg-indigo-100" onClick={clearAll}>
+            <X className="h-3.5 w-3.5" />Clear
+          </button>
+        </div>
+      ) : (<>
       {/* Q1: All / Paediatric (≤ 17 y) / General, with counts; kept in the URL and in the ?view= that V3 follows. */}
       <div className="max-w-full overflow-x-auto">
         <div className="inline-flex gap-0.5 rounded-lg bg-active p-0.5" role="group" aria-label="Patients">
@@ -369,10 +387,11 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
           </div>
         )}
       </div>
+      </>)}
 
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b px-4 py-2.5 text-xs text-muted-foreground">
-          <span className="tabular-nums">{data ? `${data.total.toLocaleString()} visit${data.total === 1 ? '' : 's'}` : 'Loading…'}{data?.window && <span className="ml-1.5">· {windowLabel(data.window, !!q.q)}</span>}</span>
+          <span className="tabular-nums">{data ? `${data.total.toLocaleString()} visit${data.total === 1 ? '' : 's'}` : 'Loading…'}{data?.window && !drill && <span className="ml-1.5">· {windowLabel(data.window, !!q.q)}</span>}</span>
           <span>{SORT_LABEL[q.sort ?? 'missed'] ?? 'AI missed first, then newest'}</span>
         </div>
         {error && <p className="px-4 py-3 text-sm text-destructive">{error}</p>}
