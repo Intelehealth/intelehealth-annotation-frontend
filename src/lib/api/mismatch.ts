@@ -62,10 +62,23 @@ export interface QueueQuery {
   /** Q1: paediatric (age <= 17) | general. */
   population?: string;
   flag?: string; model?: string; doctor?: string;
+  /** #21: 'all' = every date; without from / to / range the server shows the last 45 days. */
+  range?: string;
   q?: string; sort?: string; page?: number; limit?: number;
 }
 
-export interface QueuePage { total: number; page: number; limit: number; counts: Record<QueueTab, number>; populationCounts?: Record<'all' | 'paediatric' | 'general', number>; items: QueueItem[] }
+export interface QueueWindow { from: string | null; to: string | null; recent: boolean; days: number; recentFrom: string }
+export interface QueuePage {
+  total: number; page: number; limit: number; counts: Record<QueueTab, number>; populationCounts?: Record<'all' | 'paediatric' | 'general', number>;
+  /** Visits flagged by the clinical-team checkbox in this tab, every other filter applied. */
+  redFlagCount?: number;
+  /** #21: the dates the server used for this view. */
+  window?: QueueWindow;
+  items: QueueItem[];
+}
+/** #21 archive picker: one month of a workspace. */
+export interface ArchiveMonth { month: string; year: number; from: string; to: string; archived: boolean; total: number; toAnnotate: number; annotated: number; redFlag: number }
+export interface ArchivePage { recentFrom: string; days: number; months: ArchiveMonth[] }
 export interface Facets { specialties: string[]; models: string[]; doctors: string[]; rejectReasons: string[]; reviewers: { _id: string; name: string }[] }
 
 export interface AiDiagnosis { diagnosis: string; rank: string | null; likelihood?: string | null; aiAssisted?: string | null; rationale?: unknown }
@@ -183,7 +196,7 @@ export interface DashboardData {
     meds: { exact: number; modified: number; ignored: number; added: number };
     mismatch: Record<MismatchType, number>;
     /** Mismatches in the workspace queue (follow-up-only visits are not in it); discussed = annotated + discussed with clinical team. */
-    review: Record<ReviewStatus, number> & { discussed?: number };
+    review: Record<ReviewStatus, number> & { discussed?: number; redFlag?: number };
     rankHist: number[];
   };
   trend: { date: string; visits: number; ddxVisits: number; top1: number; top5: number; ttxVisits: number; ttxUsed: number; mismatches: number }[];
@@ -309,6 +322,7 @@ export const mismatchAPI = {
   syncState: (id: string) => jsonApi.get<SyncState>(`${base}/${id}/sync`).then((r) => r.data),
   queue: (id: string, q: QueueQuery) => jsonApi.get<QueuePage>(`${base}/${id}/queue`, { params: clean(q) }).then((r) => r.data),
   facets: (id: string) => jsonApi.get<Facets>(`${base}/${id}/facets`).then((r) => r.data),
+  archive: (id: string) => jsonApi.get<ArchivePage>(`${base}/${id}/archive`).then((r) => r.data),
   dashboard: (id: string, from?: string, to?: string, population?: string, followUps?: 'include' | 'exclude', dxMatch?: 'clicked' | 'assisted') =>
     jsonApi.get<DashboardData>(`${base}/${id}/dashboard`, { params: clean({ from, to, population, followUps, dxMatch: dxMatch === 'assisted' ? 'assisted' : undefined }) }).then((r) => r.data),
   visit: (id: string, uuid: string) => jsonApi.get<VisitDetail>(`${base}/${id}/visits/${uuid}`).then((r) => r.data),

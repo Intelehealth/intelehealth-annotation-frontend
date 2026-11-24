@@ -89,7 +89,7 @@ export function DoctorProgress({ p }: { p: DashboardData['progress'] }) {
                   <th className={thR}>Diagnosis</th>
                   <th className={thR}>Treatment</th>
                   <th className={th}>Verdicts</th>
-                  <th className={thR}>Flagged</th>
+                  <th className={thR}>Flagged by clinical team</th>
                   <th className={thR}>Discussed</th>
                   <th className={th}>Last active</th>
                 </tr>

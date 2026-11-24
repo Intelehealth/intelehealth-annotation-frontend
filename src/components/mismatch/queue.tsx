@@ -3,15 +3,16 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Flag, Info, Search, SlidersHorizontal, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Flag, Info, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Empty } from '@/components/dashboard/kpi';
 import { friendlyError } from '@/components/mismatch/shared';
 import {
   DDX_VERDICTS, DISCUSSED_MAX, doctorLabel, mismatchAPI, TTX_VERDICTS, viewString,
-  type Facets, type QueueItem, type QueuePage, type QueueQuery, type QueueTab,
+  type ArchivePage, type Facets, type QueueItem, type QueuePage, type QueueQuery, type QueueTab,
 } from '@/lib/api/mismatch';
+import { monthLabel, queueFromUrl, queueUrl, windowLabel } from '@/lib/queue-url';
 import { dash, displayName } from '@/lib/format-display';
 import { Ladder, Pill } from './visit-layout';
 import { cn } from '@/lib/utils';
@@ -69,11 +70,14 @@ const DATE_PRESETS = [
   { key: '7', label: 'Last 7 days', from: () => istDay(6) },
   { key: '30', label: 'Last 30 days', from: () => istDay(29) },
 ];
+// #21: with no dates the server shows the last 45 days; "All dates" lifts that.
+const RECENT_LABEL = 'Last 45 days';
+export const RED_FLAG_LABEL = 'Flagged by clinical team';
 
 const field = 'h-9 w-full rounded-md border bg-background px-2 text-sm';
 const DEFAULT: QueueQuery = { sort: 'missed', page: 1, limit: 25 };
 // Keys that count as user filters (shown as chips, cleared by "Clear all").
-const FILTER_KEYS: (keyof QueueQuery)[] = ['mismatch', 'ddx', 'ttx', 'flag', 'model', 'doctor', 'status', 'from', 'to', 'specialty', 'gender', 'age', 'dx', 'med', 'reviewer', 'verdict', 'followUp', 'discussed', 'images', 'q'];
+const FILTER_KEYS: (keyof QueueQuery)[] = ['mismatch', 'ddx', 'ttx', 'flag', 'model', 'doctor', 'status', 'from', 'to', 'range', 'specialty', 'gender', 'age', 'dx', 'med', 'reviewer', 'verdict', 'followUp', 'discussed', 'images', 'q'];
 const reasonLabel = (r: string) => r.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnotate = false }: {
@@ -82,6 +86,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
   canAnnotate?: boolean;
 }) {
   const storeKey = `mismatch-filters-${workspaceId}`;
+  const router = useRouter();
   const [q, setQ] = useState<QueueQuery>(DEFAULT);
   const [ready, setReady] = useState(false);
   const [more, setMore] = useState(false);
@@ -102,10 +107,10 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
   // Filters survive navigating to a visit and back (per browser tab).
   useEffect(() => {
     try {
-      const saved = JSON.parse(sessionStorage.getItem(storeKey) ?? '{}') as QueueQuery;
-      // ?population= in the URL wins over the saved filters (Q1).
-      const urlPop = new URLSearchParams(window.location.search).get('population');
-      setQ({ ...DEFAULT, ...saved, ...(urlPop === 'paediatric' || urlPop === 'general' ? { population: urlPop } : {}), page: 1 });
+      // #20/#21: filters live in the URL so a view can be shared and linked; URL > this tab's saved filters > default.
+      const fromUrl = queueFromUrl(window.location.search);
+      const saved = fromUrl ?? (JSON.parse(sessionStorage.getItem(storeKey) ?? '{}') as QueueQuery);
+      setQ({ ...DEFAULT, ...saved, page: 1 });
       setSearch(saved.q ?? ''); setDx(saved.dx ?? ''); setMed(saved.med ?? '');
     } catch { /* storage unavailable */ }
     setReady(true);
@@ -114,7 +119,13 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
   useEffect(() => {
     if (!ready) return;
     try { const { page: _p, ...keep } = q; sessionStorage.setItem(storeKey, JSON.stringify(keep)); } catch { /* storage unavailable */ }
-  }, [q, storeKey, ready]);
+    const next = queueUrl(window.location.search, q, tab);
+    if (next !== window.location.search) router.replace(`${window.location.pathname}${next}`, { scroll: false });
+  }, [q, tab, storeKey, ready, router]);
+  // #21 month picker (loaded once per workspace).
+  const [archive, setArchive] = useState<ArchivePage | null>(null);
+  const [monthsOpen, setMonthsOpen] = useState(false);
+  useEffect(() => { mismatchAPI.archive(workspaceId).then(setArchive).catch(() => undefined); }, [workspaceId, refreshKey]);
 
   useEffect(() => {
     if (!ready) return;
@@ -152,14 +163,8 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
 
   // Carried on visit links so "Save & next" stays in this exact view (ticket V3).
   const view = useMemo(() => viewString({ ...q, tab }), [q, tab]);
-  // Q1: the population toggle lives in the URL (?population=) as well as in the saved filters.
-  const router = useRouter();
-  const setPopulation = (p: '' | 'paediatric' | 'general') => {
-    set({ population: p || undefined });
-    const u = new URL(window.location.href);
-    if (p) u.searchParams.set('population', p); else u.searchParams.delete('population');
-    router.replace(`${u.pathname}${u.search}`, { scroll: false });
-  };
+  // Q1: the population toggle; like every filter it is kept in the URL.
+  const setPopulation = (p: '' | 'paediatric' | 'general') => set({ population: p || undefined });
   const set = (patch: Partial<QueueQuery>) => setQ((p) => ({ ...p, ...patch, page: patch.page ?? 1 }));
   const clearAll = () => { setSearch(''); setDx(''); setMed(''); setQ({ ...DEFAULT, sort: q.sort }); };
   const pages = data ? Math.max(1, Math.ceil(data.total / (q.limit ?? 25))) : 1;
@@ -183,7 +188,8 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
         : k === 'med' ? `Medicine: “${v}”`
         : k === 'reviewer' ? `Reviewer: ${facets?.reviewers.find((r) => r._id === v)?.name ?? '…'}`
         : k === 'verdict' ? `Verdict: ${label(VERDICTS, String(v))}`
-        : k === 'followUp' ? 'Flagged for follow-up'
+        : k === 'followUp' ? RED_FLAG_LABEL
+        : k === 'range' ? 'All dates'
         : k === 'discussed' ? `Discussed with clinical team: ${label(DISCUSSED, String(v))}`
         : k === 'images' ? 'Has images'
         : k === 'flag' ? (v === 'any' ? 'Doctor rejected AI' : `Doctor rejected AI: ${reasonLabel(String(v))}`)
@@ -196,6 +202,15 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
     return out;
   }, [q, facets]);
   const datePreset = DATE_PRESETS.find((p) => q.from === p.from() && !q.to)?.key;
+  const recentOn = !q.from && !q.to && q.range !== 'all';
+  const allOn = !q.from && !q.to && q.range === 'all';
+  const monthOn = archive?.months.find((m) => q.from === m.from && q.to === m.to);
+  const years = useMemo(() => {
+    const by = new Map<number, ArchivePage['months']>();
+    for (const m of archive?.months ?? []) by.set(m.year, [...(by.get(m.year) ?? []), m]);
+    return [...by.entries()];
+  }, [archive]);
+  const flagOn = q.followUp === '1';
 
   return (
     <div className="space-y-4">
@@ -221,14 +236,62 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
               </button>
             ))}
           </div>
-          <div className="inline-flex flex-wrap gap-1">
+          <div className="relative inline-flex flex-wrap gap-1" role="group" aria-label="Dates">
+            <button onClick={() => set({ from: undefined, to: undefined, range: undefined })} aria-pressed={recentOn}
+              className={cn('rounded-full border px-3 py-1 text-xs font-medium', recentOn ? 'border-indigo-600 bg-indigo-600 text-white' : 'hover:bg-accent')}>
+              {RECENT_LABEL}
+            </button>
             {DATE_PRESETS.map((p) => (
-              <button key={p.key} onClick={() => set(datePreset === p.key ? { from: undefined, to: undefined } : { from: p.from(), to: undefined })}
-                className={cn('rounded-full border px-3 py-1 text-xs font-medium', datePreset === p.key ? 'border-foreground bg-foreground text-background' : 'hover:bg-accent')}>
+              <button key={p.key} aria-pressed={datePreset === p.key}
+                onClick={() => set(datePreset === p.key ? { from: undefined, to: undefined, range: undefined } : { from: p.from(), to: undefined, range: undefined })}
+                className={cn('rounded-full border px-3 py-1 text-xs font-medium', datePreset === p.key ? 'border-indigo-600 bg-indigo-600 text-white' : 'hover:bg-accent')}>
                 {p.label}
               </button>
             ))}
+            <button onClick={() => setMonthsOpen((o) => !o)} aria-expanded={monthsOpen} aria-pressed={!!monthOn}
+              className={cn('inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium', monthOn ? 'border-indigo-600 bg-indigo-600 text-white' : 'hover:bg-accent')}>
+              <CalendarDays className="h-3.5 w-3.5" />{monthOn ? monthLabel(monthOn.month) : 'Months'}<ChevronDown className="h-3 w-3" />
+            </button>
+            <button onClick={() => set({ from: undefined, to: undefined, range: allOn ? undefined : 'all' })} aria-pressed={allOn}
+              className={cn('rounded-full border px-3 py-1 text-xs font-medium', allOn ? 'border-indigo-600 bg-indigo-600 text-white' : 'hover:bg-accent')}>
+              All dates
+            </button>
+            {monthsOpen && archive && (
+              <div role="dialog" aria-label="Months" className="absolute left-0 top-full z-30 mt-2 max-h-[420px] w-[460px] max-w-[90vw] overflow-auto rounded-lg border bg-card p-2 shadow-lg">
+                {years.map(([year, months]) => (
+                  <div key={year} className="mb-1">
+                    <div className="px-2 pb-1 pt-2 text-xs font-semibold text-muted-foreground">{year}</div>
+                    <table className="w-full text-xs">
+                      <thead className="text-muted-foreground">
+                        <tr>
+                          <th className="px-2 py-1 text-left font-medium">Month</th><th className="px-2 py-1 text-right font-medium">Visits</th>
+                          <th className="px-2 py-1 text-right font-medium">To annotate</th><th className="px-2 py-1 text-right font-medium">Annotated</th>
+                          <th className="px-2 py-1 text-right font-medium" title={RED_FLAG_LABEL}><Flag className="ml-auto h-3 w-3 text-rose-600" aria-label={RED_FLAG_LABEL} /></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {months.map((m) => (
+                          <tr key={m.month} onClick={() => { set({ from: m.from, to: m.to, range: undefined }); setMonthsOpen(false); }}
+                            className={cn('cursor-pointer hover:bg-accent', monthOn?.month === m.month && 'bg-accent font-medium')}>
+                            <td className="px-2 py-1.5">{monthLabel(m.month)}{m.archived ? <span className="ml-1.5 rounded bg-muted px-1 text-[10px] text-muted-foreground">Archive</span> : null}</td>
+                            <td className="px-2 py-1.5 text-right tabular-nums">{m.total.toLocaleString()}</td>
+                            <td className="px-2 py-1.5 text-right tabular-nums">{m.toAnnotate.toLocaleString()}</td>
+                            <td className="px-2 py-1.5 text-right tabular-nums">{m.annotated.toLocaleString()}</td>
+                            <td className="px-2 py-1.5 text-right tabular-nums">{m.redFlag ? m.redFlag.toLocaleString() : ''}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+          <button onClick={() => set({ followUp: flagOn ? undefined : '1' })} aria-pressed={flagOn}
+            className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium', flagOn ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-300 text-rose-700 hover:bg-rose-50')}>
+            <Flag className="h-3.5 w-3.5" />{RED_FLAG_LABEL}
+            {data?.redFlagCount !== undefined && <span className={cn('rounded-full px-1.5 tabular-nums', flagOn ? 'bg-white/20' : 'bg-rose-100')}>{data.redFlagCount.toLocaleString()}</span>}
+          </button>
           <form className="relative ml-auto min-w-[220px] flex-1 sm:max-w-xs" onSubmit={(e) => { e.preventDefault(); set({ q: search.trim() || undefined }); }}>
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input className="h-9 pl-8" placeholder="Visit ID, UUID, patient / doctor / health worker ID, or any text" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -284,7 +347,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
             {tab !== 'todo' && <Labeled label="Discussed with clinical team"><Select opts={DISCUSSED} value={q.discussed} onChange={(v) => set({ discussed: v })} /></Labeled>}
             <Labeled label="Sort"><Select opts={SORTS} value={q.sort} onChange={(v) => set({ sort: v || 'missed' })} /></Labeled>
             <div className="flex items-end gap-4 pb-2 text-sm">
-              <label className="flex items-center gap-2"><input type="checkbox" checked={q.followUp === '1'} onChange={(e) => set({ followUp: e.target.checked ? '1' : undefined })} /> Flagged for follow-up</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={q.followUp === '1'} onChange={(e) => set({ followUp: e.target.checked ? '1' : undefined })} /> {RED_FLAG_LABEL}</label>
               <label className="flex items-center gap-2"><input type="checkbox" checked={q.images === '1'} onChange={(e) => set({ images: e.target.checked ? '1' : undefined })} /> Has images</label>
             </div>
           </div>
@@ -308,7 +371,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
 
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between border-b px-4 py-2.5 text-xs text-muted-foreground">
-          <span className="tabular-nums">{data ? `${data.total.toLocaleString()} visit${data.total === 1 ? '' : 's'}` : 'Loading…'}</span>
+          <span className="tabular-nums">{data ? `${data.total.toLocaleString()} visit${data.total === 1 ? '' : 's'}` : 'Loading…'}{data?.window && <span className="ml-1.5">· {windowLabel(data.window, !!q.q)}</span>}</span>
           <span>{SORT_LABEL[q.sort ?? 'missed'] ?? 'AI missed first, then newest'}</span>
         </div>
         {error && <p className="px-4 py-3 text-sm text-destructive">{error}</p>}
@@ -334,7 +397,7 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
                   <th className="px-4 py-2 font-medium">{tab === 'todo' ? 'Status' : 'Review'}</th>
                 </tr>
               </thead>
-              <tbody className="block divide-y sm:table-row-group">{data.items.map((v) => <Row key={v.uuid} v={v} workspaceId={workspaceId} view={view} select={selectable ? { checked: selected.has(v.uuid), onToggle: () => toggle(v.uuid) } : undefined} />)}</tbody>
+              <tbody className="block divide-y sm:table-row-group">{data.items.map((v) => <Row key={v.uuid} v={v} workspaceId={workspaceId} view={view} archivedBefore={q.q ? data.window?.recentFrom : undefined} select={selectable ? { checked: selected.has(v.uuid), onToggle: () => toggle(v.uuid) } : undefined} />)}</tbody>
             </table>
           </div>
         )}
@@ -364,7 +427,13 @@ export function MismatchQueue({ workspaceId, tab, refreshKey, onCounts, canAnnot
 
 const VERDICT_LABEL = Object.fromEntries([...DDX_VERDICTS, ...TTX_VERDICTS].map((v) => [v.value, v.label]));
 
-function Row({ v, workspaceId, view, select }: { v: QueueItem; workspaceId: string; view: string; select?: { checked: boolean; onToggle: () => void } }) {
+function Row({ v, workspaceId, view, select, archivedBefore }: {
+  v: QueueItem; workspaceId: string; view: string; select?: { checked: boolean; onToggle: () => void };
+  /** #21: on an ID search, visits older than the recent window carry an "Archived · <month>" badge. */
+  archivedBefore?: string;
+}) {
+  const day = v.encounterAt ? new Date(new Date(v.encounterAt).getTime() + 5.5 * 3600_000).toISOString().slice(0, 10) : null;
+  const archived = !!(archivedBefore && day && day < archivedBefore);
   return (
     // Phone: each row becomes a stacked card (date + status, complaints, rank ladder + AI vs doctor, pills).
     <tr className={cn('block border-b border-rule px-4 py-3 align-top hover:bg-raised sm:table-row sm:border-0 sm:p-0', select?.checked && 'bg-raised')}>
@@ -378,6 +447,7 @@ function Row({ v, workspaceId, view, select }: { v: QueueItem; workspaceId: stri
         <div className="text-xs text-muted-foreground">{[v.gender, v.age != null ? `${v.age}y` : null, v.specialty ? displayName(v.specialty) : null].filter(Boolean).join(' · ')}</div>
         {v.doctor && <div className="text-xs text-muted-foreground">{doctorLabel(v.doctor)}</div>}
         {v.visitId != null && <div className="text-xs tabular-nums text-muted-foreground">Visit ID {v.visitId}</div>}
+        {archived && day && <div className="mt-1"><Pill tone="n">Archived · {monthLabel(day.slice(0, 7))}</Pill></div>}
       </td>
       <td className="block pt-1 text-xs text-muted-foreground sm:table-cell sm:max-w-[220px] sm:px-4 sm:py-3">{dash(v.complaint)}</td>
       <td className="block pt-1 text-xs sm:table-cell sm:max-w-[280px] sm:px-4 sm:py-3">
@@ -402,8 +472,8 @@ function Row({ v, workspaceId, view, select }: { v: QueueItem; workspaceId: stri
       <td className="block pt-1 sm:table-cell sm:px-4 sm:py-3">
         <div className="flex items-center gap-1.5 whitespace-nowrap">
           <StatusBadge status={v.review.status} />
-          {v.review.followUp && <Flag className="h-3.5 w-3.5 text-rose-600" aria-label="Flagged for follow-up" />}
         </div>
+        {v.review.followUp && <div className="mt-1"><Pill tone="neg"><Flag className="mr-1 inline h-3 w-3 align-[-2px]" />{RED_FLAG_LABEL}</Pill></div>}
         {v.review.discussed && <div className="mt-1"><Pill tone="pos" title={`Discussed with clinical team · ${fmtDate(v.review.discussed.at)} · ${v.review.discussed.by}`}>Discussed · {fmtDay(v.review.discussed.at)}</Pill></div>}
         {(v.review.annotatedBy || v.review.claimedBy) && <div className="mt-1 text-xs text-muted-foreground">{v.review.annotatedBy ?? v.review.claimedBy}</div>}
         {v.review.status === 'done' && (v.review.ddxVerdict || v.review.ttxVerdict) && (

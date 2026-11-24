@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCheck, Inbox, Rows3, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MismatchQueue } from '@/components/mismatch/queue';
+import { tabFromUrl } from '@/lib/queue-url';
 import { Shell, SyncBar } from '@/components/mismatch/shared';
 import { friendlyError } from '@/components/mismatch/shared';
 import { mismatchAPI, type MismatchAccess, type MismatchSource, type QueuePage, type QueueTab, type SyncState } from '@/lib/api/mismatch';
@@ -34,6 +35,9 @@ export default function MismatchWorkspacePage() {
   const finished = useSearchParams().get('finished') === '1';
 
   useEffect(() => {
+    // #20/#21: a ?tab= in the URL (a shared or dashboard link) wins over this browser tab's last tab.
+    const fromUrl = tabFromUrl(window.location.search);
+    if (fromUrl) { setTab(fromUrl); return; }
     try {
       const t = sessionStorage.getItem(`mismatch-tab-${id}`);
       if (TABS.includes(t as Tab)) setTab(t as Tab);
