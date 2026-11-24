@@ -476,7 +476,8 @@ function Row({ v, workspaceId, view, select, archivedBefore }: {
         </div>
         {v.review.followUp && <div className="mt-1"><Pill tone="neg"><Flag className="mr-1 inline h-3 w-3 align-[-2px]" />{RED_FLAG_LABEL}</Pill></div>}
         {v.review.discussed && <div className="mt-1"><Pill tone="pos" title={`Discussed with clinical team · ${fmtDate(v.review.discussed.at)} · ${v.review.discussed.by}`}>Discussed · {fmtDay(v.review.discussed.at)}</Pill></div>}
-        {(v.review.annotatedBy || v.review.claimedBy) && <div className="mt-1 text-xs text-muted-foreground">{v.review.annotatedBy ?? v.review.claimedBy}</div>}
+        {/* #27 status = mine; who else finished it (only people this viewer may see) */}
+        {v.review.annotatedBy && <div className="mt-1 max-w-[180px] text-xs text-muted-foreground">Annotated by {v.review.annotatedBy}</div>}
         {v.review.status === 'done' && (v.review.ddxVerdict || v.review.ttxVerdict) && (
           <div className="mt-0.5 max-w-[180px] text-xs text-muted-foreground">{VERDICT_LABEL[v.review.ddxVerdict ?? v.review.ttxVerdict ?? '']}</div>
         )}
