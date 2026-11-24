@@ -350,8 +350,8 @@ function bucket<T extends { name: string }>(rows: T[], grain: Grain): T[] {
 
 const DxHead = ({ first }: { first: string }) => (
   <tr>
-    <th className={th}>{first}</th><th className={thR}>Visits</th><th className={thR}>Scored</th><th className={thR}>Picked AI Dx</th>
-    <th className={thR}>Top 5</th><th className={thR}>Top 3</th><th className={thR}>Top 1</th><th className={thR}>Added non-AI Dx</th>
+    <th className={th}>{first}</th><th className={thR}>Visits</th><th className={thR}>Scored</th>
+    <th className={thR}>Top 5</th><th className={thR}>Top 3</th><th className={thR}>Top 1</th><th className={thR}>Not in AI top 5</th><th className={thR}>Added non-AI Dx</th>
     <th className={thR} title="Separate metric, not part of the strict picks">Equivalent, not picked</th>
   </tr>
 );
@@ -364,10 +364,10 @@ const DxCells = ({ r, at, what }: { r: DxAgg; at: At; what: string }) => {
     <>
       <td className={tdR}><D at={at} what={what} m="visits" label="visits">{fmt(r.visits)}</D></td>
       <td className={tdR}><D at={at} what={what} m="dx_scored" label="scored">{fmt(r.scored)}</D></td>
-      <td className={tdR}><D at={at} what={what} m="top5" label="picked an AI Dx">{pctOf(r.picked, r.scored)}</D></td>
       <td className={tdR}><D at={at} what={what} m="top5" label="top 5">{pctOf(r.top5, r.scored)}</D></td>
       <td className={tdR}><D at={at} what={what} m="top3" label="top 3">{pctOf(r.top3, r.scored)}</D></td>
       <td className={tdR}><D at={at} what={what} m="top1" label="top 1">{pctOf(r.top1, r.scored)}</D></td>
+      <td className={tdR}>{r.scored - r.top5 ? <D at={at} what={what} m="not_top5" label="not in the AI top 5">{`${fmt(r.scored - r.top5)} (${pctOf(r.scored - r.top5, r.scored)})`}</D> : '—'}</td>
       <td className={tdR}>{r.addedNonAi ? <D at={at} what={what} m="dx_added" label="added a non-AI Dx">{`${fmt(r.addedNonAi)} (${pctOf(r.addedNonAi, r.scored)})`}</D> : '—'}</td>
       <td className={tdR}>{r.equivalent ? <D at={at} what={what} m="dx_equiv" label="equivalent, not picked">{`${fmt(r.equivalent)} (${pctOf(r.equivalent, r.scored)})`}</D> : '—'}</td>
     </>
