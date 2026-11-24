@@ -692,7 +692,6 @@ function MedShareBar({ name, unchanged, changed, notPicked, suggested }: { name:
 function DoctorsTab({ data }: { data: DashboardData }) {
   // D6: one table per consulting doctor (pseudo id only). Rates on fewer than 5 visits show as a dash.
   const rows = data.ai.byDoctor;
-  const medBy = new Map((data.plan?.find((x) => x.type === 'medicine')?.byDoctor ?? []).map((d) => [d.doctor, d]));
   const misBy = new Map((data.doctors ?? []).map((d) => [d.doctor, d]));
   const tatBy = (doc: string, kind: 'new' | 'follow_up') => data.tat?.byDoctorKind?.find((r) => r.doctor === doc && r.kind === kind);
   const rate = (n: number, d: number) => (d >= MIN_DOCTOR_N ? pctOf(n, d) : '—');
@@ -707,7 +706,6 @@ function DoctorsTab({ data }: { data: DashboardData }) {
         </tr>
       )}>
         {rows.map((r) => {
-          const m = medBy.get(r.name);
           const x = misBy.get(r.name);
           return (
             <tr key={r.name}>
@@ -719,8 +717,9 @@ function DoctorsTab({ data }: { data: DashboardData }) {
               <td className={tdR}>{fmt(r.ttxGenerated)}</td>
               <td className={tdR}>{rate(r.casesUnchanged, r.ttxGenerated)}</td>
               <td className={tdR}>{rate(r.casesChanged, r.ttxGenerated)}</td>
-              <td className={tdR}>{m ? rate(m.casesNotPicked, m.generated) : '—'}</td>
-              <td className={tdR}>{m ? rate(m.casesAdded, m.generated) : '—'}</td>
+              {/* #36 same base as Unchanged / Changed: the row's TTx cases */}
+              <td className={tdR}>{r.casesNotPicked !== undefined ? rate(r.casesNotPicked, r.ttxGenerated) : '—'}</td>
+              <td className={tdR}>{r.casesAdded !== undefined ? rate(r.casesAdded, r.ttxGenerated) : '—'}</td>
               <td className={tdR}>{x ? fmt(x.mismatches) : '—'}</td>
               <td className={tdR}>{x ? fmt(x.annotated) : '—'}</td>
               <td className={tdR}>{tatCell(tatBy(r.name, 'new'))}</td>

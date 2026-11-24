@@ -16,7 +16,6 @@ const frac = (n: number, d: number): number | null => (d ? n / d : null);
 
 /** D6: one row per consulting doctor (pseudo id), as on the Doctors tab. */
 export function doctorTable(data: DashboardData): { cols: XCol[]; rows: XCell[][] } {
-  const medBy = new Map((data.plan?.find((x) => x.type === 'medicine')?.byDoctor ?? []).map((d) => [d.doctor, d]));
   const misBy = new Map((data.doctors ?? []).map((d) => [d.doctor, d]));
   const tatBy = (doc: string, kind: 'new' | 'follow_up') => data.tat?.byDoctorKind?.find((r) => r.doctor === doc && r.kind === kind);
   const tat = (r?: TatRow): XCell[] => (r && r.consultMedian !== null && r.visits >= MIN_N ? [r.consultMedian, r.consultP90] : [null, null]);
@@ -28,12 +27,12 @@ export function doctorTable(data: DashboardData): { cols: XCol[]; rows: XCell[][
     { header: 'In note · follow-up, median (min)' }, { header: 'In note · follow-up, p90 (min)' },
   ];
   const rows = data.ai.byDoctor.map((r): XCell[] => {
-    const m = medBy.get(r.name);
     const x = misBy.get(r.name);
     return [
       doctorLabel(r.name), r.scored, rate(r.top5, r.scored), rate(r.top3, r.scored), rate(r.top1, r.scored),
       r.ttxGenerated, rate(r.casesUnchanged, r.ttxGenerated), rate(r.casesChanged, r.ttxGenerated),
-      m ? rate(m.casesNotPicked, m.generated) : null, m ? rate(m.casesAdded, m.generated) : null,
+      // #36 same base as Unchanged / Changed: the row's TTx cases
+      r.casesNotPicked !== undefined ? rate(r.casesNotPicked, r.ttxGenerated) : null, r.casesAdded !== undefined ? rate(r.casesAdded, r.ttxGenerated) : null,
       x ? x.mismatches : null, x ? x.annotated : null,
       ...tat(tatBy(r.name, 'new')), ...tat(tatBy(r.name, 'follow_up')),
     ];

@@ -6,7 +6,7 @@ const tat = (o: object) => ({ name: 'x', visits: 10, shared: 10, waitMedian: 1, 
 const data = {
   ai: {
     byDoctor: [
-      { name: '111', visits: 20, scored: 20, picked: 12, top1: 10, top3: 14, top5: 16, addedNonAi: 2, ttxGenerated: 10, casesUnchanged: 4, casesChanged: 3 },
+      { name: '111', visits: 20, scored: 20, picked: 12, top1: 10, top3: 14, top5: 16, addedNonAi: 2, ttxGenerated: 10, casesUnchanged: 4, casesChanged: 3, casesNotPicked: 2, casesAdded: 5 },
       { name: '222', visits: 3, scored: 3, picked: 1, top1: 1, top3: 2, top5: 3, addedNonAi: 0, ttxGenerated: 2, casesUnchanged: 1, casesChanged: 1 },
     ],
   },
