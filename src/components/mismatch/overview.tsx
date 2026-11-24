@@ -20,6 +20,9 @@ import { MIN_DOCTOR_N } from '@/lib/dashboard-tables';
 import { doctorLabel, type AiHeadline, type DashboardData, type DxAgg } from '@/lib/api/mismatch';
 import { Drill, useDrill } from './drill-link';
 import type { DrillSpec } from '@/lib/drill';
+import { partsTip, tipLabel, trendTip } from '@/lib/chart-tooltip';
+import { emptyRingTip, GENERAL_COLOR, PAED_COLOR, paedRings, sliceDash, sliceMidAngle, sliceTip } from '@/lib/paed-rings';
+import { barTop, FloatingTip, inSection, useFloatingTip } from './chart-tip';
 
 type TabKey = 'diagnosis' | 'doctors' | 'treatment';
 const fmt = (n: number) => n.toLocaleString();
@@ -109,11 +112,14 @@ function useWidth<T extends HTMLElement>() {
   return [ref, w] as const;
 }
 
+const ownerSvg = (m: Element) => (m as SVGElement).ownerSVGElement;
+
 /** Straight-line trend in SVG at the container width; n under each point; gaps where the AI list collapsed. */
 function Trend({ rows, weekly, lines, base, gapNote }: {
   rows: Period[]; weekly: boolean; lines: { key: keyof Period; label: string; color: string; dash?: boolean }[]; base: (p: Period) => number; gapNote: (p: Period) => string;
 }) {
   const [ref, W] = useWidth<HTMLDivElement>();
+  const { shown, bind } = useFloatingTip();
   if (rows.length < 2) return <p className="py-8 text-center text-sm text-muted-foreground">Too few points</p>;
   const H = 252, L = 40, R = 16, T = 12, B = 58;
   const step = (Math.max(W, 1) - L - R) / rows.length;
@@ -130,18 +136,21 @@ function Trend({ rows, weekly, lines, base, gapNote }: {
     });
     return d;
   };
+  const activeI = shown ? Number(shown.target.getAttribute('data-i')) : -1;
+  const tips = rows.map((r) => trendTip(weekly ? `wk of ${short(r.label)}` : `${weekday(r.label)} ${short(r.label)}`, r, lines, base(r), r.gap));
   return (
     <div ref={ref}>
       <div className="mb-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
         {lines.map((l) => <span key={l.label} className="inline-flex items-center gap-1.5"><i className="inline-block h-0.5 w-3.5" style={{ background: l.color, opacity: l.dash ? 0.7 : 1 }} />{l.label}</span>)}
       </div>
-      {W === 0 ? <div style={{ height: H }} aria-hidden /> : <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Trend of ${lines.map((l) => l.label).join(', ')}`} className="block">
+      {W === 0 ? <div style={{ height: H }} aria-hidden /> : <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={`Trend of ${lines.map((l) => l.label).join(', ')}`} className="block">
         {[0, 25, 50, 75, 100].map((g) => (
           <g key={g}>
             <line x1={L} x2={W - R} y1={y(g)} y2={y(g)} stroke="var(--grid)" strokeDasharray={g ? '3 3' : undefined} />
             <text x={L - 8} y={y(g) + 4} textAnchor="end" fontSize={11} fill="var(--muted-foreground)">{g}%</text>
           </g>
         ))}
+        {activeI >= 0 && <line x1={x(activeI)} x2={x(activeI)} y1={T} y2={H - B} stroke="var(--control)" />}
         {lines.map((l) => <path key={l.label} d={path(l.key)} fill="none" stroke={l.color} strokeWidth={2} strokeDasharray={l.dash ? '4 3' : undefined} opacity={l.dash ? 0.75 : 1} />)}
         {rows.map((r, i) => (
           <g key={r.label}>
@@ -152,7 +161,7 @@ function Trend({ rows, weekly, lines, base, gapNote }: {
               </>
             ) : base(r) ? lines.map((l) => {
               const v = (100 * (r[l.key] as number)) / base(r);
-              return <circle key={l.label} cx={x(i)} cy={y(v)} r={2.5} fill={l.color}><title>{`${short(r.label)}: ${l.label} ${v.toFixed(1)}% (${r[l.key]} of ${base(r)})`}</title></circle>;
+              return <circle key={l.label} cx={x(i)} cy={y(v)} r={i === activeI ? 4 : 2.5} fill={l.color} />;
             }) : null}
             {(rows.length - 1 - i) % every === 0 && (
               <>
@@ -163,7 +172,16 @@ function Trend({ rows, weekly, lines, base, gapNote }: {
             )}
           </g>
         ))}
+        {/* Hit columns: hover, keyboard focus or tap shows the period's values; none where nothing is drawn. */}
+        {rows.map((r, i) => {
+          const t = tips[i];
+          if (!t) return null;
+          const top = Math.min(...lines.map((l) => y((100 * (r[l.key] as number)) / base(r))));
+          return <rect key={r.label} data-i={i} x={L + i * step} y={T} width={step} height={H - T - B} fill="transparent" tabIndex={0} aria-label={tipLabel(t)} className="cursor-default outline-none"
+            {...bind(t, ownerSvg, (m) => { const s = ownerSvg(m)!.getBoundingClientRect(); return { x: s.left + x(i), y: s.top + top }; })} />;
+        })}
       </svg>}
+      <FloatingTip shown={shown} />
     </div>
   );
 }
@@ -176,12 +194,75 @@ const Card = ({ title, meta, children, className, id }: { title: ReactNode; meta
 );
 
 function RankBar({ g }: { g: DxAgg }) {
-  const segs: [number, string, string][] = [
-    [g.top1, 'bg-data', "AI's #1"], [g.top3 - g.top1, 'bg-[#8a9099]', '#2–3'], [g.top5 - g.top3, 'bg-[#c3c8cf]', '#4–5'], [g.scored - g.top5, 'bg-bad', 'Not in top 5'],
+  const segs: [number, string, string, string][] = [
+    [g.top1, 'bg-data', "AI's #1", 'var(--data)'], [g.top3 - g.top1, 'bg-[#8a9099]', '#2–3', '#8a9099'], [g.top5 - g.top3, 'bg-[#c3c8cf]', '#4–5', '#c3c8cf'], [g.scored - g.top5, 'bg-bad', 'Not in top 5', 'var(--bad)'],
   ];
+  const { shown, bind } = useFloatingTip();
+  const tip = partsTip(displayName(g.name), segs.map(([count, , name, color]) => ({ name, color, count })), { total: g.scored });
   return (
-    <div className="flex h-2.5 w-full max-w-[200px] overflow-hidden rounded-sm bg-rule">
-      {segs.map(([v, c, l]) => (v > 0 ? <span key={l} className={c} style={{ width: `${(100 * v) / g.scored}%` }} title={`${l}: ${v}`} /> : null))}
+    <>
+      <div tabIndex={tip ? 0 : undefined} aria-label={tip ? tipLabel(tip) : undefined}
+        className="flex h-2.5 w-full max-w-[200px] overflow-hidden rounded-sm bg-rule outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-data"
+        {...bind(tip, inSection, barTop)}>
+        {segs.map(([v, c, l]) => (v > 0 ? <span key={l} className={c} style={{ width: `${(100 * v) / g.scored}%` }} /> : null))}
+      </div>
+      <FloatingTip shown={shown} />
+    </>
+  );
+}
+
+/**
+ * Paediatric vs general as three concentric rings (outer -> inner: Cases, AI top 5, AI medicine
+ * kept), each split Paediatric | General of its own total; centre = visits. Counts are the
+ * headline's, i.e. the table's (src/lib/paed-rings.ts). Slices are focusable; hover / focus / tap
+ * shows the shared tip. A ring with no cases is drawn neutral and its tip gives 0.
+ */
+function PaedRings({ ph, ah }: { ph: AiHeadline; ah: AiHeadline }) {
+  const rings = paedRings(ph, ah);
+  const { shown, bind } = useFloatingTip();
+  const active = shown?.target.getAttribute('data-slice') ?? null;
+  const S = 152, c = S / 2, W = 14, GAP = 4;
+  const radius = (k: number) => c - W / 2 - 2 - k * (W + GAP);
+  const at = (r: number, a: number) => (m: Element) => {
+    const s = ownerSvg(m)!.getBoundingClientRect();
+    return { x: s.left + c + r * Math.sin(a), y: s.top + c - r * Math.cos(a) };
+  };
+  return (
+    <div className="w-[152px] shrink-0">
+      <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} role="group" aria-label="Paediatric vs general rings" className="block">
+        {rings.map((ring, k) => {
+          const r = radius(k);
+          const circ = 2 * Math.PI * r;
+          if (!ring.total) {
+            const t = emptyRingTip(ring);
+            return <circle key={ring.key} data-slice={ring.key} cx={c} cy={c} r={r} fill="none" stroke="var(--rule)" strokeWidth={active === ring.key ? W + 3 : W}
+              tabIndex={0} aria-label={tipLabel(t)} className="outline-none" {...bind(t, inSection, at(r, 0))} />;
+          }
+          return (
+            <g key={ring.key} transform={`rotate(-90 ${c} ${c})`}>
+              {ring.slices.map((s, i) => {
+                const d = sliceDash(ring, i, circ);
+                if (!d) return null;
+                const id = `${ring.key}-${s.group}`;
+                const t = sliceTip(ring, s);
+                return <circle key={id} data-slice={id} cx={c} cy={c} r={r} fill="none" stroke={s.color} strokeWidth={active === id ? W + 3 : W}
+                  strokeDasharray={`${d[0]} ${d[1]}`} strokeDashoffset={d[2]} tabIndex={0} aria-label={tipLabel(t)} className="outline-none"
+                  {...bind(t, inSection, at(r, sliceMidAngle(ring, i)))} />;
+              })}
+            </g>
+          );
+        })}
+        <text x={c} y={c + 2} textAnchor="middle" fontSize={18} fontWeight={600} fill="var(--foreground)" className="tabular-nums">{fmt(rings[0].total)}</text>
+        <text x={c} y={c + 16} textAnchor="middle" fontSize={11} fill="var(--muted-foreground)">visits</text>
+      </svg>
+      <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+        <div className="flex gap-3">
+          <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: PAED_COLOR }} />Paediatric</span>
+          <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: GENERAL_COLOR }} />General</span>
+        </div>
+        {rings.map((ring, k) => <div key={ring.key}><span className="text-faint">{['Outer', 'Middle', 'Inner'][k]}</span> · {ring.label}</div>)}
+      </div>
+      <FloatingTip shown={shown} />
     </div>
   );
 }
@@ -327,6 +408,10 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
         </Card>
 
         <Card title="Paediatric vs general" meta={`Paediatric = age ${data.ai.headline.paediatricMaxAge} or under · ${base}`}>
+          {/* Rings left, table right when the card is wide enough; stacked (rings first) otherwise. */}
+          <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
+          <PaedRings ph={ph} ah={ah} />
+          <div className="min-w-[240px] flex-1">
           <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-4 gap-y-1.5 text-sm">
             <span /><span className="text-right text-xs text-muted-foreground">Paediatric</span><span className="text-right text-xs text-muted-foreground">General</span>
             {pv(ph).map(([l, v], i) => (
@@ -341,6 +426,8 @@ export function OverviewTab({ data, prev, prevLabel, base, onTab }: {
             const gap = (pct(ph.top1, ph.dxScored) ?? 0) - (pct(ah.top1, ah.dxScored) ?? 0);
             return Math.abs(gap) >= 1 ? <p className="mt-2 text-[13px] text-muted-foreground">{gap > 0 ? 'General' : 'Paediatric'} visits trail by {Math.abs(gap).toFixed(0)} pts at #1.</p> : null;
           })()}
+          </div>
+          </div>
         </Card>
 
         <Card title="By doctor" meta="Pseudo id · share of scored visits at the AI's #1">
