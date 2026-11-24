@@ -1,0 +1,52 @@
+▲ Next.js 16.3.0 (Turbopack)
+- Environments: .env.local
+✓ Running next.config.ts took 202ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 12.9s
+  Skipping validation of types
+  Finished TypeScript config validation in 58ms ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/19) ...
+  Generating static pages using 11 workers (4/19) 
+  Generating static pages using 11 workers (9/19) 
+  Generating static pages using 11 workers (14/19) 
+✓ Generating static pages using 11 workers (19/19) in 840ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin-login
+├ ○ /ai-dashboard
+├ ○ /assignments/review
+├ ○ /auth/callback
+├ ○ /create-password
+├ ○ /dashboard
+├ ○ /dataset
+├ ƒ /dataset/[datasetId]
+├ ƒ /dataset/[datasetId]/annotation
+├ ƒ /dataset/[datasetId]/consensus
+├ ƒ /dataset/[datasetId]/generate-consensus
+├ ƒ /dataset/[datasetId]/history
+├ ƒ /dataset/[datasetId]/review-session/[shareCode]
+├ ƒ /dataset/[datasetId]/statistics
+├ ○ /dataset/add-dataset
+├ ○ /forgot-password
+├ ○ /login
+├ ○ /profile
+├ ○ /reset-password
+├ ○ /tasks
+├ ○ /users
+├ ○ /verify-email
+├ ○ /workspaces
+├ ƒ /workspaces/[id]
+├ ƒ /workspaces/[id]/mismatch
+└ ƒ /workspaces/[id]/mismatch/[uuid]
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

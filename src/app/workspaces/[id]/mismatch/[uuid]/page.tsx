@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
 import { fmtDate, Shell, StatusBadge, TypeBadge } from '@/components/mismatch/shared';
 import { VisitImages } from '@/components/mismatch/visit-images';
@@ -29,18 +29,13 @@ export default function MismatchVisitPage() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ReviewInput>({});
   const [saving, setSaving] = useState(false);
-  const claimed = useRef(false);
   // L1: notes are English only. Drop the old per-user note-language choice (V4) if this browser still has it.
   useEffect(() => {
     try { for (const k of Object.keys(localStorage)) if (k.startsWith('mismatch-note-lang-')) localStorage.removeItem(k); } catch { /* storage unavailable */ }
   }, []);
-  // First interaction with the form claims the visit (30-min expiry on the server); a save claims it too.
+  // Editing the form changes nothing on the server; only a save does (a draft save claims the visit).
   const update = (patch: Partial<ReviewInput>) => {
-    if (v?.access?.canAnnotate === false) return; // ACL1: reviewers are view-only, never claim
-    if (!claimed.current) {
-      claimed.current = true;
-      mismatchAPI.claim(id, uuid).catch(() => { claimed.current = false; });
-    }
+    if (!v || cannotEdit(v, user?._id)) return; // reviewers, and admins on another person's visit, only view
     setForm((f) => ({ ...f, ...patch }));
   };
   const [saved, setSaved] = useState(false);
@@ -65,7 +60,6 @@ export default function MismatchVisitPage() {
   useEffect(() => {
     let live = true;
     setV(null); setSaved(false);
-    claimed.current = false;
     // Opening a visit does not claim it; the first edit does (ticket A1).
     mismatchAPI.visit(id, uuid)
       .then((d) => {
@@ -83,7 +77,7 @@ export default function MismatchVisitPage() {
   }, [id, uuid]);
 
   const save = async (next: boolean) => {
-    if (v?.access?.canAnnotate === false) return;
+    if (!v || cannotEdit(v, user?._id)) return;
     setSaving(true);
     try {
       await mismatchAPI.saveReview(id, uuid, { ...form, final: next });
@@ -130,7 +124,7 @@ export default function MismatchVisitPage() {
   if (error && !v) return <Shell wide><p className="text-sm text-destructive">{error}</p></Shell>;
   if (!v) return <Shell wide><div className="h-96 animate-pulse rounded-lg bg-muted" /></Shell>;
 
-  const readOnly = v.access?.canAnnotate === false;
+  const readOnly = cannotEdit(v, user?._id);
   const a = v.analysis;
   const top5 = a.ddxRanked ?? [];
   const inTop5 = new Set(top5.map((d) => d.diagnosis.toLowerCase()));
@@ -462,4 +456,11 @@ function TextInput({ label, value, onChange }: { label: string; value?: string; 
       <input className="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
     </label>
   );
+}
+
+/** View only: reviewers always; a global admin / owner on a visit another person annotated or started (they never overwrite it). */
+function cannotEdit(v: VisitDetail, me?: string): boolean {
+  if (v.access?.canAnnotate === false) return true;
+  const owner = v.review.annotatedBy?._id ?? v.review.claimedBy?._id;
+  return v.access?.role === 'admin' && !!owner && owner !== me;
 }
